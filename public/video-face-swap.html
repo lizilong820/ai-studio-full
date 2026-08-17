@@ -515,15 +515,24 @@
       `;
 
       let progress = 5;
+      let pollCount = 0;
+      let consecutiveErrors = 0;
       const sequence = ++pollSequence;
       if (pollTimer) clearTimeout(pollTimer);
       const poll = async () => {
         if (sequence !== pollSequence) return;
+        pollCount++;
+        if (pollCount > 100) {
+          pollSequence++;
+          showError('任务查询超时，请稍后在历史记录查看结果');
+          return;
+        }
         try {
           const data = await apiRequest(
             '/api/generate/face-swap/' + encodeURIComponent(taskId)
           );
           if (data.code !== 0) throw new Error(data.msg || '任务状态查询失败');
+          consecutiveErrors = 0;
           const task = data.data;
           const statusText = task.status === 'pending' ? '排队中' :
                             task.status === 'processing' ? '生成中' :
@@ -549,7 +558,13 @@
             return;
           }
         } catch (err) {
+          consecutiveErrors++;
           console.warn('换人任务轮询失败:', err.message);
+          if (consecutiveErrors >= 5) {
+            pollSequence++;
+            showError('任务查询失败，请稍后在历史记录查看结果');
+            return;
+          }
         }
         if (sequence === pollSequence) pollTimer = setTimeout(poll, 3000);
       };

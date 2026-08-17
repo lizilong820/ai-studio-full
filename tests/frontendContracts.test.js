@@ -299,13 +299,24 @@ test('task IDs, editor media, history requests, and image errors stay bounded', 
   assert.match(image, /querySelector\('button'\)\.addEventListener\('click'/);
   assert.doesNotMatch(image, /\$\{errorMsg/);
   assert.doesNotMatch(image, /onclick=\"document\.getElementById\('generateBtn'\)/);
+  assert.match(developer, /let statsRangeSeq = 0/);
+  assert.match(developer, /sequence !== statsRangeSeq/);
+  assert.match(developer, /chartEl\.replaceChildren\(\)/);
+  assert.match(developer, /legendEl\.replaceChildren\(\)/);
+  assert.doesNotMatch(developer, /chartEl\.innerHTML = data\.map/);
+  assert.doesNotMatch(developer, /legendEl\.innerHTML = data\.map/);
+  assert.match(idphoto, /encodeURIComponent\(String\(currentTaskId\)\)/);
+  assert.match(idphoto, /pollCount > 150/);
+  assert.match(idphoto, /consecutiveErrors >= 5/);
+  assert.match(faceSwap, /pollCount > 100/);
+  assert.match(faceSwap, /consecutiveErrors >= 5/);
 });
 
 test('developer data and prompt errors render with DOM APIs', () => {
   assert.match(developer, /function renderKeys\(\)[\s\S]*listEl\.replaceChildren\(\)/);
   assert.match(developer, /copy\.addEventListener\('click', \(\) => copyKey\(keyId\)\)/);
   assert.match(developer, /toggle\.addEventListener\('click', \(\) => toggleKeyStatus\(keyId\)\)/);
-  assert.match(developer, /function renderLogs\(days\)[\s\S]*logsEl\.replaceChildren\(\)/);
+  assert.match(developer, /function renderLogs\(days(?:, sequence = statsRangeSeq)?\)[\s\S]*logsEl\.replaceChildren\(\)/);
   assert.match(developer, /statusNode\.textContent = String\(item\.status \|\| '-'\)/);
   assert.doesNotMatch(developer, /listEl\.innerHTML = g_apiKeys\.map/);
   assert.doesNotMatch(developer, /logsEl\.innerHTML = list\.map/);

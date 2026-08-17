@@ -2450,8 +2450,11 @@ curl -X POST <span class="code-string" id="quickStartUrl">/api/v1/generate/ecomm
 
 
     // ===== 调用统计图表 =====
-    async function renderBarChart(days) {
+    let statsRangeSeq = 0;
+
+    async function renderBarChart(days, sequence = statsRangeSeq) {
       const res = await apiRequest(`/api/user/api-usage/trend?days=${days}`);
+      if (sequence !== statsRangeSeq) return;
       const chartEl = document.getElementById('usageBarChart');
       if (!chartEl) return;
 
@@ -2465,21 +2468,29 @@ curl -X POST <span class="code-string" id="quickStartUrl">/api/v1/generate/ecomm
         return;
       }
 
-      const maxCalls = Math.max(...data.map(d => d.calls), 1);
+      const maxCalls = Math.max(...data.map(d => Number(d.calls) || 0), 1);
+      chartEl.replaceChildren();
 
-      chartEl.innerHTML = data.map(d => {
-        const h = Math.max((d.calls / maxCalls) * 100, 2);
-        return `
-          <div class="bar-col">
-            <div class="bar" style="height: ${h}%;" title="${d.date}: ${d.calls}次"></div>
-            <div class="bar-label">${d.date.slice(5)}</div>
-          </div>
-        `;
-      }).join('');
+      data.forEach(d => {
+        const calls = Number(d.calls) || 0;
+        const date = String(d.date || '-');
+        const col = document.createElement('div');
+        col.className = 'bar-col';
+        const bar = document.createElement('div');
+        bar.className = 'bar';
+        bar.style.height = Math.max((calls / maxCalls) * 100, 2) + '%';
+        bar.title = date + ': ' + calls + '次';
+        const label = document.createElement('div');
+        label.className = 'bar-label';
+        label.textContent = date.slice(5);
+        col.append(bar, label);
+        chartEl.appendChild(col);
+      });
     }
 
-    async function renderDonutLegend(days = 1) {
+    async function renderDonutLegend(days = 1, sequence = statsRangeSeq) {
       const res = await apiRequest('/api/user/api-usage/by-endpoint?days=' + days);
+      if (sequence !== statsRangeSeq) return;
       const legendEl = document.getElementById('donutLegend');
       const donutEl = document.getElementById('usageDonut');
       if (!legendEl) return;
@@ -2525,20 +2536,31 @@ curl -X POST <span class="code-string" id="quickStartUrl">/api/v1/generate/ecomm
       }
 
       // 更新图例（CSS class 用 .dot / .name / .pct 跟样式表对应）
-      legendEl.innerHTML = data.map((d, i) => `
-        <div class="donut-legend-item">
-          <span class="dot" style="background: ${colors[i % colors.length]}"></span>
-          <span class="name">${d.endpoint.split('/').pop()}</span>
-          <span class="pct">${d.calls} (${((d.calls/total)*100).toFixed(1)}%)</span>
-        </div>
-      `).join('');
+      legendEl.replaceChildren();
+      data.forEach((d, i) => {
+        const item = document.createElement('div');
+        item.className = 'donut-legend-item';
+        const dot = document.createElement('span');
+        dot.className = 'dot';
+        dot.style.background = colors[i % colors.length];
+        const name = document.createElement('span');
+        name.className = 'name';
+        name.textContent = String(d.endpoint || '').split('/').pop();
+        const pct = document.createElement('span');
+        pct.className = 'pct';
+        const calls = Number(d.calls) || 0;
+        pct.textContent = calls + ' (' + ((calls / total) * 100).toFixed(1) + '%)';
+        item.append(dot, name, pct);
+        legendEl.appendChild(item);
+      });
     }
 
     let _statsDays = 7;
-    function renderLogs(days) {
+    function renderLogs(days, sequence = statsRangeSeq) {
       if (days) _statsDays = days;
       const d = _statsDays;
       return apiRequest('/api/user/api-usage?page=1&pageSize=50&days=' + d).then(res => {
+        if (sequence !== statsRangeSeq) return;
         const logsEl = document.getElementById('usageLogsTable');
         if (!logsEl) return;
 
@@ -2593,9 +2615,10 @@ curl -X POST <span class="code-string" id="quickStartUrl">/api/v1/generate/ecomm
         btn.classList.toggle('active', btn.dataset.range === range);
       });
       _statsDays = days;
-      renderBarChart(days);
-      renderDonutLegend(days);
-      renderLogs(days);
+      const sequence = ++statsRangeSeq;
+      renderBarChart(days, sequence);
+      renderDonutLegend(days, sequence);
+      renderLogs(days, sequence);
     }
 
     function bindStatsFilters() {

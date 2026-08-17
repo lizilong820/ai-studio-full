@@ -728,7 +728,10 @@
           throw new Error(res.msg || '生成失败');
         }
 
-        currentTaskId = res.data.task_id;
+        currentTaskId = String(res.data?.task_id ?? '');
+        if (!currentTaskId || currentTaskId.length > 128) {
+          throw new Error('任务编号无效');
+        }
         if (typeof updateNavAuth === 'function') updateNavAuth();
 
         // 开始轮询
@@ -757,12 +760,26 @@
       const sequence = ++pollSequence;
       if (pollTimer) clearTimeout(pollTimer);
       let progress = 5;
+      let pollCount = 0;
+      let consecutiveErrors = 0;
 
       const poll = async () => {
         if (sequence !== pollSequence) return;
+        pollCount++;
+        if (pollCount > 150) {
+          pollSequence++;
+          showToast('任务查询超时，请稍后在历史记录查看结果', 'error');
+          resetGenerateBtn();
+          document.getElementById('generatingState').style.display = 'none';
+          document.getElementById('emptyState').style.display = resultImages.length === 0 ? '' : 'none';
+          return;
+        }
         try {
-          const res = await apiRequest('/api/generate/idphoto/' + currentTaskId);
-          if (res.code !== 0) throw new Error(res.msg);
+          const res = await apiRequest(
+            '/api/generate/idphoto/' + encodeURIComponent(String(currentTaskId))
+          );
+          if (res.code !== 0) throw new Error(res.msg || '任务状态查询失败');
+          consecutiveErrors = 0;
 
           const data = res.data;
           progress = Math.min(95, progress + Math.random() * 8);
@@ -802,7 +819,16 @@
             }
           }
         } catch (err) {
-          console.error('轮询失败:', err);
+          consecutiveErrors++;
+          console.error('轮询失败:', err.message);
+          if (consecutiveErrors >= 5) {
+            pollSequence++;
+            showToast('任务查询失败，请稍后在历史记录查看结果', 'error');
+            resetGenerateBtn();
+            document.getElementById('generatingState').style.display = 'none';
+            document.getElementById('emptyState').style.display = resultImages.length === 0 ? '' : 'none';
+            return;
+          }
         }
         if (sequence === pollSequence) pollTimer = setTimeout(poll, 2000);
       };
