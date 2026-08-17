@@ -15,6 +15,8 @@ const poster = fs.readFileSync(path.join(publicDir, 'poster.html'), 'utf8');
 const ecommerce = fs.readFileSync(path.join(publicDir, 'ecommerce.html'), 'utf8');
 const copywriting = fs.readFileSync(path.join(publicDir, 'copywriting.html'), 'utf8');
 const xiaohongshu = fs.readFileSync(path.join(publicDir, 'xiaohongshu.html'), 'utf8');
+const gif = fs.readFileSync(path.join(publicDir, 'gif.html'), 'utf8');
+const videoGen = fs.readFileSync(path.join(publicDir, 'video-gen.html'), 'utf8');
 const editor = fs.readFileSync(path.join(publicDir, 'editor.html'), 'utf8');
 const home = fs.readFileSync(path.join(publicDir, 'index.html'), 'utf8');
 const faceSwap = fs.readFileSync(path.join(publicDir, 'video-face-swap.html'), 'utf8');
@@ -229,6 +231,35 @@ test('home search renders API results as text and ignores stale responses', () =
   assert.doesNotMatch(home, /onclick="gotoStudio/);
 });
 
+test('cost calculation ignores stale responses and duplicate triggers', () => {
+  const costPages = [
+    ['xiaohongshu.html', xiaohongshu],
+    ['video.html', video],
+    ['video-gen.html', videoGen],
+    ['resume.html', resume],
+    ['ppt.html', ppt],
+    ['poster.html', poster],
+    ['copywriting.html', copywriting],
+    ['avatar.html', avatar],
+    ['audio.html', audio],
+    ['image.html', image],
+    ['ecommerce.html', ecommerce],
+    ['gif.html', gif]
+  ];
+  for (const [fileName, html] of costPages) {
+    assert.match(html, /let costRequestSeq = 0/ , fileName);
+    assert.match(html, /const requestSeq = \+\+costRequestSeq/, fileName);
+    assert.match(html, /requestSeq !== costRequestSeq/, fileName);
+    parseInlineScripts(fileName, html);
+  }
+  assert.doesNotMatch(audio, /onchange="onModelChange\(\)"/);
+  assert.equal((image.match(/getElementById\('img2imgModelSelect'\)\?\.addEventListener\('change'/g) || []).length, 1);
+  assert.doesNotMatch(image, /getElementById\('imageCount'\)\?\.addEventListener\('change', updateCost\)/);
+  assert.doesNotMatch(ecommerce, /getElementById\('imgCount'\)\.addEventListener\('change', updateCost\)/);
+  assert.doesNotMatch(common, /dispatchEvent\(new Event\('change'\)\);\s*updateCost\(\)/);
+  assert.match(videoGen, /updateDurationAvailability\(\);\s*updateCost\(\);/);
+  assert.doesNotMatch(videoGen, /currentDuration = parseInt\(items\[i\]\.dataset\.duration\);\s*updateCost\(\);/);
+});
 test('changed page inline scripts parse', () => {
   parseInlineScripts('avatar.html', avatar);
   parseInlineScripts('ppt.html', ppt);
@@ -242,6 +273,8 @@ test('changed page inline scripts parse', () => {
   parseInlineScripts('ecommerce.html', ecommerce);
   parseInlineScripts('copywriting.html', copywriting);
   parseInlineScripts('xiaohongshu.html', xiaohongshu);
+  parseInlineScripts('video-gen.html', videoGen);
+  parseInlineScripts('gif.html', gif);
   parseInlineScripts('editor.html', editor);
   parseInlineScripts('index.html', home);
 });

@@ -338,16 +338,24 @@
 
     initCommonComponents();
 
+    let costRequestSeq = 0;
+
     // Calculate cost
     async function updateCost() {
+      const requestSeq = ++costRequestSeq;
       const count = parseInt(document.getElementById('imgCount').value) || 1;
       const modelId = document.getElementById('imageModel').value;
+      if (!modelId || isNaN(parseInt(modelId))) {
+        document.getElementById('costDisplay').textContent = '💎 -- 积分';
+        return;
+      }
       
       const data = await apiRequest('/api/calculate-cost', {
         method: 'POST',
         body: JSON.stringify({ model_id: parseInt(modelId), count })
       });
       
+      if (requestSeq !== costRequestSeq) return;
       if (data.code === 0) {
         document.getElementById('costDisplay').textContent = '💎 ' + data.data.cost + ' 积分';
       }
@@ -355,7 +363,6 @@
 
     // 模型和数量切换时更新积分
     document.getElementById('imageModel').addEventListener('change', updateCost);
-    document.getElementById('imgCount').addEventListener('change', updateCost);
     document.getElementById('imgCount').addEventListener('input', updateCost);
 
     // 收集表单数据

@@ -288,7 +288,10 @@
       }
     }
 
+    let costRequestSeq = 0;
+
     function updateCost() {
+      const requestSeq = ++costRequestSeq;
       const count = parseInt(document.getElementById('videoCount').value) || 1;
       const modelId = document.getElementById('llmModel')?.value;
       if (!modelId || isNaN(modelId)) {
@@ -300,6 +303,7 @@
         method: 'POST',
         body: JSON.stringify({ model_id: parseInt(modelId), count })
       }).then(data => {
+        if (requestSeq !== costRequestSeq) return;
         if (data.code === 0) {
           document.getElementById('costDisplay').textContent = '💎 ' + data.data.cost + ' 积分';
         }

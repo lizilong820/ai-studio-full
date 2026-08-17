@@ -526,9 +526,13 @@
       }
     }
 
+    let costRequestSeq = 0;
+
     // 更新价格
     async function updateCost() {
+      const requestSeq = ++costRequestSeq;
       const modelId = document.getElementById('modelSelect').value;
+      const duration = currentDuration;
       if (!modelId) {
         document.getElementById('costDisplay').textContent = '💎 -- 积分';
         return;
@@ -536,8 +540,9 @@
       try {
         const data = await apiRequest('/api/calculate-cost', {
           method: 'POST',
-          body: JSON.stringify({ model_id: modelId, count: 1, duration: currentDuration })
+          body: JSON.stringify({ model_id: modelId, count: 1, duration })
         });
+        if (requestSeq !== costRequestSeq) return;
         if (data.code === 0) {
           document.getElementById('costDisplay').textContent = '💎 ' + data.data.cost + ' 积分';
         }

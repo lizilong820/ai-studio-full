@@ -579,7 +579,10 @@
       updateCost();
     });
 
-        function updateCost() {
+    let costRequestSeq = 0;
+
+    function updateCost() {
+      const requestSeq = ++costRequestSeq;
       const count = parseInt(document.getElementById('imageCount').value) || 1;
       const modelSel = currentMode === 'text2img' ? 'modelSelect' : 'img2imgModelSelect';
       const modelId = document.getElementById(modelSel)?.value;
@@ -593,6 +596,7 @@
         method: 'POST',
         body: JSON.stringify({ model_id: parseInt(modelId), count })
       }).then(data => {
+        if (requestSeq !== costRequestSeq) return;
         if (data.code === 0) {
           document.getElementById('costDisplay').textContent = '💎 ' + data.data.cost + ' 积分';
         } else {
@@ -603,6 +607,7 @@
           }
         }
       }).catch(() => {
+        if (requestSeq !== costRequestSeq) return;
         const model = modelList.find(m => m.id == modelId);
         if (model && model.price_per_call) {
           document.getElementById('costDisplay').textContent = '💎 ' + (model.price_per_call * count) + ' 积分';
@@ -619,8 +624,6 @@
       updateCost();
       updateQualityOptions();
     });
-    document.getElementById('img2imgModelSelect')?.addEventListener('change', updateCost);
-    document.getElementById('imageCount')?.addEventListener('change', updateCost);
     document.getElementById('imageCount')?.addEventListener('input', updateCost);
 
     // ===== 获取选中比例 =====

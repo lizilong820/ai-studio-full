@@ -646,9 +646,9 @@
             if (m.is_default) opt.selected = true;
             select.appendChild(opt);
           });
-          updateCost();
           updateModeAvailability();
           updateDurationAvailability();
+          updateCost();
         } else {
           select.innerHTML = '<option value="">暂无可用视频模型</option>';
         }
@@ -657,9 +657,13 @@
       }
     }
 
+    let costRequestSeq = 0;
+
     // 更新价格
     async function updateCost() {
+      const requestSeq = ++costRequestSeq;
       const modelId = document.getElementById('modelSelect').value;
+      const duration = currentDuration;
       if (!modelId) {
         document.getElementById('costDisplay').textContent = '💎 -- 积分';
         return;
@@ -667,8 +671,9 @@
       try {
         const data = await apiRequest('/api/calculate-cost', {
           method: 'POST',
-          body: JSON.stringify({ model_id: modelId, count: 1, duration: currentDuration })
+          body: JSON.stringify({ model_id: modelId, count: 1, duration })
         });
+        if (requestSeq !== costRequestSeq) return;
         if (data.code === 0) {
           document.getElementById('costDisplay').textContent = '💎 ' + data.data.cost + ' 积分';
         }
@@ -807,7 +812,6 @@
           if (items[i].style.pointerEvents !== 'none') {
             items[i].classList.add('active');
             currentDuration = parseInt(items[i].dataset.duration);
-            updateCost();
             break;
           }
         }
@@ -834,8 +838,11 @@
     });
 
     // 模型切换
-    document.getElementById('modelSelect').addEventListener('change', function() { updateCost(); updateModeAvailability();
-          updateDurationAvailability(); });
+    document.getElementById('modelSelect').addEventListener('change', function() {
+      updateModeAvailability();
+      updateDurationAvailability();
+      updateCost();
+    });
 
     // 描述字数统计
     const promptInput = document.getElementById('promptInput');

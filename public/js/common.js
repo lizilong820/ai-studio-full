@@ -154,7 +154,6 @@ function setupSteppers() {
       if (val > min) {
         input.value = val - 1;
         input.dispatchEvent(new Event('change'));
-        updateCost();
       }
     });
     
@@ -163,7 +162,6 @@ function setupSteppers() {
       if (val < max) {
         input.value = val + 1;
         input.dispatchEvent(new Event('change'));
-        updateCost();
       }
     });
     

@@ -312,7 +312,7 @@
           <div class="form-fields">
             <div class="form-group">
               <label class="form-label">选择模型 <span class="required">*</span></label>
-              <select class="form-select model-select" id="modelSelect" onchange="onModelChange()">
+              <select class="form-select model-select" id="modelSelect">
                 <option value="">加载中...</option>
               </select>
               <div class="model-info-card" id="modelInfoCard" style="display:none;"></div>
@@ -692,7 +692,10 @@
     }
 
     // ===== 费用计算 =====
+    let costRequestSeq = 0;
+
     function updateCost() {
+      const requestSeq = ++costRequestSeq;
       const modelId = document.getElementById('modelSelect')?.value;
       if (!modelId || isNaN(parseInt(modelId))) {
         document.getElementById('costDisplay').textContent = '💎 -- 积分';
@@ -703,6 +706,7 @@
         method: 'POST',
         body: JSON.stringify({ model_id: parseInt(modelId), count: 1 })
       }).then(data => {
+        if (requestSeq !== costRequestSeq) return;
         if (data.code === 0) {
           document.getElementById('costDisplay').textContent = '💎 ' + data.data.cost + ' 积分';
         } else {
@@ -712,6 +716,7 @@
           }
         }
       }).catch(() => {
+        if (requestSeq !== costRequestSeq) return;
         const model = modelList.find(m => m.id == modelId);
         if (model && model.price_per_call) {
           document.getElementById('costDisplay').textContent = '💎 ' + model.price_per_call + ' 积分';
@@ -1097,7 +1102,7 @@
     loadHistory();
 
     // 监听模型变化
-    document.getElementById('modelSelect').addEventListener('change', updateCost);
+    document.getElementById('modelSelect').addEventListener('change', onModelChange);
   </script>
 </body>
 </html>
