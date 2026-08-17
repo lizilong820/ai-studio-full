@@ -7,6 +7,10 @@ const { db } = require('../database/db');
 const aiAdapter = require('../controllers/aiAdapter');
 const generationJobQueue = require('../services/generationJobQueue');
 const { safeRequest } = require('../utils/safeHttp');
+const {
+  getAdapterOptions,
+  formatGenerationResult
+} = require('../services/generationResult');
 
 const execFileAsync = promisify(execFile);
 const WEBHOOK_MAX_ATTEMPTS = 5;
@@ -24,32 +28,6 @@ function getModelId(job) {
   const modelId = Number(value);
   if (!Number.isSafeInteger(modelId) || modelId < 1) throw permanentError('payload.model_id 无效');
   return modelId;
-}
-
-function getOptions(payload, excludedKeys) {
-  if (payload.options && typeof payload.options === 'object' && !Array.isArray(payload.options)) {
-    return { ...payload.options };
-  }
-  const options = { ...payload };
-  excludedKeys.forEach(key => delete options[key]);
-  return options;
-}
-
-function formatResult(resultStyle, canonical, aliases = {}, metadata = {}) {
-  const enriched = { ...canonical, ...metadata };
-  if (!resultStyle || resultStyle === 'canonical') return enriched;
-  if (resultStyle === 'legacy') return { ...enriched, ...aliases };
-  if (resultStyle === 'url') return canonical.gif_url || canonical.video_url || canonical.audio_url || canonical.images;
-  if (typeof resultStyle === 'object' && !Array.isArray(resultStyle)) {
-    const result = { ...metadata };
-    for (const [targetKey, sourceKey] of Object.entries(resultStyle)) {
-      if (typeof sourceKey === 'string' && Object.prototype.hasOwnProperty.call(enriched, sourceKey)) {
-        result[targetKey] = enriched[sourceKey];
-      }
-    }
-    return result;
-  }
-  return enriched;
 }
 
 function getRemainingDeadlineMs(job) {
@@ -74,9 +52,9 @@ async function handleImageGenerate(job, signal) {
   const result = await aiAdapter.generateImage(
     getModelId(job),
     prompt,
-    { ...getOptions(payload, ['model_id', 'prompt', 'deadline_seconds', 'result_style']), signal }
+    { ...getAdapterOptions(payload), signal }
   );
-  return formatResult(payload.result_style, result, { images: result.images }, payload.result_metadata);
+  return formatGenerationResult(payload.result_style, result, { images: result.images }, payload.result_metadata);
 }
 
 async function handleImageEdit(job, signal) {
@@ -86,9 +64,9 @@ async function handleImageEdit(job, signal) {
   const result = await aiAdapter.editImage(
     getModelId(job),
     prompt,
-    { ...getOptions(payload, ['model_id', 'prompt', 'deadline_seconds', 'result_style']), signal }
+    { ...getAdapterOptions(payload), signal }
   );
-  return formatResult(payload.result_style, result, { images: result.images }, payload.result_metadata);
+  return formatGenerationResult(payload.result_style, result, { images: result.images }, payload.result_metadata);
 }
 
 async function handleAudioGenerate(job, signal) {
@@ -98,9 +76,9 @@ async function handleAudioGenerate(job, signal) {
   const result = await aiAdapter.generateAudio(
     getModelId(job),
     input,
-    { ...getOptions(payload, ['model_id', 'input', 'input_text', 'deadline_seconds', 'result_style']), signal }
+    { ...getAdapterOptions(payload), signal }
   );
-  return formatResult(payload.result_style, result, { audio: result.audio_url }, payload.result_metadata);
+  return formatGenerationResult(payload.result_style, result, { audio: result.audio_url }, payload.result_metadata);
 }
 
 async function handleMediaAnalyze(job, signal) {
@@ -110,14 +88,14 @@ async function handleMediaAnalyze(job, signal) {
   const result = await aiAdapter.analyzeMedia(
     getModelId(job),
     prompt,
-    { ...getOptions(payload, ['model_id', 'prompt', 'deadline_seconds', 'result_style']), signal }
+    { ...getAdapterOptions(payload), signal }
   );
-  return formatResult(payload.result_style, result, { description: result.text }, payload.result_metadata);
+  return formatGenerationResult(payload.result_style, result, { description: result.text }, payload.result_metadata);
 }
 
 function videoSubmitOptions(job, signal) {
   return {
-    ...getOptions(job.payload, ['model_id', 'prompt', 'deadline_seconds', 'result_style']),
+    ...getAdapterOptions(job.payload),
     signal,
     idempotency_key: job.payload.idempotency_key || job.public_id
   };
@@ -134,7 +112,7 @@ async function handleVideo(job, queue, owner, submitter, signal) {
       if (!submitted.video_url) throw permanentError('同步视频结果缺少 video_url');
       return {
         done: true,
-        result: formatResult(payload.result_style, { video_url: submitted.video_url }, { video: submitted.video_url }, payload.result_metadata)
+        result: formatGenerationResult(payload.result_style, { video_url: submitted.video_url }, { video: submitted.video_url }, payload.result_metadata)
       };
     }
     if (!submitted.task_id) throw new Error('视频供应商未返回 task_id');
@@ -153,7 +131,7 @@ async function handleVideo(job, queue, owner, submitter, signal) {
     if (!status.video_url) throw permanentError('视频供应商成功结果缺少 video_url');
     return {
       done: true,
-      result: formatResult(payload.result_style, { video_url: status.video_url }, { video: status.video_url }, payload.result_metadata)
+      result: formatGenerationResult(payload.result_style, { video_url: status.video_url }, { video: status.video_url }, payload.result_metadata)
     };
   }
 
@@ -250,7 +228,7 @@ async function handleVideoGif(job, queue, owner, signal) {
     };
     return {
       done: true,
-      result: formatResult(
+      result: formatGenerationResult(
         job.payload.result_style,
         canonical,
         { gif: gifUrl, video: videoUrl },
