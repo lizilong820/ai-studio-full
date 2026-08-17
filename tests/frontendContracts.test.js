@@ -100,6 +100,37 @@ test('profile work details render untrusted data with DOM APIs', () => {
   assert.doesNotMatch(profile, /onclick="(?:openLightbox|downloadAllImages|downloadFile|copyAudioUrl|copyText)/);
 });
 
+test('profile account data is rendered without dynamic HTML', () => {
+  assert.match(profile, /grid\.replaceChildren\(\)/);
+  assert.match(profile, /name\.textContent = String\(pkg\.name/);
+  assert.match(profile, /const qrcodeUrl = normalizeMediaUrl\(data\.url_qrcode\)/);
+  assert.match(profile, /qrcodeWrap\.replaceChildren\(image\)/);
+  assert.match(profile, /function normalizeExternalUrl\(value\)/);
+  assert.match(profile, /\['http:', 'https:'\]\.includes\(url\.protocol\)/);
+  assert.match(profile, /tbody\.replaceChildren\(\)/);
+  assert.match(profile, /badge\.textContent = statusConfig/);
+  assert.match(profile, /description\.textContent = String\(item\.description/);
+  assert.match(profile, /cal\.replaceChildren\(\)/);
+  assert.match(profile, /status\.replaceChildren\('已连续签到 '/);
+  assert.match(profile, /description\.replaceChildren\('每邀请一位好友注册/);
+  assert.match(profile, /button\.addEventListener\('click', \(\) => callback\(page\)\)/);
+  assert.match(profile, /encodeURIComponent\(taskId\)/);
+  assert.match(profile, /new URL\(downloadUrl\)\.origin !== window\.location\.origin/);
+  assert.match(profile, /window\._dlTimer = setTimeout\(poll, 1000\)/);
+  assert.match(profile, /sequence !== window\._dlPollSequence/);
+  assert.match(profile, /if \(sequence === window\._dlPollSequence\) downloadZipFile\(currentDownloadUrl\)/);
+  assert.match(profile, /payPollTimer = setTimeout\(poll, 3000\)/);
+  assert.match(profile, /sequence !== window\._payPollSequence/);
+  assert.doesNotMatch(profile, /\.innerHTML\s*=/);
+  assert.doesNotMatch(profile, /setInterval\(async/);
+  assert.doesNotMatch(profile, /grid\.innerHTML = list\.map\(\(pkg/);
+  assert.doesNotMatch(profile, /tbody\.innerHTML = list\.map/);
+  assert.doesNotMatch(profile, /cal\.innerHTML = d\.week_days\.map/);
+  assert.doesNotMatch(profile, /getElementById\('inviteDesc'\)\.innerHTML/);
+  assert.doesNotMatch(profile, /onclick="__pg/);
+  assert.doesNotMatch(profile, /'<img src="' \+ data\.url_qrcode/);
+});
+
 test('changed page inline scripts parse', () => {
   parseInlineScripts('avatar.html', avatar);
   parseInlineScripts('ppt.html', ppt);

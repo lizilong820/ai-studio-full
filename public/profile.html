@@ -1260,10 +1260,17 @@
       const grid = document.getElementById('worksGrid');
 
       if (list.length === 0) {
-        grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;">
-          <div class="icon">🖼️</div>
-          <div class="text">暂无作品，去创作你的第一个作品吧</div>
-        </div>`;
+        const empty = document.createElement('div');
+        empty.className = 'empty-state';
+        empty.style.gridColumn = '1/-1';
+        const icon = document.createElement('div');
+        icon.className = 'icon';
+        icon.textContent = '🖼️';
+        const text = document.createElement('div');
+        text.className = 'text';
+        text.textContent = '暂无作品，去创作你的第一个作品吧';
+        empty.append(icon, text);
+        grid.replaceChildren(empty);
       } else {
         const studioMap = { image: 'AI图片生成', 'image-edit': '图片编辑', 'video-gen': 'AI视频生成', gif: 'GIF表情包', audio: '音频合成', 'prompt-extract': '提示词反推', ecommerce: '电商套图', xiaohongshu: '小红书', poster: '海报工厂', copywriting: 'AI文案', idphoto: 'AI证件照', 'face-swap': '视频换人' };
         const studioIcon = { image: '🖼️', 'image-edit': '✏️', 'video-gen': '🎬', gif: '🎞️', audio: '🎙️', 'prompt-extract': '🔍', ecommerce: '🏪', xiaohongshu: '📕', poster: '🎨', copywriting: '✍️', idphoto: '📷', 'face-swap': '🎭' };
@@ -1509,7 +1516,11 @@
           return;
         }
 
-        const taskId = res.data.taskId;
+        const taskId = String(res.data.taskId || '');
+        if (!taskId || taskId.length > 128) {
+          showToast('下载任务无效', 'error');
+          return;
+        }
         showDownloadProgress(taskId);
       } catch(e) {
         showToast('操作失败', 'error');
@@ -1519,8 +1530,10 @@
     // 显示下载进度弹窗
     function showDownloadProgress(taskId) {
       // 先清理旧的轮询，防止叠加
-      if (window._dlInterval) { clearInterval(window._dlInterval); window._dlInterval = null; }
+      if (window._dlTimer) { clearTimeout(window._dlTimer); window._dlTimer = null; }
       if (window._zipAnimTimer) { clearInterval(window._zipAnimTimer); window._zipAnimTimer = null; }
+      const sequence = (window._dlPollSequence || 0) + 1;
+      window._dlPollSequence = sequence;
       window._autoDownloadTriggered = false;
       window._downloading = false;
 
@@ -1530,7 +1543,41 @@
         modal = document.createElement('div');
         modal.id = 'downloadProgressModal';
         modal.className = 'download-progress-modal';
-        modal.innerHTML = '<div class="progress-box"><h3>📦 正在打包</h3><p class="progress-tip">后台正在为您打包图片，请稍候...</p><div class="progress-bar-wrap"><div class="progress-bar" id="dlProgressBar"></div></div><p class="progress-text" id="dlProgressText">准备中...</p><div class="progress-actions"><button class="batch-btn" onclick="closeDownloadProgress()">关闭</button><button class="batch-btn primary download-btn" id="dlDownloadBtn" style="display:none;">⬇ 下载文件</button></div><p class="progress-notice">💡 打包在后台进行，您可以离开此页面继续操作，稍后回来下载即可。文件保留30分钟。</p></div>';
+        const box = document.createElement('div');
+        box.className = 'progress-box';
+        const heading = document.createElement('h3');
+        heading.textContent = '📦 正在打包';
+        const tip = document.createElement('p');
+        tip.className = 'progress-tip';
+        tip.textContent = '后台正在为您打包图片，请稍候...';
+        const barWrap = document.createElement('div');
+        barWrap.className = 'progress-bar-wrap';
+        const bar = document.createElement('div');
+        bar.className = 'progress-bar';
+        bar.id = 'dlProgressBar';
+        barWrap.appendChild(bar);
+        const progress = document.createElement('p');
+        progress.className = 'progress-text';
+        progress.id = 'dlProgressText';
+        progress.textContent = '准备中...';
+        const actions = document.createElement('div');
+        actions.className = 'progress-actions';
+        const close = document.createElement('button');
+        close.className = 'batch-btn';
+        close.textContent = '关闭';
+        close.addEventListener('click', closeDownloadProgress);
+        const download = document.createElement('button');
+        download.className = 'batch-btn primary download-btn';
+        download.id = 'dlDownloadBtn';
+        download.style.display = 'none';
+        download.textContent = '⬇ 下载文件';
+        download.addEventListener('click', () => downloadZipFile(download._downloadUrl));
+        actions.append(close, download);
+        const notice = document.createElement('p');
+        notice.className = 'progress-notice';
+        notice.textContent = '💡 打包在后台进行，您可以离开此页面继续操作，稍后回来下载即可。文件保留30分钟。';
+        box.append(heading, tip, barWrap, progress, actions, notice);
+        modal.appendChild(box);
         document.body.appendChild(modal);
       }
       modal.style.display = 'flex';
@@ -1541,39 +1588,36 @@
       dlBtn.textContent = '⬇ 下载文件';
       dlBtn.disabled = false;
 
-      let currentDownloadUrl = null;
-
       // 轮询进度
       let pollCount = 0;
       const maxPoll = 180; // 最多轮询3分钟
-      const interval = setInterval(async function() {
+      async function poll() {
+        if (sequence !== window._dlPollSequence) return;
         pollCount++;
         if (pollCount > maxPoll) {
-          clearInterval(interval);
           document.getElementById('dlProgressText').textContent = '打包超时，请稍后重试';
           return;
         }
 
+        let shouldContinue = true;
         try {
-          const res = await apiRequest('/api/user/works/batch-download/' + taskId);
+          const res = await apiRequest('/api/user/works/batch-download/' + encodeURIComponent(taskId));
+          if (sequence !== window._dlPollSequence) return;
           if (res.code !== 0) {
-            clearInterval(interval);
             document.getElementById('dlProgressText').textContent = res.msg || '打包失败';
             return;
           }
 
           const data = res.data;
-
           if (data.status === 'processing') {
             const percent = data.total > 0 ? Math.round((data.done / data.total) * 80) : 0;
             document.getElementById('dlProgressBar').style.width = percent + '%';
             document.getElementById('dlProgressText').textContent = '正在整理图片... ' + data.done + '/' + data.total;
           } else if (data.status === 'done') {
+            shouldContinue = false;
             if (window._autoDownloadTriggered) return; // 防止重复触发
             window._autoDownloadTriggered = true;
-            clearInterval(interval);
-
-            currentDownloadUrl = data.downloadUrl;
+            const currentDownloadUrl = data.downloadUrl;
 
             // 进度条动画：80% -> 100%，模拟zip压缩阶段
             let curPct = 80;
@@ -1591,32 +1635,49 @@
 
             // 绑定下载按钮
             const btn = document.getElementById('dlDownloadBtn');
+            btn._downloadUrl = currentDownloadUrl;
             btn.style.display = 'inline-block';
-            btn.onclick = function() { downloadZipFile(currentDownloadUrl); };
             showToast('打包完成，准备下载', 'success');
             // 自动触发下载（只触发一次）
-            setTimeout(function() { downloadZipFile(currentDownloadUrl); }, 500);
+            setTimeout(function() {
+              if (sequence === window._dlPollSequence) downloadZipFile(currentDownloadUrl);
+            }, 500);
           } else if (data.status === 'failed') {
-            clearInterval(interval);
+            shouldContinue = false;
             document.getElementById('dlProgressText').textContent = '打包失败：' + (data.error || '未知错误');
           }
         } catch(e) {
           // 忽略网络错误，继续轮询
         }
-      }, 1000);
-
-      window._dlInterval = interval;
+        if (shouldContinue && sequence === window._dlPollSequence) {
+          window._dlTimer = setTimeout(poll, 1000);
+        }
+      }
+      poll();
     }
 
     function closeDownloadProgress() {
       const modal = document.getElementById('downloadProgressModal');
       if (modal) modal.style.display = 'none';
-      if (window._dlInterval) clearInterval(window._dlInterval);
+      window._dlPollSequence = (window._dlPollSequence || 0) + 1;
+      if (window._dlTimer) {
+        clearTimeout(window._dlTimer);
+        window._dlTimer = null;
+      }
+      if (window._zipAnimTimer) {
+        clearInterval(window._zipAnimTimer);
+        window._zipAnimTimer = null;
+      }
     }
 
     // 带token下载zip文件
     async function downloadZipFile(url) {
       if (window._downloading) return; // 防止重复点击
+      const downloadUrl = normalizeExternalUrl(url);
+      if (!downloadUrl || new URL(downloadUrl).origin !== window.location.origin) {
+        showToast('下载链接无效', 'error');
+        return;
+      }
       window._downloading = true;
 
       const btn = document.getElementById('dlDownloadBtn');
@@ -1626,7 +1687,7 @@
 
       try {
         const token = localStorage.getItem('token');
-        const res = await fetch(url, {
+        const res = await fetch(downloadUrl, {
           headers: { 'Authorization': 'Bearer ' + token }
         });
         if (!res.ok) {
@@ -1740,16 +1801,37 @@
     async function loadPackages() {
       const res = await apiRequest('/api/user/recharge/packages');
       if (res.code !== 0) return;
-      const list = res.data;
+      const list = Array.isArray(res.data) ? res.data : [];
       const grid = document.getElementById('packageGrid');
-      grid.innerHTML = list.map((pkg, i) => `
-        <div class="package-card ${i === 1 ? 'hot' : ''}" data-id="${pkg.id}" onclick="selectPackage(${pkg.id}, this)">
-          <div class="package-name">${pkg.name}</div>
-          <div class="package-credits">${pkg.credits}<small> 积分</small></div>
-          <div class="package-bonus">${pkg.bonus > 0 ? '🎁 赠送 ' + pkg.bonus + ' 积分' : ''}</div>
-          <div class="package-price"><small>￥</small>${pkg.price}</div>
-        </div>
-      `).join('');
+      grid.replaceChildren();
+      list.forEach((pkg, index) => {
+        const id = Number(pkg.id);
+        if (!Number.isSafeInteger(id) || id < 1) return;
+        const card = document.createElement('div');
+        card.className = 'package-card' + (index === 1 ? ' hot' : '');
+        card.dataset.id = String(id);
+        card.addEventListener('click', () => selectPackage(id, card));
+        const name = document.createElement('div');
+        name.className = 'package-name';
+        name.textContent = String(pkg.name || '充值套餐');
+        const credits = document.createElement('div');
+        credits.className = 'package-credits';
+        credits.textContent = String(Number(pkg.credits) || 0);
+        const unit = document.createElement('small');
+        unit.textContent = ' 积分';
+        credits.appendChild(unit);
+        const bonus = document.createElement('div');
+        bonus.className = 'package-bonus';
+        const bonusAmount = Number(pkg.bonus);
+        bonus.textContent = Number.isFinite(bonusAmount) && bonusAmount > 0 ? `🎁 赠送 ${bonusAmount} 积分` : '';
+        const price = document.createElement('div');
+        price.className = 'package-price';
+        const currency = document.createElement('small');
+        currency.textContent = '￥';
+        price.append(currency, document.createTextNode(String(pkg.price ?? 0)));
+        card.append(name, credits, bonus, price);
+        grid.appendChild(card);
+      });
     }
 
     function selectPackage(id, el) {
@@ -1772,6 +1854,16 @@
     const PAY_POLL_MAX = 60; // 最多轮询60次=3分钟
     let currentPayUrl = '';
 
+    function normalizeExternalUrl(value) {
+      if (typeof value !== 'string' || !value.trim()) return '';
+      try {
+        const url = new URL(value, window.location.origin);
+        return ['http:', 'https:'].includes(url.protocol) ? url.href : '';
+      } catch (error) {
+        return '';
+      }
+    }
+
     async function confirmRecharge() {
       if (!selectedPkgId) return;
 
@@ -1788,7 +1880,10 @@
       document.getElementById('payModalSub').textContent = pkgName;
       document.getElementById('payStatus').textContent = '正在创建订单...';
       document.getElementById('payStatus').className = 'pay-status';
-      document.getElementById('payQrcodeWrap').innerHTML = '<div class="pay-qrcode-loading"></div>';
+      const qrcodeWrap = document.getElementById('payQrcodeWrap');
+      const loading = document.createElement('div');
+      loading.className = 'pay-qrcode-loading';
+      qrcodeWrap.replaceChildren(loading);
       document.getElementById('payMobileBtn').style.display = 'none';
       document.getElementById('payModalMask').classList.add('show');
 
@@ -1807,19 +1902,24 @@
 
         const data = res.data;
         currentPayOrderId = data.order_id;
-        currentPayUrl = data.url || '';
+        currentPayUrl = normalizeExternalUrl(data.url);
 
         // 显示二维码
-        if (data.url_qrcode) {
-          document.getElementById('payQrcodeWrap').innerHTML =
-            '<img src="' + data.url_qrcode + '" alt="支付二维码" />';
+        const qrcodeUrl = normalizeMediaUrl(data.url_qrcode);
+        if (qrcodeUrl) {
+          const image = document.createElement('img');
+          image.src = qrcodeUrl;
+          image.alt = '支付二维码';
+          qrcodeWrap.replaceChildren(image);
         } else {
-          document.getElementById('payQrcodeWrap').innerHTML =
-            '<p style="font-size:13px;color:var(--text-2)">请使用手机端支付</p>';
+          const notice = document.createElement('p');
+          notice.style.cssText = 'font-size:13px;color:var(--text-2)';
+          notice.textContent = '请使用手机端支付';
+          qrcodeWrap.replaceChildren(notice);
         }
 
         // 手机端显示跳转按钮
-        if (data.url && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)) {
+        if (currentPayUrl && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)) {
           document.getElementById('payMobileBtn').style.display = 'block';
         }
 
@@ -1836,34 +1936,37 @@
     }
 
     function jumpToPay() {
-      if (currentPayUrl) window.open(currentPayUrl, '_blank');
+      if (currentPayUrl) window.open(currentPayUrl, '_blank', 'noopener,noreferrer');
     }
 
     function startPayPolling() {
-      if (payPollTimer) clearInterval(payPollTimer);
+      if (payPollTimer) clearTimeout(payPollTimer);
       payPollCount = 0;
-      payPollTimer = setInterval(async () => {
-        if (!currentPayOrderId) {
-          clearInterval(payPollTimer);
-          return;
-        }
+      const orderId = String(currentPayOrderId || '');
+      const sequence = (window._payPollSequence || 0) + 1;
+      window._payPollSequence = sequence;
+
+      async function poll() {
+        if (!orderId || sequence !== window._payPollSequence) return;
         payPollCount++;
         if (payPollCount > PAY_POLL_MAX) {
-          clearInterval(payPollTimer);
           document.getElementById('payStatus').textContent = '支付超时，请重新发起支付';
           document.getElementById('payStatus').className = 'pay-status error';
           return;
         }
+        let paid = false;
         try {
-          const res = await apiRequest('/api/user/recharge/query/' + currentPayOrderId);
+          const res = await apiRequest('/api/user/recharge/query/' + encodeURIComponent(orderId));
+          if (sequence !== window._payPollSequence) return;
           if (res.code === 0 && res.data.status === 'paid') {
-            clearInterval(payPollTimer);
+            paid = true;
             document.getElementById('payStatus').textContent = '✅ 支付成功！积分已到账';
             document.getElementById('payStatus').className = 'pay-status success';
             // 更新顶部积分
             loadUserInfo();
             loadOrders();
             setTimeout(() => {
+              if (sequence !== window._payPollSequence) return;
               closePayModal();
               switchTab('orders');
             }, 1500);
@@ -1871,13 +1974,18 @@
         } catch (e) {
           // 轮询出错不中断
         }
-      }, 3000);
+        if (!paid && sequence === window._payPollSequence) {
+          payPollTimer = setTimeout(poll, 3000);
+        }
+      }
+      poll();
     }
 
     function closePayModal() {
       document.getElementById('payModalMask').classList.remove('show');
+      window._payPollSequence = (window._payPollSequence || 0) + 1;
       if (payPollTimer) {
-        clearInterval(payPollTimer);
+        clearTimeout(payPollTimer);
         payPollTimer = null;
       }
       currentPayOrderId = null;
@@ -1887,29 +1995,50 @@
     async function loadOrders(page = 1) {
       const res = await apiRequest(`/api/user/orders?page=${page}&pageSize=10`);
       if (res.code !== 0) return;
-      ordersPage = page; ordersTotal = res.data.total;
-      const list = res.data.list;
+      ordersPage = page; ordersTotal = Number(res.data.total) || 0;
+      const list = Array.isArray(res.data.list) ? res.data.list : [];
       const tbody = document.getElementById('ordersTbody');
+      tbody.replaceChildren();
       if (list.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-3);padding:40px;">暂无订单</td></tr>';
+        const row = document.createElement('tr');
+        const cell = document.createElement('td');
+        cell.colSpan = 6;
+        cell.style.cssText = 'text-align:center;color:var(--text-3);padding:40px;';
+        cell.textContent = '暂无订单';
+        row.appendChild(cell);
+        tbody.appendChild(row);
       } else {
         const statusMap = {
-          pending: '<span class="status-badge status-pending">待支付</span>',
-          paid: '<span class="status-badge status-paid">已支付</span>',
-          failed: '<span class="status-badge status-failed">失败</span>',
-          cancelled: '<span class="status-badge">已取消</span>',
-          manual: '<span class="status-badge status-success">手动充值</span>',
+          pending: ['status-pending', '待支付'],
+          paid: ['status-paid', '已支付'],
+          failed: ['status-failed', '失败'],
+          cancelled: ['', '已取消'],
+          manual: ['status-success', '手动充值'],
         };
-        tbody.innerHTML = list.map(o => `
-          <tr>
-            <td style="font-family:ui-monospace,monospace;font-size:12px;">${o.remark || ('ORD' + o.id)}</td>
-            <td>${o.package_name || '-'}</td>
-            <td>￥${o.amount}</td>
-            <td style="color:var(--brand);font-weight:600;">+${o.credits}</td>
-            <td>${statusMap[o.status] || o.status}</td>
-            <td style="font-size:12px;color:var(--text-3);">${o.created_at}</td>
-          </tr>
-        `).join('');
+        list.forEach(order => {
+          const row = document.createElement('tr');
+          const number = document.createElement('td');
+          number.style.cssText = 'font-family:ui-monospace,monospace;font-size:12px;';
+          number.textContent = String(order.remark || ('ORD' + order.id));
+          const packageName = document.createElement('td');
+          packageName.textContent = String(order.package_name || '-');
+          const amount = document.createElement('td');
+          amount.textContent = '￥' + String(order.amount ?? 0);
+          const credits = document.createElement('td');
+          credits.style.cssText = 'color:var(--brand);font-weight:600;';
+          credits.textContent = '+' + String(order.credits ?? 0);
+          const status = document.createElement('td');
+          const badge = document.createElement('span');
+          const statusConfig = statusMap[order.status];
+          badge.className = 'status-badge' + (statusConfig && statusConfig[0] ? ' ' + statusConfig[0] : '');
+          badge.textContent = statusConfig ? statusConfig[1] : String(order.status || '未知');
+          status.appendChild(badge);
+          const createdAt = document.createElement('td');
+          createdAt.style.cssText = 'font-size:12px;color:var(--text-3);';
+          createdAt.textContent = String(order.created_at || '-');
+          row.append(number, packageName, amount, credits, status, createdAt);
+          tbody.appendChild(row);
+        });
       }
       renderPagination('ordersPagination', page, Math.ceil(ordersTotal / 10), loadOrders);
     }
@@ -1918,24 +2047,38 @@
     async function loadCredits(page = 1) {
       const res = await apiRequest(`/api/user/credit-logs?page=${page}&pageSize=10`);
       if (res.code !== 0) return;
-      creditPage = page; creditTotal = res.data.total;
-      const list = res.data.list;
+      creditPage = page; creditTotal = Number(res.data.total) || 0;
+      const list = Array.isArray(res.data.list) ? res.data.list : [];
       const tbody = document.getElementById('creditTbody');
+      tbody.replaceChildren();
       if (list.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-3);padding:40px;">暂无记录</td></tr>';
+        const row = document.createElement('tr');
+        const cell = document.createElement('td');
+        cell.colSpan = 4;
+        cell.style.cssText = 'text-align:center;color:var(--text-3);padding:40px;';
+        cell.textContent = '暂无记录';
+        row.appendChild(cell);
+        tbody.appendChild(row);
       } else {
         const typeMap = { recharge: '充值', consume: '消耗', refund: '退款', manual: '手动调整' };
-        tbody.innerHTML = list.map(item => {
-          const positive = item.amount > 0;
-          return `<tr>
-            <td>${typeMap[item.type] || item.type}</td>
-            <td style="color:${positive ? 'var(--success)' : 'var(--danger)'};font-weight:600;">
-              ${positive ? '+' : ''}${item.amount}
-            </td>
-            <td>${item.description || '-'}</td>
-            <td style="font-size:12px;color:var(--text-3);">${item.created_at}</td>
-          </tr>`;
-        }).join('');
+        list.forEach(item => {
+          const amountValue = Number(item.amount);
+          const amount = Number.isFinite(amountValue) ? amountValue : 0;
+          const positive = amount > 0;
+          const row = document.createElement('tr');
+          const type = document.createElement('td');
+          type.textContent = typeMap[item.type] || String(item.type || '未知');
+          const value = document.createElement('td');
+          value.style.cssText = `color:var(${positive ? '--success' : '--danger'});font-weight:600;`;
+          value.textContent = (positive ? '+' : '') + amount;
+          const description = document.createElement('td');
+          description.textContent = String(item.description || '-');
+          const createdAt = document.createElement('td');
+          createdAt.style.cssText = 'font-size:12px;color:var(--text-3);';
+          createdAt.textContent = String(item.created_at || '-');
+          row.append(type, value, description, createdAt);
+          tbody.appendChild(row);
+        });
       }
       renderPagination('creditPagination', page, Math.ceil(creditTotal / 10), loadCredits);
     }
@@ -1945,26 +2088,40 @@
       const res = await apiRequest('/api/user/sign-status');
       if (res.code !== 0) return;
       const d = res.data;
-      document.getElementById('signDaysNum').textContent = d.sign_days;
-      document.getElementById('todayBonus').textContent = d.today_bonus;
+      const signedDays = Number(d.sign_days) || 0;
+      const todayBonus = Number(d.today_bonus) || 0;
 
       const cal = document.getElementById('signCalendar');
-      cal.innerHTML = d.week_days.map(day => `
-        <div class="sign-day ${day.signed ? 'signed' : ''} ${day.is_today ? 'today' : ''}">
-          <div class="circle">${day.signed ? '✓' : day.day}</div>
-          <div class="bonus">${day.bonus}分</div>
-        </div>
-      `).join('');
+      cal.replaceChildren();
+      const weekDays = Array.isArray(d.week_days) ? d.week_days : [];
+      weekDays.forEach(day => {
+        const item = document.createElement('div');
+        item.className = 'sign-day' + (day.signed ? ' signed' : '') + (day.is_today ? ' today' : '');
+        const circle = document.createElement('div');
+        circle.className = 'circle';
+        circle.textContent = day.signed ? '✓' : String(day.day || '');
+        const bonus = document.createElement('div');
+        bonus.className = 'bonus';
+        bonus.textContent = String(Number(day.bonus) || 0) + '分';
+        item.append(circle, bonus);
+        cal.appendChild(item);
+      });
 
       const btn = document.getElementById('signBtn');
+      const status = document.getElementById('signStatusText');
+      const days = document.createElement('b');
+      days.textContent = String(signedDays);
+      const reward = document.createElement('b');
       if (d.signed_today) {
         btn.textContent = '今日已签到';
         btn.disabled = true;
-        document.getElementById('signStatusText').innerHTML =
-          `已连续签到 <b>${d.sign_days}</b> 天，明天可领 <b>${Math.min(5 + (d.sign_days), 20)}</b> 积分`;
+        reward.textContent = String(Math.min(5 + signedDays, 20));
+        status.replaceChildren('已连续签到 ', days, ' 天，明天可领 ', reward, ' 积分');
       } else {
-        btn.textContent = '立即签到 +' + d.today_bonus + '分';
+        btn.textContent = '立即签到 +' + todayBonus + '分';
         btn.disabled = false;
+        reward.textContent = String(todayBonus);
+        status.replaceChildren('连续签到 ', days, ' 天，今日可领 ', reward, ' 积分');
       }
     }
 
@@ -1984,10 +2141,12 @@
       const res = await apiRequest('/api/user/invite-info');
       if (res.code !== 0) return;
       const d = res.data;
-      document.getElementById('myInviteCode').textContent = d.invite_code;
-      document.getElementById('inviteCountNum').textContent = d.invite_count;
-      document.getElementById('inviteDesc').innerHTML =
-        `每邀请一位好友注册，你和好友各得 <b>${d.invite_bonus}</b> 积分奖励`;
+      document.getElementById('myInviteCode').textContent = String(d.invite_code || '------');
+      document.getElementById('inviteCountNum').textContent = String(Number(d.invite_count) || 0);
+      const description = document.getElementById('inviteDesc');
+      const bonus = document.createElement('b');
+      bonus.textContent = String(Number(d.invite_bonus) || 0);
+      description.replaceChildren('每邀请一位好友注册，你和好友各得 ', bonus, ' 积分奖励');
     }
 
     function copyInviteCode() {
@@ -2035,30 +2194,33 @@
     // ===== 分页 =====
     function renderPagination(containerId, current, total, callback) {
       const container = document.getElementById(containerId);
-      if (total <= 1) { container.innerHTML = ''; return; }
-      let html = `<button class="page-btn" ${current === 1 ? 'disabled' : ''} onclick="__pg('${containerId}', ${current-1}, ${total})">上一页</button>`;
+      container.replaceChildren();
+      if (total <= 1) return;
+
+      function addButton(label, page, disabled = false, active = false) {
+        const button = document.createElement('button');
+        button.className = 'page-btn' + (active ? ' active' : '');
+        button.textContent = String(label);
+        button.disabled = disabled;
+        button.addEventListener('click', () => callback(page));
+        container.appendChild(button);
+      }
+
+      addButton('上一页', current - 1, current === 1);
       for (let i = 1; i <= total; i++) {
         if (total > 7 && Math.abs(i - current) > 2 && i !== 1 && i !== total) {
-          if (i === 2 || i === total - 1) html += '<span style="color:var(--text-3);padding:0 4px;">...</span>';
+          if (i === 2 || i === total - 1) {
+            const ellipsis = document.createElement('span');
+            ellipsis.style.cssText = 'color:var(--text-3);padding:0 4px;';
+            ellipsis.textContent = '...';
+            container.appendChild(ellipsis);
+          }
           continue;
         }
-        html += `<button class="page-btn ${i === current ? 'active' : ''}" onclick="__pg('${containerId}', ${i}, ${total})">${i}</button>`;
+        addButton(i, i, false, i === current);
       }
-      html += `<button class="page-btn" ${current === total ? 'disabled' : ''} onclick="__pg('${containerId}', ${current+1}, ${total})">下一页</button>`;
-      container.innerHTML = html;
-      container.dataset.callback = callback.name;
+      addButton('下一页', current + 1, current === total);
     }
-
-    window.__pg = function(containerId, page, total) {
-      if (page < 1 || page > total) return;
-      const cbMap = {
-        'worksPagination': loadWorks,
-        'creditPagination': loadCredits,
-        'ordersPagination': loadOrders,
-      };
-      const cb = cbMap[containerId];
-      if (cb) cb(page);
-    };
 
     // ===== 详情弹窗 =====
     // ===== 音频复制链接 =====
