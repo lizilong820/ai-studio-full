@@ -347,19 +347,10 @@ XX电商中台项目 - 项目负责人
         </div>
       `;
       const tplList = modal.querySelector('#tplList');
-      tplList.innerHTML = templates.map(t => `
-        <div data-id="${t.id}" style="padding:12px 14px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--brand)'" onmouseout="this.style.borderColor='var(--border)'">
-          <div style="font-size:14px;font-weight:500;color:var(--text);">${t.name}</div>
-          <div style="font-size:11.5px;color:var(--text-3);margin-top:3px;">${new Date(t.created_at).toLocaleString()}</div>
-        </div>
-      `).join('');
-      tplList.querySelectorAll('[data-id]').forEach(item => {
-        item.onclick = function() {
-          const tpl = templates.find(t => t.id == this.dataset.id);
-          if (tpl && tpl.params) applyTemplate(tpl.params);
-          modal.remove();
-          showToast('模板已加载', 'success');
-        };
+      renderTemplateList(tplList, templates, tpl => {
+        if (tpl.params) applyTemplate(tpl.params);
+        modal.remove();
+        showToast('模板已加载', 'success');
       });
       modal.querySelector('#tplClose').onclick = () => modal.remove();
       modal.onclick = (e) => { if (e.target === modal) modal.remove(); };

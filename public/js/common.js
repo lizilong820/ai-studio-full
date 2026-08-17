@@ -812,6 +812,38 @@ async function loadTemplates(studioType) {
   return [];
 }
 
+function renderTemplateList(container, templates, onSelect) {
+  container.replaceChildren();
+  (Array.isArray(templates) ? templates : []).forEach(template => {
+    const item = document.createElement('div');
+    item.style.cssText = 'padding:12px 14px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;cursor:pointer;transition:all 0.2s;';
+    item.tabIndex = 0;
+    item.setAttribute('role', 'button');
+
+    const name = document.createElement('div');
+    name.style.cssText = 'font-size:14px;font-weight:500;color:var(--text);';
+    name.textContent = String(template.name || '未命名模板');
+
+    const createdAt = document.createElement('div');
+    createdAt.style.cssText = 'font-size:11.5px;color:var(--text-3);margin-top:3px;';
+    const date = new Date(template.created_at);
+    createdAt.textContent = Number.isNaN(date.getTime()) ? '' : date.toLocaleString();
+
+    const select = () => { if (onSelect) onSelect(template); };
+    item.addEventListener('click', select);
+    item.addEventListener('keydown', event => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        select();
+      }
+    });
+    item.addEventListener('mouseenter', () => { item.style.borderColor = 'var(--brand)'; });
+    item.addEventListener('mouseleave', () => { item.style.borderColor = 'var(--border)'; });
+    item.append(name, createdAt);
+    container.appendChild(item);
+  });
+}
+
 // ===== 批量下载 =====
 function batchDownload(images, prefix) {
   if (!images || images.length === 0) return;
