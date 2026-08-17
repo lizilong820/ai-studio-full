@@ -204,6 +204,19 @@ test('image studio polling uses shared non-overlapping control', () => {
   assert.doesNotMatch(ecommerce, /setInterval\s*\(async/);
 });
 
+test('editor tasks stop stale polling and preserve target image', () => {
+  assert.match(editor, /function startEditorTask\(targetIndex\)/);
+  assert.match(editor, /function isEditorTaskActive\(task\)/);
+  assert.match(editor, /task\.timer = setTimeout\(poll, 2000\)/);
+  assert.match(editor, /if \(!isEditorTaskActive\(task\)\) return/);
+  assert.match(editor, /images\[task\.targetIndex\] = newImg/);
+  assert.match(editor, /if \(currentIndex === task\.targetIndex\)/);
+  assert.match(editor, /stopEditorTask\(activeEditorTask\)/);
+  assert.doesNotMatch(editor, /setInterval\s*\(async/);
+  assert.doesNotMatch(editor, /pollDewatermarkTask|function pollTask\(taskId\)/);
+  assert.doesNotMatch(editor, /loadingCancelled/);
+});
+
 test('changed page inline scripts parse', () => {
   parseInlineScripts('avatar.html', avatar);
   parseInlineScripts('ppt.html', ppt);
