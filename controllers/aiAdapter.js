@@ -1,9 +1,10 @@
 const { db } = require('../database/db');
 const path = require('path');
 const fs = require('fs');
+const { safeRequest } = require('../utils/safeHttp');
 
 // ===== imgbb 免费图床上传（用于 mzsjai 等需要 https 图片 URL 的 API） =====
-const IMGBB_API_KEY = process.env.IMGBB_API_KEY || "6451c92bd17479293603aedc9e650358";
+const IMGBB_API_KEY = process.env.IMGBB_API_KEY || '';
 
 /**
  * 下载视频到本地 uploads 目录（用于 mzsjai 等需要鉴权访问的视频 URL）
@@ -17,18 +18,19 @@ async function downloadVideoToLocal(url, apiKey, taskId) {
   const fileName = 'video_' + Date.now() + '_' + taskId.slice(0, 8) + '.mp4';
   const filePath = path.join(uploadsDir, fileName);
 
-  const resp = await fetch(url, {
+  const resp = await safeRequest(url, {
     headers: {
       'Authorization': 'Bearer ' + apiKey,
     },
+    timeoutMs: 60_000,
+    maxBytes: 500 * 1024 * 1024
   });
 
-  if (!resp.ok) {
+  if (resp.status < 200 || resp.status >= 300) {
     throw new Error('下载失败：HTTP ' + resp.status);
   }
 
-  const arrayBuffer = await resp.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
+  const buffer = resp.body;
   fs.writeFileSync(filePath, buffer);
 
   console.log('[VIDEO_DOWNLOAD] 视频已保存:', fileName, '大小:', (buffer.length / 1024 / 1024).toFixed(2), 'MB');

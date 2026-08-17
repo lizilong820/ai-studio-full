@@ -108,11 +108,15 @@ function setupTagInputs() {
 function addTag(wrapper, text) {
   const input = wrapper.querySelector('.tag-input');
   const tag = document.createElement('span');
+  const close = document.createElement('span');
   tag.className = 'tag-item';
-  tag.innerHTML = `${text}<span class="tag-close">×</span>`;
-  tag.querySelector('.tag-close').addEventListener('click', function() {
+  tag.appendChild(document.createTextNode(text));
+  close.className = 'tag-close';
+  close.textContent = '×';
+  close.addEventListener('click', function() {
     tag.remove();
   });
+  tag.appendChild(close);
   wrapper.insertBefore(tag, input);
 }
 
@@ -541,32 +545,69 @@ function updateCost() {
 function displayTextResults(versions, typeLabel) {
   const previewContent = document.querySelector('.preview-content');
   if (!previewContent) return;
-  
-  let html = '<div class="results-grid fade-in">';
+
+  const grid = document.createElement('div');
+  grid.className = 'results-grid fade-in';
   versions.forEach((item, i) => {
-    const tagsHtml = (item.tags || []).map(t => `<span class="result-tag">${t}</span>`).join('');
-    html += `
-      <div class="result-item result-text-card">
-        <h4>${item.title || '版本 ' + (i+1)}</h4>
-        <div class="result-meta">${typeLabel || 'AI生成'} · 约${(item.content || '').length}字</div>
-        <div class="result-content">${(item.content || '').replace(/\n/g, '<br>')}</div>
-        <div class="result-tags">${tagsHtml}</div>
-      </div>
-    `;
+    const content = String(item.content || '');
+    const card = document.createElement('div');
+    const title = document.createElement('h4');
+    const meta = document.createElement('div');
+    const body = document.createElement('div');
+    const tags = document.createElement('div');
+
+    card.className = 'result-item result-text-card';
+    title.textContent = item.title || '版本 ' + (i + 1);
+    meta.className = 'result-meta';
+    meta.textContent = `${typeLabel || 'AI生成'} · 约${content.length}字`;
+    body.className = 'result-content';
+    body.textContent = content;
+    body.style.whiteSpace = 'pre-wrap';
+    tags.className = 'result-tags';
+    (Array.isArray(item.tags) ? item.tags : []).forEach(value => {
+      const tag = document.createElement('span');
+      tag.className = 'result-tag';
+      tag.textContent = String(value);
+      tags.appendChild(tag);
+    });
+
+    card.append(title, meta, body, tags);
+    grid.appendChild(card);
   });
-  html += '</div>';
-  
+
   previewContent.style.display = "block";
   previewContent.style.alignItems = "stretch";
   previewContent.style.justifyContent = "flex-start";
   previewContent.style.padding = '24px';
-  previewContent.innerHTML = html;
+  previewContent.replaceChildren(grid);
+}
+
+function escapeHtmlAttribute(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function normalizeMediaUrl(value) {
+  if (typeof value !== 'string') return null;
+  if (value.startsWith('/uploads/') && !/["'<>\\]/.test(value)) return value;
+  if (/^data:image\/(?:png|jpeg|webp|gif);base64,[a-z0-9+/=]+$/i.test(value)) return value;
+  if (/^blob:[a-z0-9:/._-]+$/i.test(value)) return value;
+  try {
+    const url = new URL(value, window.location.origin);
+    return ['http:', 'https:'].includes(url.protocol) ? url.href : null;
+  } catch (e) {
+    return null;
+  }
 }
 
 function displayImageResults(images, options) {
   const previewContent = document.querySelector('.preview-content');
   if (!previewContent) return;
   options = options || {};
+  images = (Array.isArray(images) ? images : []).map(normalizeMediaUrl).filter(Boolean);
   const studioType = options.studio_type || 'ecommerce';
   const params = options.params || {};
   const regenerateFn = options.regenerate_fn || null;
@@ -585,9 +626,10 @@ function displayImageResults(images, options) {
   </div>`;
   html += '<div class="results-grid fade-in">';
   images.forEach((img, i) => {
+    const safeImg = escapeHtmlAttribute(img);
     html += `
       <div class="result-item result-image-item" style="aspect-ratio: 1/1;" onclick="__openLb(${i})">
-        <img src="${img}" alt="生成结果 ${i+1}" style="width:100%;height:100%;object-fit:cover;border-radius:12px;" loading="lazy">
+        <img src="${safeImg}" alt="生成结果 ${i+1}" style="width:100%;height:100%;object-fit:cover;border-radius:12px;" loading="lazy">
         <div class="result-item-overlay">
           <div class="result-item-badge">#${i+1}</div>
           <div class="result-item-actions">
@@ -667,7 +709,7 @@ function openImageLightbox(images, startIndex) {
   lb.innerHTML = `
     <button style="position:absolute;top:20px;right:20px;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,0.15);color:#fff;border:none;font-size:26px;cursor:pointer;display:flex;align-items:center;justify-content:center;" class="lb-close">×</button>
     <button style="position:absolute;left:24px;top:50%;transform:translateY(-50%);width:52px;height:52px;border-radius:50%;background:rgba(255,255,255,0.15);color:#fff;border:none;font-size:30px;cursor:pointer;display:flex;align-items:center;justify-content:center;" class="lb-prev">‹</button>
-    <img src="${images[cur]}" style="max-width:90%;max-height:90%;border-radius:8px;object-fit:contain;" alt="">
+    <img src="${escapeHtmlAttribute(normalizeMediaUrl(images[cur]) || '')}" style="max-width:90%;max-height:90%;border-radius:8px;object-fit:contain;" alt="">
     <button style="position:absolute;right:24px;top:50%;transform:translateY(-50%);width:52px;height:52px;border-radius:50%;background:rgba(255,255,255,0.15);color:#fff;border:none;font-size:30px;cursor:pointer;display:flex;align-items:center;justify-content:center;" class="lb-next">›</button>
     <div style="position:absolute;bottom:24px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,0.8);font-size:13px;" class="lb-counter"></div>
     <button style="position:absolute;bottom:24px;right:24px;padding:10px 18px;background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:10px;font-size:13px;cursor:pointer;" class="lb-download">📥 下载</button>

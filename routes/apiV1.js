@@ -3,6 +3,7 @@ const { db } = require('../database/db');
 const { apiKeyAuth, recordUsage } = require('../middleware/apiAuth');
 const aiAdapter = require('../controllers/aiAdapter');
 const creditService = require('../controllers/creditService');
+const { safeRequest, validatePublicUrl } = require('../utils/safeHttp');
 
 const router = express.Router();
 
@@ -16,7 +17,6 @@ async function triggerWebhook(userId, eventType, payload) {
 
     if (!subs || subs.length === 0) return;
 
-    const fetch = globalThis.fetch || require('node-fetch');
     const body = JSON.stringify({
       event: eventType,
       timestamp: new Date().toISOString(),
@@ -24,14 +24,17 @@ async function triggerWebhook(userId, eventType, payload) {
     });
 
     subs.forEach(sub => {
-      fetch(sub.webhook_url, {
+      safeRequest(sub.webhook_url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(body),
           'X-Webhook-Secret': sub.secret || '',
           'X-Webhook-Event': eventType
         },
-        body
+        body,
+        timeoutMs: 10_000,
+        maxBytes: 1024 * 1024
       }).catch(err => {
         console.error(`Webhook 发送失败 [${sub.id}]:`, err.message);
       });
@@ -2002,12 +2005,15 @@ router.post('/webhooks', async (req, res) => {
 
   try {
     const { webhook_url, event_type = 'task.completed,task.failed', secret = '' } = req.body;
-    if (!webhook_url || !webhook_url.startsWith('http')) {
-      return v1Error(res, '请提供有效的 webhook_url（以http开头）');
+    let normalizedWebhookUrl;
+    try {
+      normalizedWebhookUrl = await validatePublicUrl(webhook_url);
+    } catch (err) {
+      return v1Error(res, '请提供可公开访问的 HTTP/HTTPS webhook_url');
     }
 
     // 检查是否已存在相同URL的订阅
-    const existing = db.prepare('SELECT id FROM webhook_subscriptions WHERE user_id = ? AND webhook_url = ?').get(user.id, webhook_url);
+    const existing = db.prepare('SELECT id FROM webhook_subscriptions WHERE user_id = ? AND webhook_url = ?').get(user.id, normalizedWebhookUrl);
     if (existing) {
       return v1Error(res, '该Webhook URL已存在订阅');
     }
@@ -2015,12 +2021,12 @@ router.post('/webhooks', async (req, res) => {
     const result = db.prepare(`
       INSERT INTO webhook_subscriptions (user_id, webhook_url, event_type, secret, status)
       VALUES (?, ?, ?, ?, 1)
-    `).run(user.id, webhook_url, event_type, secret);
+    `).run(user.id, normalizedWebhookUrl, event_type, secret);
 
     recordUsage(user.id, req.apiKeyId, '/api/v1/webhooks/create', null, null, 'success', 0, Date.now() - startTime);
     v1Success(res, {
       id: result.lastInsertRowid,
-      webhook_url,
+      webhook_url: normalizedWebhookUrl,
       event_type,
       status: 1
     }, 'Webhook订阅创建成功');
@@ -2045,7 +2051,16 @@ router.put('/webhooks/:id', async (req, res) => {
     const updates = [];
     const params = [];
 
-    if (webhook_url !== undefined) { updates.push('webhook_url = ?'); params.push(webhook_url); }
+    if (webhook_url !== undefined) {
+      let normalizedWebhookUrl;
+      try {
+        normalizedWebhookUrl = await validatePublicUrl(webhook_url);
+      } catch (err) {
+        return v1Error(res, '请提供可公开访问的 HTTP/HTTPS webhook_url');
+      }
+      updates.push('webhook_url = ?');
+      params.push(normalizedWebhookUrl);
+    }
     if (event_type !== undefined) { updates.push('event_type = ?'); params.push(event_type); }
     if (secret !== undefined) { updates.push('secret = ?'); params.push(secret); }
     if (status !== undefined) { updates.push('status = ?'); params.push(status); }

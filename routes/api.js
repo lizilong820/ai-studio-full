@@ -5,6 +5,7 @@ const { authRequired, authOptional } = require('../middleware/auth');
 const aiAdapter = require('../controllers/aiAdapter');
 const creditService = require('../controllers/creditService');
 const { extractVideoFrames } = require('../utils/videoFrameExtract');
+const { safeRequest } = require('../utils/safeHttp');
 
 const router = express.Router();
 
@@ -1131,27 +1132,23 @@ router.get('/editor/proxy-image', async (req, res) => {
     const url = req.query.url;
     if (!url) return res.error('缺少图片URL');
     
-    // 简单安全校验：只允许http/https
-    if (!/^https?:\/\//i.test(url)) {
-      return res.error('无效的图片URL');
+    const response = await safeRequest(url, { timeoutMs: 10_000, maxBytes: 10 * 1024 * 1024 });
+    if (response.status < 200 || response.status >= 300) {
+      return res.error('图片加载失败');
     }
-    
-    const fetch = globalThis.fetch || require('node-fetch');
-    const response = await fetch(url);
-    if (!response.ok) {
-      return res.error('图片加载失败：' + response.status);
+
+    const contentType = String(response.headers['content-type'] || '');
+    if (!contentType.toLowerCase().startsWith('image/')) {
+      return res.error('目标内容不是图片');
     }
-    
-    const contentType = response.headers.get('content-type') || 'image/png';
-    const buffer = Buffer.from(await response.arrayBuffer());
-    
+
     res.setHeader('Content-Type', contentType);
     res.setHeader('Cache-Control', 'public, max-age=86400');
-    res.send(buffer);
+    res.send(response.body);
     
   } catch (err) {
-    console.error('图片代理失败:', err);
-    res.error('代理失败：' + err.message);
+    console.error('图片代理失败:', err.message);
+    res.error('图片代理失败');
   }
 });
 
@@ -1246,13 +1243,14 @@ async function videoToGif(videoUrl, outputPath, duration, ratio) {
 
   // 先下载视频到临时文件
   const tmpVideoPath = outputPath.replace(/\.gif$/, '.tmp.mp4');
-  const isLocalFile = videoUrl.startsWith('/uploads/') || videoUrl.startsWith('/');
+  const isLocalFile = videoUrl.startsWith('/uploads/');
 
   if (isLocalFile) {
-    // 本地文件：拼接完整路径并复制到临时文件
-    const fullPath = videoUrl.startsWith('/uploads/')
-      ? path.join(__dirname, '..', 'public', videoUrl)
-      : videoUrl;
+    const uploadsRoot = path.resolve(__dirname, '..', 'public', 'uploads');
+    const fullPath = path.resolve(__dirname, '..', 'public', '.' + videoUrl);
+    if (!fullPath.startsWith(uploadsRoot + path.sep)) {
+      throw new Error('视频文件路径无效');
+    }
     if (!fs.existsSync(fullPath)) {
       throw new Error('视频文件不存在: ' + fullPath);
     }
@@ -1264,12 +1262,11 @@ async function videoToGif(videoUrl, outputPath, duration, ratio) {
     }
   } else {
     try {
-      const resp = await fetch(videoUrl, { timeout: 60000 });
-      if (!resp.ok) {
+      const resp = await safeRequest(videoUrl, { timeoutMs: 60_000, maxBytes: 200 * 1024 * 1024 });
+      if (resp.status < 200 || resp.status >= 300) {
         throw new Error('视频下载失败: HTTP ' + resp.status);
       }
-      const arrayBuffer = await resp.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
+      const buffer = resp.body;
       fs.writeFileSync(tmpVideoPath, buffer);
 
       if (buffer.length < 10000) {
