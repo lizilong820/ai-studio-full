@@ -381,3 +381,102 @@ try {
   db.prepare('ALTER TABLE generations ADD COLUMN webhook_notified INTEGER DEFAULT 0').run();
   console.log('✅ generations 表已添加 webhook_notified 字段');
 } catch (e) {}
+
+// ============ 持久化生成任务与 Webhook 投递 ============
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS generation_jobs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    generation_id INTEGER NOT NULL UNIQUE,
+    public_id TEXT NOT NULL UNIQUE,
+    job_type TEXT NOT NULL,
+    payload TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'queued'
+      CHECK (status IN ('queued', 'processing', 'retry', 'succeeded', 'failed')),
+    phase TEXT DEFAULT '',
+    provider_task_id TEXT DEFAULT '',
+    progress INTEGER NOT NULL DEFAULT 0,
+    run_count INTEGER NOT NULL DEFAULT 0,
+    failure_count INTEGER NOT NULL DEFAULT 0,
+    max_attempts INTEGER NOT NULL DEFAULT 3 CHECK (max_attempts >= 1),
+    next_run_at TEXT NOT NULL DEFAULT (datetime('now')),
+    lease_owner TEXT DEFAULT '',
+    lease_expires_at TEXT,
+    last_error TEXT DEFAULT '',
+    started_at TEXT,
+    finished_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (generation_id) REFERENCES generations(id) ON DELETE CASCADE
+  )
+`);
+
+db.exec(`CREATE INDEX IF NOT EXISTS idx_generation_jobs_claim
+  ON generation_jobs(status, next_run_at, lease_expires_at, id)`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS batch_download_tasks (
+    public_id TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    generation_ids JSON NOT NULL CHECK (json_valid(generation_ids)),
+    status TEXT NOT NULL DEFAULT 'queued'
+      CHECK (status IN ('queued', 'processing', 'retry', 'done', 'failed')),
+    total INTEGER NOT NULL DEFAULT 0 CHECK (total >= 0),
+    done_count INTEGER NOT NULL DEFAULT 0 CHECK (done_count >= 0),
+    file_path TEXT DEFAULT '',
+    error_msg TEXT DEFAULT '',
+    attempt_count INTEGER NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
+    max_attempts INTEGER NOT NULL DEFAULT 3 CHECK (max_attempts >= 1),
+    next_run_at TEXT NOT NULL DEFAULT (datetime('now')),
+    lease_owner TEXT DEFAULT '',
+    lease_expires_at TEXT,
+    expires_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  )
+`);
+
+db.exec(`CREATE INDEX IF NOT EXISTS idx_batch_download_tasks_claim
+  ON batch_download_tasks(status, next_run_at, lease_expires_at, created_at)`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS webhook_subscriptions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    webhook_url TEXT NOT NULL,
+    event_type TEXT NOT NULL DEFAULT '',
+    secret TEXT DEFAULT '',
+    status INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE(user_id, webhook_url)
+  )
+`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS webhook_deliveries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    subscription_id INTEGER NOT NULL,
+    generation_id INTEGER NOT NULL,
+    event_type TEXT NOT NULL,
+    payload TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'queued'
+      CHECK (status IN ('queued', 'processing', 'retry', 'delivered', 'failed')),
+    attempt INTEGER NOT NULL DEFAULT 0,
+    next_run_at TEXT NOT NULL DEFAULT (datetime('now')),
+    lease_owner TEXT DEFAULT '',
+    lease_expires_at TEXT,
+    last_error TEXT DEFAULT '',
+    delivered_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (subscription_id) REFERENCES webhook_subscriptions(id) ON DELETE CASCADE,
+    FOREIGN KEY (generation_id) REFERENCES generations(id) ON DELETE CASCADE,
+    UNIQUE(subscription_id, generation_id, event_type)
+  )
+`);
+
+db.exec(`CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_claim
+  ON webhook_deliveries(status, next_run_at, lease_expires_at, id)`);

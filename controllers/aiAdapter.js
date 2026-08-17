@@ -3,6 +3,11 @@ const path = require('path');
 const fs = require('fs');
 const { safeRequest } = require('../utils/safeHttp');
 
+function createSignalFetch(fetchImpl, signal) {
+  if (!signal) return fetchImpl;
+  return (url, options = {}) => fetchImpl(url, { ...options, signal: options.signal || signal });
+}
+
 // ===== imgbb 免费图床上传（用于 mzsjai 等需要 https 图片 URL 的 API） =====
 const IMGBB_API_KEY = process.env.IMGBB_API_KEY || '';
 
@@ -197,7 +202,7 @@ async function generateImage(modelId, prompt, options = {}) {
     throw new Error('该模型类型不是生图模型');
   }
 
-  const fetch = globalThis.fetch || require('node-fetch');
+  const fetch = createSignalFetch(globalThis.fetch || require('node-fetch'), options.signal);
   
   const requestedCount = Number(options.n === undefined ? 1 : options.n);
   if (!Number.isSafeInteger(requestedCount) || requestedCount < 1 || requestedCount > 20) {
@@ -712,7 +717,7 @@ async function generateText(modelId, messages, options = {}) {
   };
 
   try {
-    const fetch = globalThis.fetch || require('node-fetch');
+    const fetch = createSignalFetch(globalThis.fetch || require('node-fetch'), options.signal);
     
     // 占位假key，返回模拟结果
     if (model.api_key.includes('example') || model.api_key.includes('请修改') || model.api_endpoint.includes('api.example.com')) {
@@ -812,7 +817,7 @@ async function generateAudio(modelId, inputText, options = {}) {
   }
 
   try {
-    const fetch = globalThis.fetch || require('node-fetch');
+    const fetch = createSignalFetch(globalThis.fetch || require('node-fetch'), options.signal);
 
     if (model.api_key.includes('example') || model.api_key.includes('请修改') || model.api_endpoint.includes('api.example.com')) {
       return { audio_url: '', mock: true, model: model.model_identifier, format: response_format };
@@ -1013,7 +1018,7 @@ async function editImage(modelId, prompt, options = {}) {
     throw new Error('该模型类型不是生图模型');
   }
 
-  const fetch = globalThis.fetch || require('node-fetch');
+  const fetch = createSignalFetch(globalThis.fetch || require('node-fetch'), options.signal);
   
   if (model.api_key.includes('example') || model.api_key.includes('请修改') || model.api_endpoint.includes('api.example.com')) {
     return generateMockImageResult(options.n || 1, model.model_identifier);
@@ -1022,9 +1027,6 @@ async function editImage(modelId, prompt, options = {}) {
   // 暂只支持 OpenAI 兼容格式的 edits 接口
   return editImageOpenAICompat(model, prompt, options, fetch);
 }
-
-// 同步返回视频结果缓存（chat completions 格式可能同步返回视频URL）
-const syncVideoResults = new Map();
 
 // ============ 视频生成 (文生视频 / 图生视频) ============
 /**
@@ -1044,7 +1046,7 @@ async function submitVideoTask(modelId, prompt, options = {}) {
     throw new Error('该模型类型不是视频模型');
   }
 
-  const fetch = globalThis.fetch || require('node-fetch');
+  const fetch = createSignalFetch(globalThis.fetch || require('node-fetch'), options.signal);
 
   // 演示模式
   if (model.api_key.includes('example') || model.api_key.includes('请修改') || model.api_endpoint.includes('api.example.com')) {
@@ -1111,6 +1113,7 @@ async function submitVideoTask(modelId, prompt, options = {}) {
         headers: {
           "Content-Type": "application/json",
           "Authorization": "Bearer " + model.api_key,
+          ...(options.idempotency_key ? { "Idempotency-Key": options.idempotency_key } : {}),
         },
         body: JSON.stringify(body),
       });
@@ -1156,6 +1159,7 @@ async function submitVideoTask(modelId, prompt, options = {}) {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ' + model.api_key,
+          ...(options.idempotency_key ? { 'Idempotency-Key': options.idempotency_key } : {}),
         },
         body: JSON.stringify(body),
       });
@@ -1201,6 +1205,7 @@ async function submitVideoTask(modelId, prompt, options = {}) {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ' + model.api_key,
+          ...(options.idempotency_key ? { 'Idempotency-Key': options.idempotency_key } : {}),
         },
         body: JSON.stringify(body),
       });
@@ -1274,6 +1279,7 @@ async function submitVideoTask(modelId, prompt, options = {}) {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ' + model.api_key,
+        ...(options.idempotency_key ? { 'Idempotency-Key': options.idempotency_key } : {}),
       },
       body: JSON.stringify(body),
     });
@@ -1328,10 +1334,7 @@ async function submitVideoTask(modelId, prompt, options = {}) {
       }
 
       if (videoUrl && typeof videoUrl === 'string' && (videoUrl.startsWith('http') || videoUrl.startsWith('data:'))) {
-        // 同步返回视频
-        const syncTaskId = 'sync_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
-        syncVideoResults.set(syncTaskId, { video_url: videoUrl });
-        return { task_id: syncTaskId, raw: data, sync: true };
+        return { sync: true, video_url: videoUrl, raw: data };
       }
 
       // 异步任务：提取 task_id
@@ -1366,7 +1369,7 @@ async function submitVideoTask(modelId, prompt, options = {}) {
  * @param {string} taskId 任务ID
  * @returns {Promise<{ status: 'pending'|'processing'|'succeeded'|'failed', video_url?: string, error?: string }>}
  */
-async function getVideoTaskStatus(modelId, taskId) {
+async function getVideoTaskStatus(modelId, taskId, options = {}) {
   const model = db.prepare('SELECT * FROM models WHERE id = ? AND status = 1').get(modelId);
   if (!model) {
     throw new Error('模型不存在或已禁用');
@@ -1386,16 +1389,7 @@ async function getVideoTaskStatus(modelId, taskId) {
     };
   }
 
-  // 同步返回的视频（chat completions 同步格式）
-  if (taskId.startsWith('sync_')) {
-    const cached = syncVideoResults.get(taskId);
-    if (cached && cached.video_url) {
-      return { status: 'succeeded', video_url: cached.video_url, sync: true };
-    }
-    return { status: 'failed', error: '同步视频结果丢失' };
-  }
-
-  const fetch = globalThis.fetch || require('node-fetch');
+  const fetch = createSignalFetch(globalThis.fetch || require('node-fetch'), options.signal);
 
   try {
     const isChatCompletionsFormat = model.api_endpoint.includes('/chat/completions');
@@ -1589,7 +1583,7 @@ async function getVideoTaskStatus(modelId, taskId) {
     return result;
   } catch (err) {
     console.error('视频任务状态查询失败:', err.message);
-    return { status: 'processing' };
+    throw err;
   }
 }
 module.exports = {
@@ -1616,7 +1610,7 @@ async function analyzeMedia(modelId, prompt, options = {}) {
     throw new Error('模型不存在或已禁用');
   }
 
-  const fetch = globalThis.fetch || require('node-fetch');
+  const fetch = createSignalFetch(globalThis.fetch || require('node-fetch'), options.signal);
 
   if (model.api_key.includes('example') || model.api_key.includes('请修改') || model.api_endpoint.includes('api.example.com')) {
     return { text: '【演示模式】这是一张精美的图片，包含丰富的色彩和细节。请配置真实API后使用。', mock: true };
@@ -1762,7 +1756,7 @@ async function submitFaceSwapTask(modelId, prompt, options = {}) {
     throw new Error('模型不存在或已禁用');
   }
 
-  const fetch = globalThis.fetch || require('node-fetch');
+  const fetch = createSignalFetch(globalThis.fetch || require('node-fetch'), options.signal);
   const isChatCompletionsFormat = model.api_endpoint.includes('/chat/completions');
   const isZiklVideoAPI = model.api_endpoint.includes('img.zikl.dev') || model.api_endpoint.includes('/v1/videos');
 
@@ -1797,7 +1791,11 @@ async function submitFaceSwapTask(modelId, prompt, options = {}) {
       };
       var response = await fetch(submitUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + model.api_key },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + model.api_key,
+          ...(options.idempotency_key ? { 'Idempotency-Key': options.idempotency_key } : {}),
+        },
         body: JSON.stringify(body),
       });
       var data = await response.json();
@@ -1824,7 +1822,11 @@ async function submitFaceSwapTask(modelId, prompt, options = {}) {
       };
       var response = await fetch(model.api_endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + model.api_key },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + model.api_key,
+          ...(options.idempotency_key ? { 'Idempotency-Key': options.idempotency_key } : {}),
+        },
         body: JSON.stringify(body),
       });
       var data = await response.json();
@@ -1842,9 +1844,7 @@ async function submitFaceSwapTask(modelId, prompt, options = {}) {
       if (!videoUrl && data.data && data.data.video_url) videoUrl = data.data.video_url;
 
       if (videoUrl && typeof videoUrl === 'string' && videoUrl.startsWith('http')) {
-        var syncTaskId = 'sync_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
-        syncVideoResults.set(syncTaskId, { video_url: videoUrl });
-        return { task_id: syncTaskId, sync: true, raw: data };
+        return { sync: true, video_url: videoUrl, raw: data };
       }
 
       var taskId = data.task_id || (data.data && data.data.task_id) || data.id;

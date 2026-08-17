@@ -1,4 +1,6 @@
 const express = require('express');
+const path = require('path');
+const fs = require('fs');
 const { db } = require('../database/db');
 
 const { authRequired, authOptional } = require('../middleware/auth');
@@ -17,6 +19,33 @@ function refundFailedGeneration(taskId, errorMessage) {
   } catch (refundError) {
     console.error(`任务 ${taskId} 失败退款异常:`, refundError.message);
   }
+}
+
+function parseGenerationResult(result) {
+  if (!result) return {};
+  try {
+    return JSON.parse(result);
+  } catch (err) {
+    return {};
+  }
+}
+
+function getPublicGenerationTask(publicId, userId, studioType) {
+  return db.prepare(`SELECT generation_jobs.public_id, generation_jobs.status AS job_status,
+      generation_jobs.phase, generation_jobs.progress, generation_jobs.last_error,
+      generations.id AS generation_id, generations.status, generations.result, generations.error_msg
+    FROM generation_jobs
+    JOIN generations ON generations.id = generation_jobs.generation_id
+    WHERE generation_jobs.public_id = ? AND generations.user_id = ? AND generations.studio_type = ?`)
+    .get(publicId, userId, studioType);
+}
+
+function mapPublicTaskStatus(task) {
+  if (task.status === 'success' || task.job_status === 'succeeded') return 'success';
+  if (task.status === 'failed' || task.job_status === 'failed') return 'failed';
+  if (task.phase === 'converting') return 'converting';
+  if (task.job_status === 'processing' || task.job_status === 'retry') return 'generating';
+  return 'submitting';
 }
 
 // 获取站点配置 (不需要登录)
@@ -79,82 +108,63 @@ router.post('/calculate-cost', (req, res) => {
 // 创建生成任务 (图片类 - 电商套图)
 router.post('/generate/ecommerce', authRequired, async (req, res) => {
   try {
-    const { 
+    const {
       model_id, platform, market, language, text_setting,
       smart_composite, ratio, count, tone, prominence,
       forbidden_elements, avoid_requirements, selling_points,
       image_count, ref_image = ''
     } = req.body;
-    
+
     if (!model_id) return res.error('请选择生图模型');
     if (!selling_points) return res.error('请填写商品卖点及要求');
-    
+
     const actualCount = parseIntegerParam(
       image_count === undefined ? count : image_count,
       { name: '图片数量', min: 1, max: 20, defaultValue: 4 }
     );
-    
-    // 计算并扣减积分
     const cost = aiAdapter.calculateCost(model_id, actualCount);
     if (!cost) return res.error('模型价格获取失败');
-    
+
+    const prompt = `Generate high quality e-commerce product image for: ${selling_points}.
+      Platform: ${platform || 'general'}, Market: ${market || 'global'},
+      Style: ${tone || 'neutral'}, Product prominence: ${prominence || 70}%.
+      The product should be the main focus in a beautiful scene.`;
+    const sizeMap = {
+      '1:1': '1024x1024',
+      '3:4': '768x1024',
+      '16:9': '1024x576',
+      '9:16': '576x1024',
+      '4:3': '1024x768',
+    };
+    const options = {
+      n: actualCount,
+      size: sizeMap[ratio] || '1024x1024',
+      negative_prompt: 'text, words, letters, characters, writing, watermark, logo, signature, caption, ugly, distorted, blurry, low quality',
+    };
+    if (ref_image) options.ref_image = ref_image;
+
     const deductResult = creditService.createGenerationAndDeduct(
       req.user.id,
       'ecommerce',
       model_id,
       JSON.stringify({ ...req.body, count: actualCount, image_count: actualCount }),
       cost,
-      `电商套图生成 (${actualCount}张)`
-    );
-    
-    if (!deductResult.success) {
-      return res.error(deductResult.msg, 402);
-    }
-    
-    // 构建提示词
-    const prompt = `Generate high quality e-commerce product image for: ${selling_points}. 
-      Platform: ${platform || 'general'}, Market: ${market || 'global'}, 
-      Style: ${tone || 'neutral'}, Product prominence: ${prominence || 70}%.
-      The product should be the main focus in a beautiful scene.`;
-    
-    const taskId = deductResult.taskId;
-    
-    // 异步执行生成 (用 setImmediate 模拟)
-    setImmediate(async () => {
-      try {
-        const sizeMap = {
-          '1:1': '1024x1024',
-          '3:4': '768x1024',
-          '16:9': '1024x576',
-          '9:16': '576x1024',
-          '4:3': '1024x768',
-        };
-        const size = sizeMap[ratio] || '1024x1024';
-        
-        const ecomNegativePrompt = 'text, words, letters, characters, writing, watermark, logo, signature, caption, ugly, distorted, blurry, low quality';
-        
-        const genOptions = {
-          n: actualCount,
-          size,
-          negative_prompt: ecomNegativePrompt,
-        };
-        if (ref_image) genOptions.ref_image = ref_image;
-
-        const genResult = await aiAdapter.generateImage(model_id, prompt, genOptions);
-        const images = (genResult.images || []).slice(0, actualCount);
-        
-        db.prepare(`UPDATE generations SET result = ?, status = 'success', 
-          completed_at = datetime('now','localtime') WHERE id = ?`)
-          .run(JSON.stringify({ images, mock: genResult.mock || false }), taskId);
-          
-      } catch (err) {
-        console.error('电商套图生成失败:', err);
-        refundFailedGeneration(taskId, err.message);
+      `电商套图生成 (${actualCount}张)`,
+      {
+        type: 'image.generate',
+        payload: {
+          model_id,
+          prompt,
+          options,
+          deadline_seconds: 900,
+          result_style: 'canonical',
+          result_metadata: {}
+        }
       }
-    });
-    
-    res.success({ task_id: taskId, cost, new_balance: deductResult.balance }, '任务已提交');
-    
+    );
+
+    if (!deductResult.success) return res.error(deductResult.msg, 402);
+    res.success({ task_id: deductResult.taskId, cost, new_balance: deductResult.balance }, '任务已提交');
   } catch (err) {
     console.error(err);
     res.error('生成任务提交失败：' + err.message);
@@ -253,20 +263,7 @@ router.post('/generate/poster', authRequired, async (req, res) => {
       { name: '图片数量', min: 1, max: 8, defaultValue: 4 }
     );
     const cost = aiAdapter.calculateCost(model_id, actualCount);
-    
-    const deductResult = creditService.createGenerationAndDeduct(
-      req.user.id,
-      'poster',
-      model_id,
-      JSON.stringify({ ...req.body, count: actualCount, image_count: actualCount }),
-      cost,
-      `海报生成 (${actualCount}张)`
-    );
-    
-    if (!deductResult.success) {
-      return res.error(deductResult.msg, 402);
-    }
-    
+
     const styleMap = {
       '简约现代': 'minimalist modern design, clean layout, geometric elements',
       '国潮风': 'Chinese guochao style, traditional Chinese elements blended with modern design, auspicious patterns, ink wash texture, red and gold color accents',
@@ -303,39 +300,32 @@ CRITICAL REQUIREMENTS:
 - Appropriate decorative elements and background that match the theme and style`;
 
     const negativePrompt = 'text, words, letters, characters, writing, watermark, logo, signature, caption, subtitle text, realistic photograph, landscape photo, nature scenery, people portrait, low quality, blurry, distorted, ugly';
-    
-    const taskId = deductResult.taskId;
-    
-    setImmediate(async () => {
-      try {
-        const genResult = await aiAdapter.generateImage(model_id, prompt, {
-          n: Math.min(actualCount, 4),
-          size: '768x1024',
-          negative_prompt: negativePrompt,
-        });
-        
-        let images = genResult.images;
-        if (actualCount > 4 && images.length < actualCount) {
-          const more = await aiAdapter.generateImage(model_id, prompt + ' different style variation', {
-            n: Math.min(actualCount - images.length, 4),
+    const deductResult = creditService.createGenerationAndDeduct(
+      req.user.id,
+      'poster',
+      model_id,
+      JSON.stringify({ ...req.body, count: actualCount, image_count: actualCount }),
+      cost,
+      `海报生成 (${actualCount}张)`,
+      {
+        type: 'image.generate',
+        payload: {
+          model_id,
+          prompt,
+          options: {
+            n: actualCount,
             size: '768x1024',
-            negative_prompt: negativePrompt,
-          });
-          images = images.concat(more.images);
+            negative_prompt: negativePrompt
+          },
+          deadline_seconds: 900,
+          result_style: 'canonical',
+          result_metadata: {}
         }
-        images = images.slice(0, actualCount);
-        
-        db.prepare(`UPDATE generations SET result = ?, status = 'success',
-          completed_at = datetime('now','localtime') WHERE id = ?`)
-          .run(JSON.stringify({ images, mock: genResult.mock || false }), taskId);
-          
-      } catch (err) {
-        console.error('海报生成失败:', err);
-        refundFailedGeneration(taskId, err.message);
       }
-    });
-    
-    res.success({ task_id: taskId, cost, new_balance: deductResult.balance }, '任务已提交');
+    );
+
+    if (!deductResult.success) return res.error(deductResult.msg, 402);
+    res.success({ task_id: deductResult.taskId, cost, new_balance: deductResult.balance }, '任务已提交');
     
   } catch (err) {
     console.error(err);
@@ -690,20 +680,7 @@ router.post('/generate/avatar', authRequired, async (req, res) => {
       { name: '图片数量', min: 1, max: 20, defaultValue: 4 }
     );
     const cost = aiAdapter.calculateCost(model_id, actualCount);
-    
-    const deductResult = creditService.createGenerationAndDeduct(
-      req.user.id,
-      'avatar',
-      model_id,
-      JSON.stringify({ ...req.body, count: actualCount, image_count: actualCount }),
-      cost,
-      `AI头像生成 (${actualCount}张)`
-    );
-    
-    if (!deductResult.success) {
-      return res.error(deductResult.msg, 402);
-    }
-    
+
     // 风格描述映射
     const stylePrompts = {
       '证件照': 'ID photo, passport photo style, formal portrait, plain solid background, professional lighting, front facing, neutral expression',
@@ -730,30 +707,33 @@ router.post('/generate/avatar', authRequired, async (req, res) => {
     const prompt = `${styleEn}, ${genderEn} portrait, high quality, detailed face, ${hairstyle ? hairstyle + ' hair, ' : ''}${expression ? expression + ' expression, ' : ''}${clothing ? 'wearing ' + clothing + ', ' : ''}${background ? background + ' background, ' : ''}beautiful composition, professional lighting, sharp focus, ultra detailed`;
     
     const negativePrompt = 'ugly, deformed, blurry, low quality, distorted face, extra fingers, bad anatomy, text, watermark, logo, signature';
-    
-    const taskId = deductResult.taskId;
-    
-    setImmediate(async () => {
-      try {
-        const genResult = await aiAdapter.generateImage(model_id, prompt, {
-          n: actualCount,
-          size: genSize,
-          negative_prompt: negativePrompt,
-        });
-        
-        const images = (genResult.images || []).slice(0, actualCount);
-        
-        db.prepare(`UPDATE generations SET result = ?, status = 'success',
-          completed_at = datetime('now','localtime') WHERE id = ?`)
-          .run(JSON.stringify({ images, mock: genResult.mock || false }), taskId);
-          
-      } catch (err) {
-        console.error('头像生成失败:', err);
-        refundFailedGeneration(taskId, err.message);
+    const deductResult = creditService.createGenerationAndDeduct(
+      req.user.id,
+      'avatar',
+      model_id,
+      JSON.stringify({ ...req.body, count: actualCount, image_count: actualCount }),
+      cost,
+      `AI头像生成 (${actualCount}张)`,
+      {
+        type: 'image.generate',
+        payload: {
+          model_id,
+          prompt,
+          options: {
+            n: actualCount,
+            size: genSize,
+            negative_prompt: negativePrompt,
+            ...(Array.isArray(ref_images) && ref_images.length > 0 ? { ref_image: ref_images } : {})
+          },
+          deadline_seconds: 900,
+          result_style: 'canonical',
+          result_metadata: {}
+        }
       }
-    });
-    
-    res.success({ task_id: taskId, cost, new_balance: deductResult.balance }, '任务已提交');
+    );
+
+    if (!deductResult.success) return res.error(deductResult.msg, 402);
+    res.success({ task_id: deductResult.taskId, cost, new_balance: deductResult.balance }, '任务已提交');
     
   } catch (err) {
     console.error(err);
@@ -781,57 +761,43 @@ router.post('/generate/audio', authRequired, async (req, res) => {
       model_id,
       JSON.stringify(req.body),
       cost,
-      'AI音频合成'
+      'AI音频合成',
+      {
+        type: 'audio.generate',
+        payload: {
+          model_id,
+          input_text: text,
+          options: {
+            response_format,
+            voice: req.body.voice || undefined,
+            dialect: req.body.dialect || undefined,
+            cfg_value: req.body.cfg_value,
+            inference_timesteps: req.body.inference_timesteps,
+            seed: req.body.seed,
+            normalize: req.body.normalize,
+            denoise: req.body.denoise,
+            ref_text: req.body.ref_text || undefined,
+            ref_audio: req.body.ref_audio || undefined,
+            speed: req.body.speed,
+            duration: req.body.duration,
+            num_step: req.body.num_step,
+            language_id: req.body.language_id || undefined,
+            instructions: req.body.instructions || undefined,
+            use_emo_text: req.body.use_emo_text,
+            emo_alpha: req.body.emo_alpha,
+            emo_audio: req.body.emo_audio || undefined,
+            emo_vector: req.body.emo_vector,
+            use_random: req.body.use_random
+          },
+          deadline_seconds: 900,
+          result_style: 'canonical',
+          result_metadata: {}
+        }
+      }
     );
 
-    if (!deductResult.success) {
-      return res.error(deductResult.msg, 402);
-    }
-
-    const taskId = deductResult.taskId;
-
-    setImmediate(async () => {
-      try {
-        const genResult = await aiAdapter.generateAudio(model_id, text, {
-          response_format,
-          voice: req.body.voice || undefined,
-          dialect: req.body.dialect || undefined,
-          cfg_value: req.body.cfg_value,
-          inference_timesteps: req.body.inference_timesteps,
-          seed: req.body.seed,
-          normalize: req.body.normalize,
-          denoise: req.body.denoise,
-          ref_text: req.body.ref_text || undefined,
-          ref_audio: req.body.ref_audio || undefined,
-          speed: req.body.speed,
-          duration: req.body.duration,
-          num_step: req.body.num_step,
-          language_id: req.body.language_id || undefined,
-          instructions: req.body.instructions || undefined,
-          use_emo_text: req.body.use_emo_text,
-          emo_alpha: req.body.emo_alpha,
-          emo_audio: req.body.emo_audio || undefined,
-          emo_vector: req.body.emo_vector,
-          use_random: req.body.use_random,
-        });
-
-        db.prepare(`UPDATE generations SET result = ?, status = 'success',
-          completed_at = datetime('now','localtime') WHERE id = ?`)
-          .run(JSON.stringify({
-            audio_url: genResult.audio_url,
-            file_name: genResult.file_name,
-            format: genResult.format,
-            size: genResult.size,
-            mock: genResult.mock || false
-          }), taskId);
-
-      } catch (err) {
-        console.error('音频生成失败:', err);
-        refundFailedGeneration(taskId, err.message);
-      }
-    });
-
-    res.success({ task_id: taskId, cost, new_balance: deductResult.balance }, '任务已提交');
+    if (!deductResult.success) return res.error(deductResult.msg, 402);
+    res.success({ task_id: deductResult.taskId, cost, new_balance: deductResult.balance }, '任务已提交');
 
   } catch (err) {
     console.error(err);
@@ -853,19 +819,6 @@ router.post('/generate/image', authRequired, async (req, res) => {
       name: '图片数量', min: 1, max: 9, defaultValue: 1
     });
     const cost = aiAdapter.calculateCost(model_id, actualCount);
-
-    const deductResult = creditService.createGenerationAndDeduct(
-      req.user.id,
-      'image',
-      model_id,
-      JSON.stringify({ ...req.body, count: actualCount }),
-      cost,
-      `AI图片生成 (${actualCount}张)`
-    );
-
-    if (!deductResult.success) {
-      return res.error(deductResult.msg, 402);
-    }
 
     const qualityBase = {
       '1K': 1024,
@@ -907,33 +860,35 @@ router.post('/generate/image', authRequired, async (req, res) => {
     const finalPrompt = styleAdd ? `${styleAdd}, ${prompt}` : prompt;
     const defaultNeg = 'ugly, deformed, blurry, low quality, bad anatomy, text, watermark, logo, signature';
     const finalNeg = negative_prompt ? `${defaultNeg}, ${negative_prompt}` : defaultNeg;
+    const options = {
+      n: actualCount,
+      size: genSize,
+      negative_prompt: finalNeg
+    };
+    if (req.body.ref_image) options.ref_image = req.body.ref_image;
 
-    const taskId = deductResult.taskId;
-
-    setImmediate(async () => {
-      try {
-        const genOptions = {
-          n: actualCount,
-          size: genSize,
-          negative_prompt: finalNeg,
-        };
-        if (req.body.ref_image) genOptions.ref_image = req.body.ref_image;
-
-        const genResult = await aiAdapter.generateImage(model_id, finalPrompt, genOptions);
-
-        const allImages = (genResult.images || []).slice(0, actualCount);
-
-        db.prepare(`UPDATE generations SET result = ?, status = 'success',
-          completed_at = datetime('now','localtime') WHERE id = ?`)
-          .run(JSON.stringify({ images: allImages, mock: genResult.mock || false }), taskId);
-
-      } catch (err) {
-        console.error('图片生成失败:', err);
-        refundFailedGeneration(taskId, err.message);
+    const deductResult = creditService.createGenerationAndDeduct(
+      req.user.id,
+      'image',
+      model_id,
+      JSON.stringify({ ...req.body, count: actualCount }),
+      cost,
+      `AI图片生成 (${actualCount}张)`,
+      {
+        type: 'image.generate',
+        payload: {
+          model_id,
+          prompt: finalPrompt,
+          options,
+          deadline_seconds: 900,
+          result_style: 'canonical',
+          result_metadata: {}
+        }
       }
-    });
+    );
 
-    res.success({ task_id: taskId, cost, new_balance: deductResult.balance }, '任务已提交');
+    if (!deductResult.success) return res.error(deductResult.msg, 402);
+    res.success({ task_id: deductResult.taskId, cost, new_balance: deductResult.balance }, '任务已提交');
 
   } catch (err) {
     console.error(err);
@@ -1198,41 +1153,27 @@ router.post('/editor/dewatermark', authRequired, async (req, res) => {
       model_id,
       JSON.stringify({ action: 'dewatermark' }),
       cost,
-      'AI去水印'
-    );
-
-    if (!deductResult.success) {
-      return res.error(deductResult.msg, 402);
-    }
-
-    const taskId = deductResult.taskId;
-
-    setImmediate(async () => {
-      try {
-        // 用inpainting思路：原图 + 蒙版（白色为需要修复的区域）
-        // prompt引导AI修复被涂抹区域
-        const genResult = await aiAdapter.editImage(model_id, 
-          'Remove the watermark, text or unwanted object from this area and restore the background naturally, seamlessly, high quality, photorealistic', 
-          {
+      'AI去水印',
+      {
+        type: 'image.edit',
+        payload: {
+          model_id,
+          prompt: 'Remove the watermark, text or unwanted object from this area and restore the background naturally, seamlessly, high quality, photorealistic',
+          options: {
             n: 1,
             ref_image: image,
-            mask: mask,
-            size: '1024x1024',
-          });
-
-        const allImages = (genResult.images || []).slice(0, 1);
-
-        db.prepare(`UPDATE generations SET result = ?, status = 'success',
-          completed_at = datetime('now','localtime') WHERE id = ?`)
-          .run(JSON.stringify({ images: allImages, mock: genResult.mock || false }), taskId);
-
-      } catch (err) {
-        console.error('AI去水印失败:', err);
-        refundFailedGeneration(taskId, err.message);
+            mask,
+            size: '1024x1024'
+          },
+          deadline_seconds: 900,
+          result_style: 'canonical',
+          result_metadata: {}
+        }
       }
-    });
+    );
 
-    res.success({ task_id: taskId, cost, new_balance: deductResult.balance }, '任务已提交');
+    if (!deductResult.success) return res.error(deductResult.msg, 402);
+    res.success({ task_id: deductResult.taskId, cost, new_balance: deductResult.balance }, '任务已提交');
 
   } catch (err) {
     console.error(err);
@@ -1242,103 +1183,6 @@ router.post('/editor/dewatermark', authRequired, async (req, res) => {
 
 // ============ GIF表情包工作室 ============
 
-const { exec } = require('child_process');
-const path = require('path');
-const fs = require('fs');
-
-// GIF生成任务状态（内存存储，进程重启会丢，简单够用）
-const gifTasks = new Map();
-
-// 清理30分钟前的老任务
-setInterval(() => {
-  const now = Date.now();
-  for (const [id, task] of gifTasks) {
-    if (now - task.created_at > 30 * 60 * 1000) {
-      gifTasks.delete(id);
-    }
-  }
-}, 5 * 60 * 1000);
-
-/**
- * 用ffmpeg把mp4转成GIF
- * 先下载到本地再转码，避免HTTP流式读取提前断开的问题
- */
-async function videoToGif(videoUrl, outputPath, duration, ratio) {
-  const fetch = globalThis.fetch || require('node-fetch');
-  const fs = require('fs');
-  const path = require('path');
-
-  // 先下载视频到临时文件
-  const tmpVideoPath = outputPath.replace(/\.gif$/, '.tmp.mp4');
-  const isLocalFile = videoUrl.startsWith('/uploads/');
-
-  if (isLocalFile) {
-    const uploadsRoot = path.resolve(__dirname, '..', 'public', 'uploads');
-    const fullPath = path.resolve(__dirname, '..', 'public', '.' + videoUrl);
-    if (!fullPath.startsWith(uploadsRoot + path.sep)) {
-      throw new Error('视频文件路径无效');
-    }
-    if (!fs.existsSync(fullPath)) {
-      throw new Error('视频文件不存在: ' + fullPath);
-    }
-    fs.copyFileSync(fullPath, tmpVideoPath);
-    const stats = fs.statSync(tmpVideoPath);
-    if (stats.size < 10000) {
-      try { fs.unlinkSync(tmpVideoPath); } catch (_) {}
-      throw new Error('视频文件过小，可能不完整: ' + stats.size + ' bytes');
-    }
-  } else {
-    try {
-      const resp = await safeRequest(videoUrl, { timeoutMs: 60_000, maxBytes: 200 * 1024 * 1024 });
-      if (resp.status < 200 || resp.status >= 300) {
-        throw new Error('视频下载失败: HTTP ' + resp.status);
-      }
-      const buffer = resp.body;
-      fs.writeFileSync(tmpVideoPath, buffer);
-
-      if (buffer.length < 10000) {
-        throw new Error('视频文件过小，可能下载不完整: ' + buffer.length + ' bytes');
-      }
-    } catch (e) {
-      // 下载失败的话清理临时文件并抛出
-      try { fs.unlinkSync(tmpVideoPath); } catch (_) {}
-      throw e;
-    }
-  }
-
-
-  // 时长截断参数（如果指定了duration）
-  const tParam = duration && duration > 0 ? `-t ${duration}` : '';
-
-  // 1:1比例时，裁剪为正方形（取中间区域）
-  const isSquare = ratio === '1:1';
-  // crop滤镜：先缩放到宽度480，然后裁成480x480正方形，取中间
-  const cropFilter = isSquare
-    ? ',crop=iw:iw:0:(ih-iw)/2'
-    : '';
-
-  return new Promise((resolve, reject) => {
-    // 用本地文件转GIF - 高质量版（palette）
-    const cmd = `ffmpeg -y ${tParam} -i "${tmpVideoPath}" -vf "fps=15,scale=480:-1:flags=lanczos${cropFilter},split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" -loop 0 "${outputPath}" 2>&1`;
-    const timeout = 120000;
-    const child = exec(cmd, { timeout }, (error, stdout, stderr) => {
-      if (error) {
-        // 失败了试试简化版
-        const cmd2 = `ffmpeg -y ${tParam} -i "${tmpVideoPath}" -vf "fps=12,scale=360:-1${cropFilter}" -loop 0 "${outputPath}" 2>&1`;
-        exec(cmd2, { timeout: 60000 }, (err2) => {
-          // 不管转码成功失败都删掉临时视频
-          try { fs.unlinkSync(tmpVideoPath); } catch (_) {}
-          if (err2) reject(err2);
-          else resolve(outputPath);
-        });
-      } else {
-        try { fs.unlinkSync(tmpVideoPath); } catch (_) {}
-        resolve(outputPath);
-      }
-    });
-  });
-}
-
 // 提交GIF生成任务
 router.post('/generate/gif', authRequired, async (req, res) => {
   try {
@@ -1346,23 +1190,24 @@ router.post('/generate/gif', authRequired, async (req, res) => {
 
     if (!model_id) return res.error('请选择模型');
     if (!prompt || !prompt.trim()) return res.error('请输入描述内容');
-    if (mode === 'image' && !ref_image) return res.error('图生GIF请上传图片');
 
     const model = aiAdapter.getEnabledModels('video').find(m => m.id === parseInt(model_id));
     if (!model) return res.error('视频模型不存在或未启用');
-
-    // 模式与模型能力校验
-    // 图片非空校验（兼容单图字符串和多图数组）
-    const hasImage = Array.isArray(ref_image)
-      ? ref_image.length > 0 && ref_image.some(img => img && img.trim() !== '')
-      : ref_image && ref_image.trim() !== '';
-    if ((mode === 'image_firstframe' || mode === 'image_reference') && !hasImage) {
-      return res.error('请上传图片');
-    }
     if (!['text', 'image', 'image_firstframe', 'image_reference'].includes(mode)) {
       return res.error('不支持的生成模式');
     }
+
+    const hasImage = Array.isArray(ref_image)
+      ? ref_image.some(img => typeof img === 'string' && img.trim())
+      : typeof ref_image === 'string' && ref_image.trim();
+    if (mode !== 'text' && !hasImage) return res.error('请上传图片');
+
     const modelLower = (model.name || '').toLowerCase();
+    const isMultiImageModel = Boolean(model.api_endpoint && (
+      model.api_endpoint.includes('api.paipu.net')
+      || model.api_endpoint.includes('/v1/video/generations')
+      || model.api_endpoint.includes('mzsjai.com')
+    ));
     if (mode === 'image_reference' && modelLower.includes('veo')) {
       return res.error('Veo 模型不支持参考图模式，请使用首帧图生视频模式');
     }
@@ -1376,138 +1221,53 @@ router.post('/generate/gif', authRequired, async (req, res) => {
     const cost = aiAdapter.calculateCost(model_id, { duration: actualDuration });
     if (cost === null) return res.error('无法计算价格');
 
-    // 扣积分
+    let finalPrompt = prompt;
+    if (mode === 'image_firstframe') {
+      finalPrompt = '以下图片是视频的第一帧，请基于这张图片和描述生成连贯的视频，视频必须从这张图片的画面开始。\n\n' + prompt;
+    } else if (mode === 'image_reference') {
+      finalPrompt = '请参考以下图片中的人物外貌、风格和特征，生成符合描述的视频。\n\n' + prompt;
+    }
+
+    let submitRefImage = '';
+    if (mode !== 'text') {
+      submitRefImage = Array.isArray(ref_image) && !isMultiImageModel
+        ? (ref_image.find(img => typeof img === 'string' && img.trim()) || '')
+        : ref_image;
+    }
+
+    const publicId = 'gif_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
     const deductResult = creditService.createGenerationAndDeduct(
       req.user.id,
       'gif',
       model_id,
       JSON.stringify({ prompt, mode, ref_image, duration: actualDuration, ratio }),
       cost,
-      `GIF表情包生成`
-    );
-    if (!deductResult.success) return res.error(deductResult.message || '积分不足');
-
-    // 生成任务ID
-    const taskId = 'gif_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
-    const tmpDir = path.join(__dirname, '..', 'tmp');
-    if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
-
-    // 记录任务
-    gifTasks.set(taskId, {
-      id: taskId,
-      user_id: req.user.id,
-      model_id,
-      prompt,
-      mode,
-      status: 'submitting', // submitting / generating / converting / success / failed
-      progress: 0,
-      gif_url: '',
-      video_url: '',
-      error_msg: '',
-      created_at: Date.now(),
-    });
-
-    const genId = deductResult.taskId;
-
-    // 异步执行
-    setImmediate(async () => {
-      try {
-        // 更新状态
-        const task = gifTasks.get(taskId);
-        if (!task) return;
-        task.status = 'generating';
-        task.progress = 5;
-
-        // 提交视频生成任务
-        // veo只支持16:9/9:16，选1:1时先生成9:16竖屏，转GIF时再裁成正方形
-        const videoRatio = ratio === '1:1' ? '9:16' : ratio;
-        const submitResult = await aiAdapter.submitVideoTask(model_id, prompt, {
+      'GIF表情包生成',
+      {
+        publicId,
+        type: 'video.generate-gif',
+        payload: {
+          model_id,
+          prompt: finalPrompt,
+          options: {
+            duration: actualDuration,
+            ratio: ratio === '1:1' ? '9:16' : ratio,
+            ref_image: submitRefImage,
+            mode,
+            model_mode: 'fast'
+          },
           duration: actualDuration,
-          ratio: videoRatio,
-          ref_image: mode === 'image' ? ref_image : '',
-          model_mode: 'fast', // 生成模式：fast / standard / lite
-        });
-
-        const videoTaskId = submitResult.task_id;
-
-        // 轮询视频生成结果
-        const maxWait = 15 * 60 * 1000; // 最多等15分钟
-        const startTime = Date.now();
-        let videoUrl = '';
-
-        while (Date.now() - startTime < maxWait) {
-          const status = await aiAdapter.getVideoTaskStatus(model_id, videoTaskId);
-
-          if (status.status === 'succeeded') {
-            videoUrl = status.video_url || '';
-            break;
-          } else if (status.status === 'failed') {
-            throw new Error(status.error || '视频生成失败');
-          } else {
-            // processing
-            const task2 = gifTasks.get(taskId);
-            if (task2) {
-              task2.progress = Math.min(75, 10 + Math.floor((Date.now() - startTime) / 4000));
-            }
-          }
-
-          await new Promise(r => setTimeout(r, 5000));
+          ratio,
+          mode,
+          deadline_seconds: 900,
+          result_style: 'legacy',
+          result_metadata: {}
         }
-
-        if (!videoUrl) {
-          throw new Error('视频生成超时');
-        }
-
-        // 开始转GIF
-        const task3 = gifTasks.get(taskId);
-        if (task3) {
-          task3.status = 'converting';
-          task3.progress = 80;
-          task3.video_url = videoUrl;
-        }
-
-        const gifFileName = `${taskId}.gif`;
-        const gifFilePath = path.join(tmpDir, gifFileName);
-        await videoToGif(videoUrl, gifFilePath, actualDuration, ratio);
-
-        // 转成uploads目录下的URL
-        const uploadsDir = path.join(__dirname, '..', 'public', 'uploads');
-        if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
-        const finalFileName = `gif_${Date.now()}_${Math.random().toString(36).slice(2,8)}.gif`;
-        const finalPath = path.join(uploadsDir, finalFileName);
-        fs.copyFileSync(gifFilePath, finalPath);
-
-        // 清理临时文件
-        try { fs.unlinkSync(gifFilePath); } catch (e) {}
-
-        const finalUrl = '/uploads/' + finalFileName;
-
-        // 更新任务状态
-        const task4 = gifTasks.get(taskId);
-        if (task4) {
-          task4.status = 'success';
-          task4.progress = 100;
-          task4.gif_url = finalUrl;
-        }
-
-        // 更新生成记录
-        db.prepare(`UPDATE generations SET status = 'success', result = ?, completed_at = datetime('now','localtime') WHERE id = ?`)
-          .run(JSON.stringify({ gif: finalUrl, video: videoUrl }), genId);
-
-      } catch (err) {
-        console.error('GIF生成失败:', err);
-        const task5 = gifTasks.get(taskId);
-        if (task5) {
-          task5.status = 'failed';
-          task5.error_msg = err.message || '生成失败';
-        }
-        // 更新记录+退款
-        refundFailedGeneration(genId, err.message);
       }
-    });
+    );
+    if (!deductResult.success) return res.error(deductResult.msg || '积分不足', 402);
 
-    res.success({ task_id: taskId, cost, new_balance: deductResult.balance }, '任务已提交');
-
+    res.success({ task_id: publicId, cost, new_balance: deductResult.balance }, '任务已提交');
   } catch (err) {
     console.error('GIF生成提交失败:', err);
     res.error('提交失败：' + err.message);
@@ -1516,21 +1276,17 @@ router.post('/generate/gif', authRequired, async (req, res) => {
 
 // 查询GIF任务状态
 router.get('/generate/gif/:taskId', authRequired, (req, res) => {
-  const task = gifTasks.get(req.params.taskId);
-  if (!task) {
-    return res.error('任务不存在或已过期');
-  }
-  // 只能看自己的任务
-  if (task.user_id !== req.user.id) {
-    return res.error('无权查看');
-  }
+  const task = getPublicGenerationTask(req.params.taskId, req.user.id, 'gif');
+  if (!task) return res.error('任务不存在或已过期');
+
+  const result = parseGenerationResult(task.result);
   res.success({
-    task_id: task.id,
-    status: task.status,
-    progress: task.progress,
-    gif_url: task.gif_url,
-    video_url: task.video_url,
-    error_msg: task.error_msg,
+    task_id: task.public_id,
+    status: mapPublicTaskStatus(task),
+    progress: task.status === 'success' ? 100 : task.status === 'failed' ? 0 : task.progress,
+    gif_url: result.gif_url || result.gif || '',
+    video_url: result.video_url || result.video || '',
+    error_msg: task.error_msg || task.last_error || ''
   });
 });
 
@@ -1577,19 +1333,6 @@ const IDPHOTO_SUITS = {
   'military': { name: '制式服装', prompt: 'wearing formal uniform, official attire, professional' },
 };
 
-// 证件照任务状态（内存存储）
-const idPhotoTasks = new Map();
-
-// 清理30分钟前的老任务
-setInterval(() => {
-  const now = Date.now();
-  for (const [id, task] of idPhotoTasks) {
-    if (now - task.created_at > 30 * 60 * 1000) {
-      idPhotoTasks.delete(id);
-    }
-  }
-}, 5 * 60 * 1000);
-
 // 提交证件照生成任务
 router.post('/generate/idphoto', authRequired, async (req, res) => {
   try {
@@ -1624,129 +1367,57 @@ router.post('/generate/idphoto', authRequired, async (req, res) => {
     const totalCost = aiAdapter.calculateCost(model_id, actualCount);
     if (totalCost === null) return res.error('无法计算价格');
 
+    const genderPrompt = gender === 'male' ? 'man' : gender === 'female' ? 'woman' : 'person';
+    const bgPrompt = `solid ${bgConfig.name} background, uniform plain ${bgConfig.hex} color background`;
+    const prompt = `professional ID photo, passport photo style, ${genderPrompt} portrait,
+      front facing, neutral expression, looking at camera,
+      ${suitConfig.prompt || ''}
+      ${bgPrompt},
+      soft studio lighting, even lighting on face, no shadows on background,
+      high quality, sharp focus, detailed face, photorealistic,
+      standard composition, head and shoulders portrait,
+      centered face, proper framing for official ID photo`;
+    const negativePrompt = `smiling, laughing, open mouth, profile view, side view, tilted head,
+      glasses reflection, hat, jewelry, earrings, necklace,
+      blurry, low quality, distorted, ugly, deformed,
+      text, watermark, logo, signature, caption,
+      busy background, patterned background, gradient background,
+      dramatic lighting, shadows on face, uneven lighting`;
+
     const deductResult = creditService.createGenerationAndDeduct(
       req.user.id,
       'idphoto',
       model_id,
-      JSON.stringify({
-        bg_color, size, suit, gender, quality, num_photos: actualCount
-      }),
+      JSON.stringify({ bg_color, size, suit, gender, quality, num_photos: actualCount }),
       totalCost,
-      `AI证件照(${sizeConfig.name})`
+      `AI证件照(${sizeConfig.name})`,
+      {
+        type: 'image.generate',
+        payload: {
+          model_id,
+          prompt,
+          options: {
+            n: actualCount,
+            ref_image,
+            size: sizeConfig.height > sizeConfig.width ? '768x1024' : '1024x1024',
+            negative_prompt: negativePrompt
+          },
+          deadline_seconds: 900,
+          result_style: 'canonical',
+          result_metadata: {
+            bg_color,
+            size,
+            size_info: sizeConfig
+          }
+        }
+      }
     );
 
-    if (!deductResult.success) {
-      return res.error(deductResult.msg, 402);
-    }
-
-    const taskId = deductResult.taskId;
-
-    // 初始化任务状态
-    idPhotoTasks.set(taskId, {
-      id: taskId,
-      user_id: req.user.id,
-      status: 'generating',
-      progress: 10,
-      created_at: Date.now(),
-    });
-
-    // 异步生成
-    setImmediate(async () => {
-      try {
-        // 构建证件照prompt
-        const genderPrompt = gender === 'male' ? 'man' : 
-                            gender === 'female' ? 'woman' : 
-                            'person';
-        
-        const bgPrompt = `solid ${bgConfig.name} background, uniform plain ${bgConfig.hex} color background`;
-        const suitPrompt = suitConfig.prompt || '';
-        
-        const prompt = `professional ID photo, passport photo style, ${genderPrompt} portrait, 
-          front facing, neutral expression, looking at camera, 
-          ${suitPrompt}
-          ${bgPrompt},
-          soft studio lighting, even lighting on face, no shadows on background,
-          high quality, sharp focus, detailed face, photorealistic,
-          standard composition, head and shoulders portrait, 
-          centered face, proper framing for official ID photo`;
-        
-        const negativePrompt = `smiling, laughing, open mouth, profile view, side view, tilted head, 
-          glasses reflection, hat, jewelry, earrings, necklace,
-          blurry, low quality, distorted, ugly, deformed, 
-          text, watermark, logo, signature, caption,
-          busy background, patterned background, gradient background,
-          dramatic lighting, shadows on face, uneven lighting`;
-
-        // 计算生成尺寸：取证件照尺寸按比例放大到模型支持的范围
-        const targetW = sizeConfig.width;
-        const targetH = sizeConfig.height;
-        
-        // 模型一般支持1024级别，按比例放大
-        let genSize = '1024x1024';
-        if (targetH > targetW) {
-          // 竖版证件照
-          genSize = '768x1024'; // 3:4 比例
-        }
-
-        // 生成指定数量的证件照
-        let allImages = [];
-        
-        // 分批生成（每次最多2张更稳定）
-        const batchSize = 2;
-        for (let batch = 0; batch < Math.ceil(actualCount / batchSize); batch++) {
-          const batchCount = Math.min(batchSize, actualCount - batch * batchSize);
-          const genResult = await aiAdapter.generateImage(model_id, prompt, {
-            n: batchCount,
-            ref_image: ref_image,
-            size: genSize,
-            negative_prompt: negativePrompt,
-          });
-          allImages = allImages.concat(genResult.images || []);
-        }
-        
-        allImages = allImages.slice(0, actualCount);
-
-        // 更新任务状态
-        idPhotoTasks.set(taskId, {
-          id: taskId,
-          user_id: req.user.id,
-          status: 'success',
-          progress: 100,
-          created_at: Date.now(),
-          images: allImages,
-          bg_color: bg_color,
-          size: size,
-          size_info: sizeConfig,
-        });
-
-        db.prepare(`UPDATE generations SET result = ?, status = 'success',
-          completed_at = datetime('now','localtime') WHERE id = ?`)
-          .run(JSON.stringify({ 
-            images: allImages, 
-            bg_color, 
-            size,
-            size_info: sizeConfig,
-            mock: false 
-          }), taskId);
-
-      } catch (err) {
-        console.error('证件照生成失败:', err);
-        idPhotoTasks.set(taskId, {
-          id: taskId,
-          user_id: req.user.id,
-          status: 'failed',
-          progress: 0,
-          created_at: Date.now(),
-          error_msg: err.message,
-        });
-        refundFailedGeneration(taskId, err.message);
-      }
-    });
-
-    res.success({ 
-      task_id: taskId, 
-      cost: totalCost, 
-      new_balance: deductResult.balance 
+    if (!deductResult.success) return res.error(deductResult.msg, 402);
+    res.success({
+      task_id: deductResult.taskId,
+      cost: totalCost,
+      new_balance: deductResult.balance
     }, '证件照生成任务已提交');
 
   } catch (err) {
@@ -1757,61 +1428,30 @@ router.post('/generate/idphoto', authRequired, async (req, res) => {
 
 // 查询证件照任务状态
 router.get('/generate/idphoto/:taskId', authRequired, (req, res) => {
-  const taskId = parseInt(req.params.taskId);
-  const task = idPhotoTasks.get(taskId);
-  
-  if (!task) {
-    // 内存里没有的话查数据库（可能是历史任务或服务重启了）
-    const record = db.prepare('SELECT * FROM generations WHERE id = ? AND studio_type = ?').get(taskId, 'idphoto');
-    if (!record) {
-      return res.error('任务不存在或已过期');
-    }
-    if (record.user_id !== req.user.id) {
-      return res.error('无权查看');
-    }
-    const resultData = record.result ? JSON.parse(record.result) : {};
-    return res.success({
-      task_id: record.id,
-      status: record.status,
-      progress: record.status === 'success' ? 100 : record.status === 'failed' ? 0 : 50,
-      images: resultData.images || [],
-      bg_color: resultData.bg_color,
-      size: resultData.size,
-      size_info: resultData.size_info,
-      error_msg: record.error_msg,
-    });
-  }
-  
-  // 只能看自己的任务
-  if (task.user_id !== req.user.id) {
-    return res.error('无权查看');
-  }
+  const taskId = Number(req.params.taskId);
+  if (!Number.isSafeInteger(taskId) || taskId < 1) return res.error('任务不存在或已过期');
+
+  const record = db.prepare(`SELECT generations.*, generation_jobs.progress AS job_progress
+    FROM generations
+    LEFT JOIN generation_jobs ON generation_jobs.generation_id = generations.id
+    WHERE generations.id = ? AND generations.user_id = ? AND generations.studio_type = ?`)
+    .get(taskId, req.user.id, 'idphoto');
+  if (!record) return res.error('任务不存在或已过期');
+
+  const result = parseGenerationResult(record.result);
   res.success({
-    task_id: task.id,
-    status: task.status,
-    progress: task.progress,
-    images: task.images || [],
-    bg_color: task.bg_color,
-    size: task.size,
-    size_info: task.size_info,
-    error_msg: task.error_msg,
+    task_id: record.id,
+    status: record.status,
+    progress: record.status === 'success' ? 100 : record.status === 'failed' ? 0 : (record.job_progress || 0),
+    images: result.images || [],
+    bg_color: result.bg_color,
+    size: result.size,
+    size_info: result.size_info,
+    error_msg: record.error_msg || ''
   });
 });
 
-
-
 // ============ AI视频生成（纯视频，不走GIF转码） ============
-const videoGenTasks = new Map();
-
-// 清理过期任务（超过1小时的）
-setInterval(() => {
-  const now = Date.now();
-  for (const [id, task] of videoGenTasks) {
-    if (now - task.created_at > 60 * 60 * 1000) {
-      videoGenTasks.delete(id);
-    }
-  }
-}, 10 * 60 * 1000);
 
 // 提交视频生成任务
 router.post('/generate/video-gen', authRequired, async (req, res) => {
@@ -1875,130 +1515,51 @@ router.post('/generate/video-gen', authRequired, async (req, res) => {
     const cost = aiAdapter.calculateCost(model_id, { duration: actualDuration });
     if (cost === null) return res.error('无法计算价格');
 
-    // 扣积分
+    let finalPrompt = prompt;
+    if (mode === 'image_firstframe') {
+      finalPrompt = '以下图片是视频的第一帧，请基于这张图片和描述生成连贯的视频，视频必须从这张图片的画面开始。\n\n' + prompt;
+    } else if (mode === 'image_reference') {
+      finalPrompt = '请参考以下图片中的人物外貌、风格和特征，生成符合描述的视频。\n\n' + prompt;
+    }
+
+    let submitRefImage = '';
+    if (mode === 'image_firstframe' || mode === 'image_reference') {
+      const isMultiImageModel = isPaipu || isMinimax;
+      submitRefImage = Array.isArray(ref_image) && !isMultiImageModel
+        ? (ref_image.find(img => typeof img === 'string' && img.trim()) || '')
+        : ref_image;
+    }
+
+    const publicId = 'video_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
     const deductResult = creditService.createGenerationAndDeduct(
       req.user.id,
       'video-gen',
       model_id,
       JSON.stringify({ prompt, mode, ref_image, duration: actualDuration, ratio }),
       cost,
-      `AI视频生成`
-    );
-    if (!deductResult.success) return res.error(deductResult.message || '积分不足');
-
-    // 生成任务ID
-    const taskId = 'video_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
-
-    // 记录任务
-    videoGenTasks.set(taskId, {
-      id: taskId,
-      user_id: req.user.id,
-      model_id,
-      prompt,
-      mode,
-      status: 'submitting',
-      progress: 0,
-      video_url: '',
-      error_msg: '',
-      created_at: Date.now(),
-    });
-
-    const genId = deductResult.taskId;
-
-    // 异步执行
-    setImmediate(async () => {
-      try {
-        const task = videoGenTasks.get(taskId);
-        if (!task) return;
-        task.status = 'generating';
-        task.progress = 5;
-
-        // 提交视频生成任务
-        // 不同模式在 prompt 前加前缀引导模型正确理解图片用途
-        let finalPrompt = prompt;
-        if (mode === 'image_firstframe') {
-          finalPrompt = '以下图片是视频的第一帧，请基于这张图片和描述生成连贯的视频，视频必须从这张图片的画面开始。\n\n' + prompt;
-        } else if (mode === 'image_reference') {
-          finalPrompt = '请参考以下图片中的人物外貌、风格和特征，生成符合描述的视频。\n\n' + prompt;
+      'AI视频生成',
+      {
+        publicId,
+        type: 'video.generate',
+        payload: {
+          model_id,
+          prompt: finalPrompt,
+          options: {
+            duration: actualDuration,
+            ratio,
+            ref_image: submitRefImage,
+            mode,
+            model_mode: 'fast'
+          },
+          deadline_seconds: 7200,
+          result_style: 'legacy',
+          result_metadata: {}
         }
-
-        // ref_image 兼容：单图模型取第一张，多图模型传数组
-        let submitRefImage = '';
-        if (mode === 'image_firstframe' || mode === 'image_reference') {
-          if (Array.isArray(ref_image) && ref_image.length > 0) {
-            // paipu 模型支持数组直接传，其他模型只取第一张
-            const modelObj = aiAdapter.getEnabledModels('video').find(m => m.id === parseInt(model_id));
-            const isPaipuModel = modelObj && modelObj.api_endpoint && modelObj.api_endpoint.includes('api.paipu.net');
-            const isMinimaxMultiImage = modelObj && modelObj.api_endpoint && (modelObj.api_endpoint.includes("/v1/video/generations") || modelObj.api_endpoint.includes("mzsjai.com"));
-            const isMultiImageModel = isPaipuModel || isMinimaxMultiImage;
-            if (isMultiImageModel) {
-              submitRefImage = ref_image;
-            } else {
-              submitRefImage = ref_image[0] || '';
-            }
-          } else {
-            submitRefImage = ref_image;
-          }
-        }
-
-        const submitResult = await aiAdapter.submitVideoTask(model_id, finalPrompt, {
-          duration: actualDuration,
-          ratio,
-          ref_image: submitRefImage,
-          model_mode: 'fast',
-        });
-
-        const videoTaskId = submitResult.task_id;
-
-        // 轮询视频生成结果
-        const maxWait = 120 * 60 * 1000;
-        const startTime = Date.now();
-        let videoUrl = '';
-
-        while (Date.now() - startTime < maxWait) {
-          const status = await aiAdapter.getVideoTaskStatus(model_id, videoTaskId);
-
-          if (status.status === 'succeeded') {
-            videoUrl = status.video_url || '';
-            break;
-          } else if (status.status === 'failed') {
-            throw new Error(status.error || '视频生成失败');
-          } else {
-            const t = videoGenTasks.get(taskId);
-            if (t) {
-              t.progress = Math.min(90, 5 + Math.floor((Date.now() - startTime) / 6000));
-            }
-          }
-
-          await new Promise(r => setTimeout(r, 5000));
-        }
-
-        if (!videoUrl) {
-          throw new Error('视频生成超时');
-        }
-
-        const t2 = videoGenTasks.get(taskId);
-        if (t2) {
-          t2.status = 'success';
-          t2.progress = 100;
-          t2.video_url = videoUrl;
-        }
-
-        db.prepare(`UPDATE generations SET status = 'success', result = ?, completed_at = datetime('now','localtime') WHERE id = ?`)
-          .run(JSON.stringify({ video: videoUrl }), genId);
-
-      } catch (err) {
-        console.error('视频生成失败:', err);
-        const t3 = videoGenTasks.get(taskId);
-        if (t3) {
-          t3.status = 'failed';
-          t3.error_msg = err.message || '生成失败';
-        }
-        refundFailedGeneration(genId, err.message);
       }
-    });
+    );
+    if (!deductResult.success) return res.error(deductResult.msg || '积分不足', 402);
 
-    res.success({ task_id: taskId, cost, new_balance: deductResult.balance }, '任务已提交');
+    res.success({ task_id: publicId, cost, new_balance: deductResult.balance }, '任务已提交');
 
   } catch (err) {
     console.error('视频生成提交失败:', err);
@@ -2008,19 +1569,16 @@ router.post('/generate/video-gen', authRequired, async (req, res) => {
 
 // 查询视频生成任务状态
 router.get('/generate/video-gen/:taskId', authRequired, (req, res) => {
-  const task = videoGenTasks.get(req.params.taskId);
-  if (!task) {
-    return res.error('任务不存在或已过期');
-  }
-  if (task.user_id !== req.user.id) {
-    return res.error('无权查看');
-  }
+  const task = getPublicGenerationTask(req.params.taskId, req.user.id, 'video-gen');
+  if (!task) return res.error('任务不存在或已过期');
+
+  const result = parseGenerationResult(task.result);
   res.success({
-    task_id: task.id,
-    status: task.status,
-    progress: task.progress,
-    video_url: task.video_url,
-    error_msg: task.error_msg,
+    task_id: task.public_id,
+    status: mapPublicTaskStatus(task),
+    progress: task.status === 'success' ? 100 : task.status === 'failed' ? 0 : task.progress,
+    video_url: result.video_url || result.video || '',
+    error_msg: task.error_msg || task.last_error || ''
   });
 });
 
@@ -2174,18 +1732,6 @@ router.post('/generate/prompt-extract', authRequired, async (req, res) => {
 
 // ==================== 视频换人工作室 ====================
 
-const faceSwapTasks = new Map();
-
-// 清理过期任务（每5分钟检查一次，超过2小时的任务清除）
-setInterval(() => {
-  const now = Date.now();
-  for (const [id, task] of faceSwapTasks) {
-    if (now - task.created_at > 2 * 60 * 60 * 1000) {
-      faceSwapTasks.delete(id);
-    }
-  }
-}, 5 * 60 * 1000);
-
 router.post('/generate/face-swap', authRequired, async (req, res) => {
   try {
     const { model_id, prompt = '', video_url, image_url, duration = 5, ratio = '16:9' } = req.body;
@@ -2206,124 +1752,35 @@ router.post('/generate/face-swap', authRequired, async (req, res) => {
     // 视频换人价格加倍（更复杂）
     const finalCost = Math.round((cost * 1.5 + Number.EPSILON) * 100) / 100;
 
+    const publicId = 'faceswap_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
     const deductResult = creditService.createGenerationAndDeduct(
       req.user.id,
       'face-swap',
       model_id,
       JSON.stringify({ prompt, video_url, image_url, duration: actualDuration, ratio }),
       finalCost,
-      '视频换人'
-    );
-    if (!deductResult.success) return res.error(deductResult.message || '积分不足');
-
-    const taskId = 'faceswap_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
-
-    faceSwapTasks.set(taskId, {
-      id: taskId,
-      user_id: req.user.id,
-      model_id,
-      status: 'submitting',
-      progress: 0,
-      video_url: '',
-      error_msg: '',
-      created_at: Date.now(),
-    });
-
-    const genId = deductResult.taskId;
-
-    // 异步执行
-    setImmediate(async () => {
-      try {
-        const task = faceSwapTasks.get(taskId);
-        if (!task) return;
-        task.status = 'generating';
-        task.progress = 5;
-
-        const submitResult = await aiAdapter.submitFaceSwapTask(model_id, prompt || '将视频中的人物替换为参考图片中的人物，保持动作和背景不变', {
-          duration: actualDuration,
-          ratio,
-          video_url,
-          image_url,
-        });
-
-        const videoTaskId = submitResult.task_id;
-
-        // 如果是同步返回
-        if (submitResult.sync) {
-          const t = faceSwapTasks.get(taskId);
-          if (t) {
-            t.status = 'success';
-            t.progress = 100;
-            t.video_url = submitResult.raw?.video_url || '';
-          }
-          db.prepare(`UPDATE generations SET status = 'success', result = ?, completed_at = datetime('now','localtime') WHERE id = ?`)
-            .run(JSON.stringify({ video: t.video_url }), genId);
-          return;
+      '视频换人',
+      {
+        publicId,
+        type: 'video.face-swap',
+        payload: {
+          model_id,
+          prompt: prompt || '将视频中的人物替换为参考图片中的人物，保持动作和背景不变',
+          options: {
+            duration: actualDuration,
+            ratio,
+            video_url,
+            image_url
+          },
+          deadline_seconds: 7200,
+          result_style: 'legacy',
+          result_metadata: {}
         }
-
-        // mock 模式
-        if (submitResult.mock) {
-          await new Promise(r => setTimeout(r, 3000));
-          const t = faceSwapTasks.get(taskId);
-          if (t) {
-            t.status = 'success';
-            t.progress = 100;
-            t.video_url = 'https://www.w3schools.com/html/mov_bbb.mp4';
-          }
-          db.prepare(`UPDATE generations SET status = 'success', result = ?, completed_at = datetime('now','localtime') WHERE id = ?`)
-            .run(JSON.stringify({ video: t.video_url, mock: true }), genId);
-          return;
-        }
-
-        // 轮询结果（复用视频任务状态查询逻辑）
-        const maxWait = 120 * 60 * 1000;
-        const startTime = Date.now();
-        let videoUrl = '';
-
-        while (Date.now() - startTime < maxWait) {
-          const status = await aiAdapter.getVideoTaskStatus(model_id, videoTaskId);
-
-          if (status.status === 'succeeded') {
-            videoUrl = status.video_url || '';
-            break;
-          } else if (status.status === 'failed') {
-            throw new Error(status.error || '视频换人生成失败');
-          } else {
-            const t = faceSwapTasks.get(taskId);
-            if (t) {
-              t.progress = Math.min(90, 5 + Math.floor((Date.now() - startTime) / 6000));
-            }
-          }
-
-          await new Promise(r => setTimeout(r, 5000));
-        }
-
-        if (!videoUrl) {
-          throw new Error('视频换人生成超时');
-        }
-
-        const t2 = faceSwapTasks.get(taskId);
-        if (t2) {
-          t2.status = 'success';
-          t2.progress = 100;
-          t2.video_url = videoUrl;
-        }
-
-        db.prepare(`UPDATE generations SET status = 'success', result = ?, completed_at = datetime('now','localtime') WHERE id = ?`)
-          .run(JSON.stringify({ video: videoUrl }), genId);
-
-      } catch (err) {
-        console.error('视频换人失败:', err);
-        const t3 = faceSwapTasks.get(taskId);
-        if (t3) {
-          t3.status = 'failed';
-          t3.error_msg = err.message || '生成失败';
-        }
-        refundFailedGeneration(genId, err.message);
       }
-    });
+    );
+    if (!deductResult.success) return res.error(deductResult.msg || '积分不足', 402);
 
-    res.success({ task_id: taskId, cost: finalCost, new_balance: deductResult.balance }, '任务已提交');
+    res.success({ task_id: publicId, cost: finalCost, new_balance: deductResult.balance }, '任务已提交');
 
   } catch (err) {
     console.error('视频换人提交失败:', err);
@@ -2333,18 +1790,15 @@ router.post('/generate/face-swap', authRequired, async (req, res) => {
 
 // 查询视频换人任务状态
 router.get('/generate/face-swap/:taskId', authRequired, (req, res) => {
-  const task = faceSwapTasks.get(req.params.taskId);
-  if (!task) {
-    return res.error('任务不存在或已过期');
-  }
-  if (task.user_id !== req.user.id) {
-    return res.error('无权查看');
-  }
+  const task = getPublicGenerationTask(req.params.taskId, req.user.id, 'face-swap');
+  if (!task) return res.error('任务不存在或已过期');
+
+  const result = parseGenerationResult(task.result);
   res.success({
-    task_id: task.id,
-    status: task.status,
-    progress: task.progress,
-    video_url: task.video_url,
-    error_msg: task.error_msg,
+    task_id: task.public_id,
+    status: mapPublicTaskStatus(task),
+    progress: task.status === 'success' ? 100 : task.status === 'failed' ? 0 : task.progress,
+    video_url: result.video_url || result.video || '',
+    error_msg: task.error_msg || task.last_error || ''
   });
 });

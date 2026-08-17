@@ -82,7 +82,7 @@ router.get('/info', (req, res) => {
         { type: 'image-edit', name: 'AI图生图/编辑', async: true },
         { type: 'video-gen', name: 'AI视频生成', async: true },
         { type: 'gif', name: 'GIF表情包', async: true },
-        { type: 'prompt-extract', name: '提示词反推', async: false },
+        { type: 'prompt-extract', name: '提示词反推', async: true },
         { type: 'audio', name: '音频合成', async: true },
         { type: 'idphoto', name: 'AI证件照', async: true },
         { type: 'face-swap', name: 'AI换脸', async: true },
@@ -149,66 +149,39 @@ router.post('/generate/ecommerce', async (req, res) => {
     const cost = aiAdapter.calculateCost(model_id, actualCount);
     if (!cost) return v1Error(res, '模型不存在或价格获取失败');
 
+    const prompt = `Generate high quality e-commerce product image for: ${selling_points}. Platform: ${platform || 'general'}, Style: ${tone || 'neutral'}. The product should be the main focus in a beautiful scene.`;
+    const sizeMap = { '1:1': '1024x1024', '3:4': '768x1024', '16:9': '1024x576', '9:16': '576x1024', '4:3': '1024x768' };
+    const size = sizeMap[ratio] || '1024x1024';
+
     const deductResult = creditService.createGenerationAndDeduct(
       user.id,
       studioType,
       model_id,
       JSON.stringify({ ...req.body, image_count: actualCount }),
       cost,
-      `API-电商套图生成 (${actualCount}张)`
+      `API-电商套图生成 (${actualCount}张)`,
+      {
+        type: 'image.generate',
+        payload: {
+          model_id,
+          prompt,
+          options: {
+            n: actualCount,
+            size,
+            negative_prompt: 'text, words, letters, characters, writing, watermark, logo, signature, caption, ugly, distorted, blurry, low quality'
+          },
+          deadline_seconds: 600,
+          result_style: { images: 'images' },
+          result_metadata: {}
+        }
+      }
     );
     if (!deductResult.success) {
       recordUsage(user.id, req.apiKeyId, '/api/v1/generate/ecommerce', studioType, null, 'failed', 0, Date.now() - startTime, deductResult.msg);
       return v1Error(res, deductResult.msg, 402);
     }
 
-    const prompt = `Generate high quality e-commerce product image for: ${selling_points}. Platform: ${platform || 'general'}, Style: ${tone || 'neutral'}. The product should be the main focus in a beautiful scene.`;
-
     const taskId = deductResult.taskId;
-
-    // 异步生成
-    setImmediate(async () => {
-      try {
-        const sizeMap = { '1:1': '1024x1024', '3:4': '768x1024', '16:9': '1024x576', '9:16': '576x1024', '4:3': '1024x768' };
-        const size = sizeMap[ratio] || '1024x1024';
-        const negative = 'text, words, letters, characters, writing, watermark, logo, signature, caption, ugly, distorted, blurry, low quality';
-
-        const genResult = await aiAdapter.generateImage(model_id, prompt, {
-          n: Math.min(actualCount, 4), size, negative_prompt: negative,
-        });
-
-        let images = genResult.images;
-        if (actualCount > 4 && images.length < actualCount) {
-          const more = await aiAdapter.generateImage(model_id, prompt + ' different angle', {
-            n: Math.min(actualCount - images.length, 4), size, negative_prompt: negative,
-          });
-          images = images.concat(more.images);
-        }
-        images = images.slice(0, actualCount);
-
-        db.prepare(`UPDATE generations SET result = ?, status = 'success', 
-          completed_at = datetime('now','localtime') WHERE id = ?`)
-          .run(JSON.stringify({ images }), taskId);
-
-        // Webhook 回调
-        triggerWebhook(user.id, 'task.completed', {
-          task_id: taskId,
-          studio_type: studioType,
-          status: 'success',
-          credits_used: cost,
-          result: { images }
-        });
-      } catch (err) {
-        refundFailedGeneration(taskId, err.message);
-
-        triggerWebhook(user.id, 'task.failed', {
-          task_id: taskId,
-          studio_type: studioType,
-          status: 'failed',
-          error_msg: err.message
-        });
-      }
-    });
 
     recordUsage(user.id, req.apiKeyId, '/api/v1/generate/ecommerce', studioType, taskId, 'success', cost, Date.now() - startTime);
     v1Success(res, {
@@ -313,65 +286,39 @@ router.post('/generate/poster', async (req, res) => {
     const cost = aiAdapter.calculateCost(model_id, actualCount);
     if (!cost) return v1Error(res, '模型不存在或价格获取失败');
 
+    const prompt = `Create a ${poster_type || 'promotional'} poster design for: ${theme}. High quality, eye-catching, professional design.`;
+    const sizeMap = { '1:1': '1024x1024', '3:4': '768x1024', '4:3': '1024x768', '16:9': '1024x576', '9:16': '576x1024' };
+    const size = sizeMap[ratio] || '768x1024';
+
     const deductResult = creditService.createGenerationAndDeduct(
       user.id,
       studioType,
       model_id,
       JSON.stringify({ ...req.body, image_count: actualCount }),
       cost,
-      `API-海报生成 (${actualCount}张)`
+      `API-海报生成 (${actualCount}张)`,
+      {
+        type: 'image.generate',
+        payload: {
+          model_id,
+          prompt,
+          options: {
+            n: actualCount,
+            size,
+            negative_prompt: 'text, words, watermark, logo, ugly, blurry, low quality'
+          },
+          deadline_seconds: 600,
+          result_style: { images: 'images' },
+          result_metadata: {}
+        }
+      }
     );
     if (!deductResult.success) {
       recordUsage(user.id, req.apiKeyId, '/api/v1/generate/poster', studioType, null, 'failed', 0, Date.now() - startTime, deductResult.msg);
       return v1Error(res, deductResult.msg, 402);
     }
 
-    const prompt = `Create a ${poster_type || 'promotional'} poster design for: ${theme}. High quality, eye-catching, professional design.`;
-
     const taskId = deductResult.taskId;
-
-    setImmediate(async () => {
-      try {
-        const sizeMap = { '1:1': '1024x1024', '3:4': '768x1024', '4:3': '1024x768', '16:9': '1024x576', '9:16': '576x1024' };
-        const size = sizeMap[ratio] || '768x1024';
-
-        const genResult = await aiAdapter.generateImage(model_id, prompt, {
-          n: Math.min(actualCount, 4), size,
-          negative_prompt: 'text, words, watermark, logo, ugly, blurry, low quality',
-        });
-
-        let images = genResult.images;
-        if (actualCount > 4 && images.length < actualCount) {
-          const more = await aiAdapter.generateImage(model_id, prompt + ' different layout', {
-            n: Math.min(actualCount - images.length, 4), size,
-            negative_prompt: 'text, words, watermark, logo, ugly, blurry, low quality',
-          });
-          images = images.concat(more.images);
-        }
-        images = images.slice(0, actualCount);
-
-        db.prepare(`UPDATE generations SET result = ?, status = 'success', 
-          completed_at = datetime('now','localtime') WHERE id = ?`)
-          .run(JSON.stringify({ images }), taskId);
-
-        triggerWebhook(user.id, 'task.completed', {
-          task_id: taskId,
-          studio_type: studioType,
-          status: 'success',
-          credits_used: cost,
-          result: { images }
-        });
-      } catch (err) {
-        refundFailedGeneration(taskId, err.message);
-
-        triggerWebhook(user.id, 'task.failed', {
-          task_id: taskId,
-          studio_type: studioType,
-          status: 'failed',
-          error_msg: err.message
-        });
-      }
-    });
 
     recordUsage(user.id, req.apiKeyId, '/api/v1/generate/poster', studioType, taskId, 'success', cost, Date.now() - startTime);
     v1Success(res, {
@@ -690,65 +637,39 @@ router.post('/generate/avatar', async (req, res) => {
     const cost = aiAdapter.calculateCost(model_id, actualCount);
     if (!cost) return v1Error(res, '模型不存在或价格获取失败');
 
+    const prompt = `A beautiful ${style} style avatar portrait of a ${age_range} ${gender} person, high quality, detailed face, artistic, profile picture style.`;
+    const sizeMap = { '1:1': '1024x1024', '3:4': '768x1024', '4:3': '1024x768', '16:9': '1024x576', '9:16': '576x1024' };
+    const size = sizeMap[ratio] || '1024x1024';
+
     const deductResult = creditService.createGenerationAndDeduct(
       user.id,
       studioType,
       model_id,
       JSON.stringify({ ...req.body, image_count: actualCount }),
       cost,
-      `API-AI头像生成 (${actualCount}张)`
+      `API-AI头像生成 (${actualCount}张)`,
+      {
+        type: 'image.generate',
+        payload: {
+          model_id,
+          prompt,
+          options: {
+            n: actualCount,
+            size,
+            negative_prompt: 'ugly, distorted, blurry, low quality, bad anatomy'
+          },
+          deadline_seconds: 600,
+          result_style: { images: 'images' },
+          result_metadata: {}
+        }
+      }
     );
     if (!deductResult.success) {
       recordUsage(user.id, req.apiKeyId, '/api/v1/generate/avatar', studioType, null, 'failed', 0, Date.now() - startTime, deductResult.msg);
       return v1Error(res, deductResult.msg, 402);
     }
 
-    const prompt = `A beautiful ${style} style avatar portrait of a ${age_range} ${gender} person, high quality, detailed face, artistic, profile picture style.`;
-
     const taskId = deductResult.taskId;
-
-    setImmediate(async () => {
-      try {
-        const sizeMap = { '1:1': '1024x1024', '3:4': '768x1024', '4:3': '1024x768', '16:9': '1024x576', '9:16': '576x1024' };
-        const size = sizeMap[ratio] || '1024x1024';
-
-        const genResult = await aiAdapter.generateImage(model_id, prompt, {
-          n: Math.min(actualCount, 4), size,
-          negative_prompt: 'ugly, distorted, blurry, low quality, bad anatomy',
-        });
-
-        let images = genResult.images;
-        if (actualCount > 4 && images.length < actualCount) {
-          const more = await aiAdapter.generateImage(model_id, prompt + ' different style and expression', {
-            n: Math.min(actualCount - images.length, 4), size,
-            negative_prompt: 'ugly, distorted, blurry, low quality, bad anatomy',
-          });
-          images = images.concat(more.images);
-        }
-        images = images.slice(0, actualCount);
-
-        db.prepare(`UPDATE generations SET result = ?, status = 'success', 
-          completed_at = datetime('now','localtime') WHERE id = ?`)
-          .run(JSON.stringify({ images }), taskId);
-
-        triggerWebhook(user.id, 'task.completed', {
-          task_id: taskId,
-          studio_type: studioType,
-          status: 'success',
-          credits_used: cost,
-          result: { images }
-        });
-      } catch (err) {
-        refundFailedGeneration(taskId, err.message);
-
-        triggerWebhook(user.id, 'task.failed', {
-          task_id: taskId,
-          studio_type: studioType,
-          status: 'failed',
-          error_msg: err.message
-        });
-      }
-    });
 
     recordUsage(user.id, req.apiKeyId, '/api/v1/generate/avatar', studioType, taskId, 'success', cost, Date.now() - startTime);
     v1Success(res, {
@@ -781,19 +702,6 @@ router.post('/generate/image', async (req, res) => {
     const cost = aiAdapter.calculateCost(model_id, actualCount);
     if (!cost) return v1Error(res, '模型不存在或价格获取失败');
 
-    const deductResult = creditService.createGenerationAndDeduct(
-      user.id,
-      studioType,
-      model_id,
-      JSON.stringify({ ...req.body, image_count: actualCount }),
-      cost,
-      `API-AI图片生成 (${actualCount}张)`
-    );
-    if (!deductResult.success) {
-      recordUsage(user.id, req.apiKeyId, '/api/v1/generate/image', studioType, null, 'failed', 0, Date.now() - startTime, deductResult.msg);
-      return v1Error(res, deductResult.msg, 402);
-    }
-
     const stylePresets = {
       '写实': 'photorealistic, hyperrealistic, ultra detailed, 8k, professional photography',
       '动漫': 'anime style, manga art, vibrant colors, cel shading, detailed',
@@ -812,49 +720,31 @@ router.post('/generate/image', async (req, res) => {
     const sizeMap = { '1:1': '1024x1024', '3:4': '768x1024', '4:3': '1024x768', '16:9': '1024x576', '9:16': '576x1024' };
     const genSize = sizeMap[size] || '1024x1024';
 
-    const taskId = deductResult.taskId;
-
-    setImmediate(async () => {
-      try {
-        let allImages = [];
-        let remaining = actualCount;
-        let batchNum = 0;
-
-        while (remaining > 0) {
-          const batchCount = Math.min(remaining, 4);
-          const seedPrompt = batchNum > 0 ? `${finalPrompt}, variation ${batchNum + 1}` : finalPrompt;
-          const genResult = await aiAdapter.generateImage(model_id, seedPrompt, {
-            n: batchCount, size: genSize, negative_prompt: finalNeg,
-          });
-          allImages = allImages.concat(genResult.images || []);
-          remaining -= batchCount;
-          batchNum++;
-          if (genResult.mock) break;
+    const deductResult = creditService.createGenerationAndDeduct(
+      user.id,
+      studioType,
+      model_id,
+      JSON.stringify({ ...req.body, image_count: actualCount }),
+      cost,
+      `API-AI图片生成 (${actualCount}张)`,
+      {
+        type: 'image.generate',
+        payload: {
+          model_id,
+          prompt: finalPrompt,
+          options: { n: actualCount, size: genSize, negative_prompt: finalNeg },
+          deadline_seconds: 600,
+          result_style: { images: 'images' },
+          result_metadata: {}
         }
-        allImages = allImages.slice(0, actualCount);
-
-        db.prepare(`UPDATE generations SET result = ?, status = 'success', 
-          completed_at = datetime('now','localtime') WHERE id = ?`)
-          .run(JSON.stringify({ images: allImages }), taskId);
-
-        triggerWebhook(user.id, 'task.completed', {
-          task_id: taskId,
-          studio_type: studioType,
-          status: 'success',
-          credits_used: cost,
-          result: { images: allImages }
-        });
-      } catch (err) {
-        refundFailedGeneration(taskId, err.message);
-
-        triggerWebhook(user.id, 'task.failed', {
-          task_id: taskId,
-          studio_type: studioType,
-          status: 'failed',
-          error_msg: err.message
-        });
       }
-    });
+    );
+    if (!deductResult.success) {
+      recordUsage(user.id, req.apiKeyId, '/api/v1/generate/image', studioType, null, 'failed', 0, Date.now() - startTime, deductResult.msg);
+      return v1Error(res, deductResult.msg, 402);
+    }
+
+    const taskId = deductResult.taskId;
 
     recordUsage(user.id, req.apiKeyId, '/api/v1/generate/image', studioType, taskId, 'success', cost, Date.now() - startTime);
     v1Success(res, {
@@ -889,19 +779,6 @@ router.post('/generate/image-edit', async (req, res) => {
     if (!baseCost) return v1Error(res, '模型不存在或价格获取失败');
     const cost = Math.round((baseCost * 1.5 + Number.EPSILON) * 100) / 100;
 
-    const deductResult = creditService.createGenerationAndDeduct(
-      user.id,
-      studioType,
-      model_id,
-      JSON.stringify({ ...req.body, image_count: actualCount }),
-      cost,
-      `API-AI图生图 (${actualCount}张)`
-    );
-    if (!deductResult.success) {
-      recordUsage(user.id, req.apiKeyId, '/api/v1/generate/image-edit', studioType, null, 'failed', 0, Date.now() - startTime, deductResult.msg);
-      return v1Error(res, deductResult.msg, 402);
-    }
-
     const defaultNeg = 'ugly, deformed, blurry, low quality, bad anatomy, text, watermark, logo';
     const finalNeg = negative_prompt ? `${defaultNeg}, ${negative_prompt}` : defaultNeg;
     const finalPrompt = prompt || 'high quality, detailed, professional';
@@ -909,42 +786,37 @@ router.post('/generate/image-edit', async (req, res) => {
     const sizeMap = { '1:1': '1024x1024', '3:4': '768x1024', '4:3': '1024x768', '16:9': '1024x576', '9:16': '576x1024' };
     const genSize = sizeMap[size] || '1024x1024';
 
-    const taskId = deductResult.taskId;
-
-    setImmediate(async () => {
-      try {
-        const genResult = await aiAdapter.generateImage(model_id, finalPrompt, {
-          n: actualCount,
-          size: genSize,
-          negative_prompt: finalNeg,
-          ref_image: ref_image,
-          mode: mode
-        });
-
-        const images = (genResult.images || []).slice(0, actualCount);
-
-        db.prepare(`UPDATE generations SET result = ?, status = 'success', 
-          completed_at = datetime('now','localtime') WHERE id = ?`)
-          .run(JSON.stringify({ images, mode }), taskId);
-
-        triggerWebhook(user.id, 'task.completed', {
-          task_id: taskId,
-          studio_type: studioType,
-          status: 'success',
-          credits_used: cost,
-          result: { images, mode }
-        });
-      } catch (err) {
-        refundFailedGeneration(taskId, err.message);
-
-        triggerWebhook(user.id, 'task.failed', {
-          task_id: taskId,
-          studio_type: studioType,
-          status: 'failed',
-          error_msg: err.message
-        });
+    const deductResult = creditService.createGenerationAndDeduct(
+      user.id,
+      studioType,
+      model_id,
+      JSON.stringify({ ...req.body, image_count: actualCount }),
+      cost,
+      `API-AI图生图 (${actualCount}张)`,
+      {
+        type: 'image.edit',
+        payload: {
+          model_id,
+          prompt: finalPrompt,
+          options: {
+            n: actualCount,
+            size: genSize,
+            negative_prompt: finalNeg,
+            ref_image,
+            mode
+          },
+          deadline_seconds: 600,
+          result_style: { images: 'images' },
+          result_metadata: { mode }
+        }
       }
-    });
+    );
+    if (!deductResult.success) {
+      recordUsage(user.id, req.apiKeyId, '/api/v1/generate/image-edit', studioType, null, 'failed', 0, Date.now() - startTime, deductResult.msg);
+      return v1Error(res, deductResult.msg, 402);
+    }
+
+    const taskId = deductResult.taskId;
 
     recordUsage(user.id, req.apiKeyId, '/api/v1/generate/image-edit', studioType, taskId, 'success', cost, Date.now() - startTime);
     v1Success(res, {
@@ -983,7 +855,19 @@ router.post('/generate/audio', async (req, res) => {
       model_id,
       JSON.stringify(req.body),
       cost,
-      'API-音频合成'
+      'API-音频合成',
+      {
+        type: 'audio.generate',
+        payload: {
+          model_id,
+          prompt: text,
+          input_text: text,
+          options: { ...req.body, response_format },
+          deadline_seconds: 600,
+          result_style: 'canonical',
+          result_metadata: {}
+        }
+      }
     );
     if (!deductResult.success) {
       recordUsage(user.id, req.apiKeyId, '/api/v1/generate/audio', studioType, null, 'failed', 0, Date.now() - startTime, deductResult.msg);
@@ -991,60 +875,6 @@ router.post('/generate/audio', async (req, res) => {
     }
 
     const taskId = deductResult.taskId;
-
-    setImmediate(async () => {
-      try {
-        const genResult = await aiAdapter.generateAudio(model_id, text, {
-          response_format,
-          voice: req.body.voice || undefined,
-          dialect: req.body.dialect || undefined,
-          cfg_value: req.body.cfg_value,
-          inference_timesteps: req.body.inference_timesteps,
-          seed: req.body.seed,
-          normalize: req.body.normalize,
-          denoise: req.body.denoise,
-          ref_text: req.body.ref_text || undefined,
-          ref_audio: req.body.ref_audio || undefined,
-          speed: req.body.speed,
-          duration: req.body.duration,
-          num_step: req.body.num_step,
-          language_id: req.body.language_id || undefined,
-          instructions: req.body.instructions || undefined,
-          use_emo_text: req.body.use_emo_text,
-          emo_alpha: req.body.emo_alpha,
-          emo_audio: req.body.emo_audio || undefined,
-          emo_vector: req.body.emo_vector,
-          use_random: req.body.use_random,
-        });
-
-        db.prepare(`UPDATE generations SET result = ?, status = 'success',
-          completed_at = datetime('now','localtime') WHERE id = ?`)
-          .run(JSON.stringify({
-            audio_url: genResult.audio_url,
-            file_name: genResult.file_name,
-            format: genResult.format,
-            size: genResult.size,
-            mock: genResult.mock || false
-          }), taskId);
-
-        triggerWebhook(user.id, 'task.completed', {
-          task_id: taskId,
-          studio_type: studioType,
-          status: 'success',
-          credits_used: cost
-        });
-      } catch (err) {
-        console.error('API音频生成失败:', err);
-        refundFailedGeneration(taskId, err.message);
-
-        triggerWebhook(user.id, 'task.failed', {
-          task_id: taskId,
-          studio_type: studioType,
-          status: 'failed',
-          error_msg: err.message
-        });
-      }
-    });
 
     recordUsage(user.id, req.apiKeyId, '/api/v1/generate/audio', studioType, taskId, 'success', cost, Date.now() - startTime);
     v1Success(res, {
@@ -1078,21 +908,6 @@ router.post('/generate/prompt-extract', async (req, res) => {
 
     const cost = model.price_per_call || 10;
 
-    const deductResult = creditService.createGenerationAndDeduct(
-      user.id,
-      studioType,
-      model_id,
-      JSON.stringify({ extract_type, style, image_url, video_url }),
-      cost,
-      'API-提示词提取'
-    );
-    if (!deductResult.success) {
-      recordUsage(user.id, req.apiKeyId, '/api/v1/generate/prompt-extract', studioType, null, 'failed', 0, Date.now() - startTime, deductResult.msg);
-      return v1Error(res, deductResult.msg, 402);
-    }
-
-    const taskId = deductResult.taskId;
-
     const systemPrompts = {
       prompt: '你是一位专业的AI提示词工程师。请仔细分析这张图片/视频的所有细节，然后生成一段高质量的英文AI绘画/视频提示词。要求：\n1. 详细描述主体、场景、构图、光影、色彩、风格、材质、氛围\n2. 使用逗号分隔的关键词形式，按重要性排序\n3. 适合用于Midjourney、DALL-E、Stable Diffusion等模型生成相似内容\n4. 输出格式：先写一段完整的英文提示词（50-150词），再换行用中文简要解释图片内容',
       description: '请用中文详细描述这张图片/视频的内容，包括：主体事物、场景环境、人物外貌穿着、动作表情、色彩光影、构图角度、整体风格和氛围。要求条理清晰，描述准确。',
@@ -1110,89 +925,40 @@ router.post('/generate/prompt-extract', async (req, res) => {
     const systemPrompt = systemPrompts[extract_type] || systemPrompts.prompt;
     const userPrompt = userPrompts[extract_type] || userPrompts.prompt;
 
-    setImmediate(async () => {
-      try {
-        let finalImageUrl = image_url;
-        if (video_url) {
-          const path = require('path');
-          const fs = require('fs');
-          const tempDir = path.join(__dirname, '../public/uploads/temp_video');
-          if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
-
-          let videoFilePath = '';
-          if (typeof video_url === 'string' && video_url.startsWith('data:')) {
-            const base64Data = video_url.split(',')[1] || '';
-            const mimeType = video_url.split(';')[0].replace('data:', '');
-            const extMap = { 'video/mp4': 'mp4', 'video/webm': 'webm', 'video/quicktime': 'mov', 'video/x-matroska': 'mkv' };
-            const ext = extMap[mimeType] || 'mp4';
-            const fileName = 'vid_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '.' + ext;
-            videoFilePath = path.join(tempDir, fileName);
-            fs.writeFileSync(videoFilePath, Buffer.from(base64Data, 'base64'));
-          } else if (typeof video_url === 'string' && video_url.startsWith('http')) {
-            const https = require('https');
-            const http = require('http');
-            const fileName = 'vid_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '.mp4';
-            videoFilePath = path.join(tempDir, fileName);
-            const dlModule = video_url.startsWith('https') ? https : http;
-            const file = fs.createWriteStream(videoFilePath);
-            await new Promise((resolve, reject) => {
-              dlModule.get(video_url, response => {
-                response.pipe(file);
-                file.on('finish', () => file.close(resolve));
-              }).on('error', reject);
-            });
-          }
-          if (videoFilePath) {
-            const { execSync } = require('child_process');
-            const gridPath = path.join(tempDir, 'grid_' + path.basename(videoFilePath, path.extname(videoFilePath)) + '.jpg');
-            try {
-              execSync(`ffmpeg -i "${videoFilePath}" -vf "select='eq(n,10)+eq(n,30)+eq(n,60)',scale=400:-1,tile=3x1" -frames:v 1 -q:v 2 "${gridPath}" -y`, { stdio: 'pipe' });
-              finalImageUrl = 'file://' + gridPath;
-            } catch (e) {
-              // 抽帧失败用首帧
-              const firstFramePath = path.join(tempDir, 'first_' + path.basename(videoFilePath, path.extname(videoFilePath)) + '.jpg');
-              execSync(`ffmpeg -i "${videoFilePath}" -vframes 1 -q:v 2 "${firstFramePath}" -y`, { stdio: 'pipe' });
-              finalImageUrl = 'file://' + firstFramePath;
-            }
-          }
-        }
-
-        const genResult = await aiAdapter.generateImage(model_id, userPrompt, {
-          system_prompt: systemPrompt,
-          image_url: finalImageUrl,
-          vlm_mode: true
-        });
-
-        const answerText = (genResult.images && genResult.images[0]) || genResult.text || '';
-
-        db.prepare(`UPDATE generations SET result = ?, status = 'success',
-          completed_at = datetime('now','localtime') WHERE id = ?`)
-          .run(JSON.stringify({
+    const deductResult = creditService.createGenerationAndDeduct(
+      user.id,
+      studioType,
+      model_id,
+      JSON.stringify({ extract_type, style, image_url, video_url }),
+      cost,
+      'API-提示词提取',
+      {
+        type: 'media.analyze',
+        payload: {
+          model_id,
+          prompt: userPrompt,
+          options: {
+            system_prompt: systemPrompt,
+            image_url: image_url || undefined,
+            video_url: video_url || undefined
+          },
+          deadline_seconds: 600,
+          result_style: { prompt: 'text' },
+          result_metadata: {
             extract_type,
             style,
-            prompt: answerText,
             image_url: image_url || '',
             video_url: video_url || ''
-          }), taskId);
-
-        triggerWebhook(user.id, 'task.completed', {
-          task_id: taskId,
-          studio_type: studioType,
-          status: 'success',
-          credits_used: cost
-        });
-      } catch (err) {
-        console.error('API提示词反推失败:', err);
-        refundFailedGeneration(taskId, err.message);
-
-        triggerWebhook(user.id, 'task.failed', {
-          task_id: taskId,
-          studio_type: studioType,
-          status: 'failed',
-          error_msg: err.message
-        });
+          }
+        }
       }
-    });
+    );
+    if (!deductResult.success) {
+      recordUsage(user.id, req.apiKeyId, '/api/v1/generate/prompt-extract', studioType, null, 'failed', 0, Date.now() - startTime, deductResult.msg);
+      return v1Error(res, deductResult.msg, 402);
+    }
+
+    const taskId = deductResult.taskId;
 
     recordUsage(user.id, req.apiKeyId, '/api/v1/generate/prompt-extract', studioType, taskId, 'success', cost, Date.now() - startTime);
     v1Success(res, {
@@ -1274,7 +1040,33 @@ router.post('/generate/idphoto', async (req, res) => {
         bg_color, size, suit, gender, quality, num_photos: actualCount, ref_image
       }),
       totalCost,
-      `API-AI证件照(${sizeConfig.name})`
+      `API-AI证件照(${sizeConfig.name})`,
+      {
+        type: 'image.edit',
+        payload: {
+          model_id,
+          prompt: `ID photo of a person, ${bgConfig.name} background, ${sizeConfig.name} size, professional`,
+          options: {
+            n: actualCount,
+            size: `${sizeConfig.width}x${sizeConfig.height}`,
+            ref_image,
+            mode: 'idphoto',
+            idphoto_bg: bgConfig.hex,
+            idphoto_suit: suit,
+            idphoto_gender: gender,
+            idphoto_quality: quality
+          },
+          deadline_seconds: 600,
+          result_style: { images: 'images' },
+          result_metadata: {
+            bg_color,
+            size,
+            suit,
+            quality,
+            num_photos: actualCount
+          }
+        }
+      }
     );
     if (!deductResult.success) {
       recordUsage(user.id, req.apiKeyId, '/api/v1/generate/idphoto', studioType, null, 'failed', 0, Date.now() - startTime, deductResult.msg);
@@ -1282,51 +1074,6 @@ router.post('/generate/idphoto', async (req, res) => {
     }
 
     const taskId = deductResult.taskId;
-
-    setImmediate(async () => {
-      try {
-        const genResult = await aiAdapter.generateImage(model_id, `ID photo of a person, ${bgConfig.name} background, ${sizeConfig.name} size, professional`, {
-          n: actualCount,
-          size: `${sizeConfig.width}x${sizeConfig.height}`,
-          ref_image: ref_image,
-          mode: 'idphoto',
-          idphoto_bg: bgConfig.hex,
-          idphoto_suit: suit,
-          idphoto_gender: gender,
-          idphoto_quality: quality,
-        });
-
-        const images = (genResult.images || []).slice(0, actualCount);
-
-        db.prepare(`UPDATE generations SET result = ?, status = 'success',
-          completed_at = datetime('now','localtime') WHERE id = ?`)
-          .run(JSON.stringify({
-            images,
-            bg_color,
-            size,
-            suit,
-            quality,
-            num_photos: actualCount
-          }), taskId);
-
-        triggerWebhook(user.id, 'task.completed', {
-          task_id: taskId,
-          studio_type: studioType,
-          status: 'success',
-          credits_used: totalCost
-        });
-      } catch (err) {
-        console.error('API证件照生成失败:', err);
-        refundFailedGeneration(taskId, err.message);
-
-        triggerWebhook(user.id, 'task.failed', {
-          task_id: taskId,
-          studio_type: studioType,
-          status: 'failed',
-          error_msg: err.message
-        });
-      }
-    });
 
     recordUsage(user.id, req.apiKeyId, '/api/v1/generate/idphoto', studioType, taskId, 'success', totalCost, Date.now() - startTime);
     v1Success(res, {
@@ -1405,7 +1152,28 @@ router.post('/generate/video-gen', async (req, res) => {
       model_id,
       JSON.stringify({ ...req.body, duration: actualDuration }),
       cost,
-      'API-AI视频生成'
+      'API-AI视频生成',
+      {
+        type: 'video.generate',
+        payload: {
+          model_id,
+          prompt,
+          options: {
+            duration: actualDuration,
+            ratio,
+            ref_image: mode === 'text' ? '' : ref_image,
+            mode
+          },
+          deadline_seconds: 900,
+          result_style: { video_url: 'video_url' },
+          result_metadata: {
+            duration: actualDuration,
+            ratio,
+            mode,
+            thumbnail_url: ''
+          }
+        }
+      }
     );
     if (!deductResult.success) {
       recordUsage(user.id, req.apiKeyId, '/api/v1/generate/video-gen', studioType, null, 'failed', 0, Date.now() - startTime, deductResult.msg);
@@ -1413,70 +1181,6 @@ router.post('/generate/video-gen', async (req, res) => {
     }
 
     const taskId = deductResult.taskId;
-
-    // 异步执行视频生成
-    setImmediate(async () => {
-      try {
-        const submitResult = await aiAdapter.submitVideoTask(model_id, prompt, {
-          duration: actualDuration,
-          ratio,
-          ref_image: mode === 'text' ? '' : ref_image,
-          mode,
-        });
-
-        const videoTaskId = submitResult.task_id;
-
-        // 轮询视频生成结果
-        const maxWait = 15 * 60 * 1000;
-        const pollStart = Date.now();
-        let videoUrl = '';
-
-        while (Date.now() - pollStart < maxWait) {
-          const status = await aiAdapter.getVideoTaskStatus(model_id, videoTaskId);
-
-          if (status.status === 'succeeded') {
-            videoUrl = status.video_url || '';
-            break;
-          }
-          if (status.status === 'failed') {
-            throw new Error(status.error_msg || '视频生成失败');
-          }
-
-          await new Promise(r => setTimeout(r, 5000));
-        }
-
-        if (!videoUrl) {
-          throw new Error('视频生成超时');
-        }
-
-        db.prepare(`UPDATE generations SET result = ?, status = 'success',
-          completed_at = datetime('now','localtime') WHERE id = ?`)
-          .run(JSON.stringify({
-            video_url: videoUrl,
-            duration: actualDuration,
-            ratio,
-            mode,
-            thumbnail_url: ''
-          }), taskId);
-
-        triggerWebhook(user.id, 'task.completed', {
-          task_id: taskId,
-          studio_type: studioType,
-          status: 'success',
-          credits_used: cost
-        });
-      } catch (err) {
-        console.error('API视频生成失败:', err);
-        refundFailedGeneration(taskId, err.message);
-
-        triggerWebhook(user.id, 'task.failed', {
-          task_id: taskId,
-          studio_type: studioType,
-          status: 'failed',
-          error_msg: err.message
-        });
-      }
-    });
 
     recordUsage(user.id, req.apiKeyId, '/api/v1/generate/video-gen', studioType, taskId, 'success', cost, Date.now() - startTime);
     v1Success(res, {
@@ -1531,13 +1235,39 @@ router.post('/generate/gif', async (req, res) => {
     const cost = aiAdapter.calculateCost(model_id, { duration: actualDuration });
     if (cost === null) return v1Error(res, '无法计算价格');
 
+    const videoRatio = ratio === '1:1' ? '9:16' : ratio;
     const deductResult = creditService.createGenerationAndDeduct(
       user.id,
       studioType,
       model_id,
       JSON.stringify({ ...req.body, duration: actualDuration }),
       cost,
-      'API-GIF表情包生成'
+      'API-GIF表情包生成',
+      {
+        type: 'video.generate-gif',
+        payload: {
+          model_id,
+          prompt,
+          options: {
+            duration: actualDuration,
+            ratio: videoRatio,
+            ref_image: mode === 'text' ? '' : ref_image,
+            mode
+          },
+          duration: actualDuration,
+          ratio,
+          mode,
+          deadline_seconds: 900,
+          result_style: {
+            gif_url: 'gif_url',
+            video_url: 'video_url',
+            duration: 'duration',
+            ratio: 'ratio',
+            mode: 'mode'
+          },
+          result_metadata: {}
+        }
+      }
     );
     if (!deductResult.success) {
       recordUsage(user.id, req.apiKeyId, '/api/v1/generate/gif', studioType, null, 'failed', 0, Date.now() - startTime, deductResult.msg);
@@ -1545,106 +1275,6 @@ router.post('/generate/gif', async (req, res) => {
     }
 
     const taskId = deductResult.taskId;
-
-    setImmediate(async () => {
-      try {
-        const path = require('path');
-        const fs = require('fs');
-
-        // veo只支持16:9/9:16，选1:1时先生成9:16竖屏，转GIF时再裁成正方形
-        const videoRatio = ratio === '1:1' ? '9:16' : ratio;
-        const submitResult = await aiAdapter.submitVideoTask(model_id, prompt, {
-          duration: actualDuration,
-          ratio: videoRatio,
-          ref_image: mode === 'text' ? '' : ref_image,
-          mode,
-        });
-
-        const videoTaskId = submitResult.task_id;
-
-        // 轮询视频生成
-        const maxWait = 15 * 60 * 1000;
-        const pollStart = Date.now();
-        let videoUrl = '';
-
-        while (Date.now() - pollStart < maxWait) {
-          const status = await aiAdapter.getVideoTaskStatus(model_id, videoTaskId);
-          if (status.status === 'succeeded') {
-            videoUrl = status.video_url || '';
-            break;
-          }
-          if (status.status === 'failed') {
-            throw new Error(status.error_msg || '视频生成失败');
-          }
-          await new Promise(r => setTimeout(r, 5000));
-        }
-
-        if (!videoUrl) throw new Error('视频生成超时');
-
-        // 下载视频 → ffmpeg转GIF
-        const tmpDir = path.join(__dirname, '../tmp');
-        if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
-
-        const https = require('https');
-        const http = require('http');
-        const vidFileName = 'gif_vid_' + taskId + '_' + Date.now() + '.mp4';
-        const vidPath = path.join(tmpDir, vidFileName);
-        const file = fs.createWriteStream(vidPath);
-        const dlModule = videoUrl.startsWith('https') ? https : http;
-        await new Promise((resolve, reject) => {
-          dlModule.get(videoUrl, response => {
-            response.pipe(file);
-            file.on('finish', () => file.close(resolve));
-          }).on('error', reject);
-        });
-
-        // ffmpeg转GIF
-        const gifFileName = 'gif_' + taskId + '_' + Date.now() + '.gif';
-        const gifDir = path.join(__dirname, '../public/uploads/gif');
-        if (!fs.existsSync(gifDir)) fs.mkdirSync(gifDir, { recursive: true });
-        const gifPath = path.join(gifDir, gifFileName);
-
-        const { execSync } = require('child_process');
-        // 1:1比例时裁成正方形
-        let filterStr = 'fps=12,scale=320:-1:flags=lanczos';
-        if (ratio === '1:1') {
-          filterStr = 'fps=12,scale=320:-1:flags=lanczos,crop=320:320';
-        }
-        execSync(`ffmpeg -i "${vidPath}" -vf "${filterStr}" -loop 0 "${gifPath}" -y`, { stdio: 'pipe' });
-
-        const gifUrl = '/uploads/gif/' + gifFileName;
-
-        // 清理临时视频文件
-        try { fs.unlinkSync(vidPath); } catch (e) {}
-
-        db.prepare(`UPDATE generations SET result = ?, status = 'success',
-          completed_at = datetime('now','localtime') WHERE id = ?`)
-          .run(JSON.stringify({
-            gif_url: gifUrl,
-            video_url: videoUrl,
-            duration: actualDuration,
-            ratio,
-            mode
-          }), taskId);
-
-        triggerWebhook(user.id, 'task.completed', {
-          task_id: taskId,
-          studio_type: studioType,
-          status: 'success',
-          credits_used: cost
-        });
-      } catch (err) {
-        console.error('API GIF生成失败:', err);
-        refundFailedGeneration(taskId, err.message);
-
-        triggerWebhook(user.id, 'task.failed', {
-          task_id: taskId,
-          studio_type: studioType,
-          status: 'failed',
-          error_msg: err.message
-        });
-      }
-    });
 
     recordUsage(user.id, req.apiKeyId, '/api/v1/generate/gif', studioType, taskId, 'success', cost, Date.now() - startTime);
     v1Success(res, {
@@ -1683,13 +1313,35 @@ router.post('/generate/face-swap', async (req, res) => {
     if (baseCost === null) return v1Error(res, '无法计算价格');
     const cost = Math.round((baseCost * 1.5 + Number.EPSILON) * 100) / 100;
 
+    const faceSwapPrompt = prompt || '将视频中的人物替换为参考图片中的人物，保持动作和背景不变';
     const deductResult = creditService.createGenerationAndDeduct(
       user.id,
       studioType,
       model_id,
       JSON.stringify({ ...req.body, duration: actualDuration }),
       cost,
-      'API-AI换脸'
+      'API-AI换脸',
+      {
+        type: 'video.face-swap',
+        payload: {
+          model_id,
+          prompt: faceSwapPrompt,
+          options: {
+            duration: actualDuration,
+            ratio,
+            video_url,
+            image_url
+          },
+          deadline_seconds: 1200,
+          result_style: { video_url: 'video_url' },
+          result_metadata: {
+            image_url,
+            source_video_url: video_url,
+            duration: actualDuration,
+            ratio
+          }
+        }
+      }
     );
     if (!deductResult.success) {
       recordUsage(user.id, req.apiKeyId, '/api/v1/generate/face-swap', studioType, null, 'failed', 0, Date.now() - startTime, deductResult.msg);
@@ -1697,65 +1349,6 @@ router.post('/generate/face-swap', async (req, res) => {
     }
 
     const taskId = deductResult.taskId;
-
-    setImmediate(async () => {
-      try {
-        const submitResult = await aiAdapter.submitFaceSwapTask(model_id, prompt || '将视频中的人物替换为参考图片中的人物，保持动作和背景不变', {
-          duration: actualDuration,
-          ratio,
-          video_url,
-          image_url,
-        });
-
-        const faceTaskId = submitResult.task_id;
-
-        // 轮询
-        const maxWait = 20 * 60 * 1000;
-        const pollStart = Date.now();
-        let resultVideoUrl = '';
-
-        while (Date.now() - pollStart < maxWait) {
-          const status = await aiAdapter.getVideoTaskStatus(model_id, faceTaskId);
-          if (status.status === 'succeeded') {
-            resultVideoUrl = status.video_url || '';
-            break;
-          }
-          if (status.status === 'failed') {
-            throw new Error(status.error_msg || '换脸生成失败');
-          }
-          await new Promise(r => setTimeout(r, 5000));
-        }
-
-        if (!resultVideoUrl) throw new Error('换脸生成超时');
-
-        db.prepare(`UPDATE generations SET result = ?, status = 'success',
-          completed_at = datetime('now','localtime') WHERE id = ?`)
-          .run(JSON.stringify({
-            video_url: resultVideoUrl,
-            image_url,
-            source_video_url: video_url,
-            duration: actualDuration,
-            ratio
-          }), taskId);
-
-        triggerWebhook(user.id, 'task.completed', {
-          task_id: taskId,
-          studio_type: studioType,
-          status: 'success',
-          credits_used: cost
-        });
-      } catch (err) {
-        console.error('API换脸生成失败:', err);
-        refundFailedGeneration(taskId, err.message);
-
-        triggerWebhook(user.id, 'task.failed', {
-          task_id: taskId,
-          studio_type: studioType,
-          status: 'failed',
-          error_msg: err.message
-        });
-      }
-    });
 
     recordUsage(user.id, req.apiKeyId, '/api/v1/generate/face-swap', studioType, taskId, 'success', cost, Date.now() - startTime);
     v1Success(res, {

@@ -12,6 +12,9 @@ const userRoutes = require('./routes/user');
 const apiRoutes = require('./routes/api');
 const adminRoutes = require('./routes/admin');
 const apiV1Routes = require('./routes/apiV1');
+const { db } = require('./database/db');
+const { createGenerationWorker } = require('./workers/generationWorker');
+const { createBatchDownloadWorker } = require('./workers/batchDownloadWorker');
 
 const app = express();
 
@@ -92,6 +95,42 @@ app.use((req, res) => {
   }
 });
 
-app.listen(port, host, () => {
+const worker = createGenerationWorker();
+const batchDownloadWorker = createBatchDownloadWorker();
+const server = app.listen(port, host, () => {
   console.log(`AI工作室已启动：http://${host}:${port}`);
 });
+worker.start();
+batchDownloadWorker.start();
+
+let shutdownPromise = null;
+
+function closeServer() {
+  return new Promise((resolve, reject) => {
+    if (!server.listening) return resolve();
+    server.close(err => err ? reject(err) : resolve());
+  });
+}
+
+function shutdown(signal) {
+  if (shutdownPromise) return shutdownPromise;
+  shutdownPromise = (async () => {
+    console.log(`收到 ${signal}，正在关闭服务`);
+    await closeServer();
+    await Promise.all([worker.stop(), batchDownloadWorker.stop()]);
+    db.close();
+  })().catch(err => {
+    console.error('服务关闭失败:', err);
+    process.exitCode = 1;
+  });
+  return shutdownPromise;
+}
+
+process.once('SIGTERM', () => { shutdown('SIGTERM'); });
+process.once('SIGINT', () => { shutdown('SIGINT'); });
+
+module.exports = app;
+module.exports.server = server;
+module.exports.worker = worker;
+module.exports.batchDownloadWorker = batchDownloadWorker;
+module.exports.shutdown = shutdown;

@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const { db } = require('../database/db');
 
 /**
@@ -74,13 +75,46 @@ function deductCredits(userId, amount, type, description, relatedId = 0) {
   return deductCreditsTransaction(userId, normalizedAmount, type, description, relatedId);
 }
 
+function normalizeGenerationJob(job) {
+  if (job === undefined || job === null) return null;
+  if (!job || typeof job !== 'object' || Array.isArray(job)) {
+    throw new Error('生成任务参数无效');
+  }
+
+  const type = typeof job.type === 'string' ? job.type.trim() : '';
+  if (!type || type.length > 100) throw new Error('生成任务类型无效');
+
+  let payload;
+  try {
+    payload = JSON.stringify(job.payload);
+  } catch (err) {
+    throw new Error('生成任务 payload 无法序列化');
+  }
+  if (job.payload === undefined || payload === undefined) {
+    throw new Error('生成任务 payload 无效');
+  }
+
+  const publicId = job.publicId === undefined || job.publicId === null
+    ? crypto.randomUUID()
+    : String(job.publicId).trim();
+  if (!publicId || publicId.length > 200) throw new Error('生成任务 publicId 无效');
+
+  const maxAttempts = job.maxAttempts === undefined ? 3 : Number(job.maxAttempts);
+  if (!Number.isSafeInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 100) {
+    throw new Error('生成任务 maxAttempts 无效');
+  }
+
+  return { type, payload, publicId, maxAttempts };
+}
+
 const createGenerationAndDeductTransaction = db.transaction((
   userId,
   studioType,
   modelId,
   params,
   amount,
-  description
+  description,
+  job
 ) => {
   const updateResult = db.prepare(`UPDATE users
     SET credits = ROUND(credits - ?, 2)
@@ -102,15 +136,30 @@ const createGenerationAndDeductTransaction = db.transaction((
               VALUES (?, ?, 'consume', ?, ?)`)
     .run(userId, -amount, description, generationId);
 
+  if (job) {
+    db.prepare(`INSERT INTO generation_jobs
+      (generation_id, public_id, job_type, payload, max_attempts)
+      VALUES (?, ?, ?, ?, ?)`)
+      .run(generationId, job.publicId, job.type, job.payload, job.maxAttempts);
+  }
+
   const balance = db.prepare('SELECT credits FROM users WHERE id = ?').get(userId).credits;
-  return { success: true, balance, taskId: generationId };
+  return {
+    success: true,
+    balance,
+    taskId: generationId,
+    publicTaskId: job ? job.publicId : undefined
+  };
 });
 
-function createGenerationAndDeduct(userId, studioType, modelId, params, amount, description) {
+function createGenerationAndDeduct(userId, studioType, modelId, params, amount, description, job) {
   let normalizedAmount;
+  let normalizedJob;
   try {
     normalizedAmount = normalizeAmount(amount);
+    normalizedJob = normalizeGenerationJob(job);
   } catch (err) {
+    if (job !== undefined && job !== null && err.message.startsWith('生成任务')) throw err;
     return { success: false, balance: getBalance(userId), msg: '计费参数无效' };
   }
 
@@ -120,7 +169,8 @@ function createGenerationAndDeduct(userId, studioType, modelId, params, amount, 
     modelId,
     params,
     normalizedAmount,
-    description
+    description,
+    normalizedJob
   );
 }
 
@@ -170,14 +220,44 @@ function settleGenerationCharge(generationId, amount, result) {
   );
 }
 
-const failGenerationAndRefundTransaction = db.transaction((generationId, errorMessage) => {
+function createWebhookDeliveries(generation, eventType, data) {
+  const payload = JSON.stringify({
+    event: eventType,
+    timestamp: new Date().toISOString(),
+    data
+  });
+  db.prepare(`INSERT OR IGNORE INTO webhook_deliveries
+    (subscription_id, generation_id, event_type, payload)
+    SELECT id, ?, ?, ?
+    FROM webhook_subscriptions
+    WHERE user_id = ? AND status = 1 AND event_type LIKE ?`)
+    .run(generation.id, eventType, payload, generation.user_id, `%${eventType}%`);
+}
+
+const failGenerationAndRefundTransaction = db.transaction((generationId, errorMessage, leaseOwner) => {
   const generation = db.prepare(`
-    SELECT id, user_id, credits_used, status
+    SELECT id, user_id, studio_type, credits_used, status
     FROM generations
     WHERE id = ?
   `).get(generationId);
   if (!generation) throw new Error('生成任务不存在');
   if (generation.status === 'success') throw new Error('成功任务不能退款');
+
+  let job = null;
+  if (leaseOwner !== undefined && leaseOwner !== null) {
+    job = db.prepare(`SELECT id, public_id FROM generation_jobs
+      WHERE generation_id = ? AND status = 'processing' AND lease_owner = ?`)
+      .get(generationId, leaseOwner);
+    if (!job) throw new Error('生成任务租约已失效');
+
+    const jobResult = db.prepare(`UPDATE generation_jobs
+      SET status = 'failed', failure_count = failure_count + 1,
+          last_error = ?, finished_at = datetime('now'),
+          lease_owner = '', lease_expires_at = NULL, updated_at = datetime('now')
+      WHERE id = ? AND status = 'processing' AND lease_owner = ?`)
+      .run(errorMessage || '生成失败', job.id, leaseOwner);
+    if (jobResult.changes !== 1) throw new Error('生成任务失败状态更新冲突');
+  }
 
   const rawCredits = Number(generation.credits_used);
   if (!Number.isFinite(rawCredits) || rawCredits < 0) {
@@ -210,17 +290,30 @@ const failGenerationAndRefundTransaction = db.transaction((generationId, errorMe
   }
 
   if (generation.status === 'pending' || generation.status === 'processing') {
-    db.prepare(`UPDATE generations
+    const generationResult = db.prepare(`UPDATE generations
       SET status = 'failed', error_msg = ?, completed_at = datetime('now','localtime')
       WHERE id = ? AND status IN ('pending', 'processing')`)
       .run(errorMessage || '生成失败', generationId);
+    if (leaseOwner !== undefined && leaseOwner !== null && generationResult.changes !== 1) {
+      throw new Error('生成任务失败状态更新冲突');
+    }
+  }
+
+  if (job) {
+    createWebhookDeliveries(generation, 'task.failed', {
+      task_id: generation.id,
+      public_task_id: job.public_id,
+      studio_type: generation.studio_type,
+      status: 'failed',
+      error_msg: errorMessage || '生成失败'
+    });
   }
 
   return db.prepare('SELECT credits FROM users WHERE id = ?').get(generation.user_id).credits;
 });
 
-function failGenerationAndRefund(generationId, errorMessage) {
-  return failGenerationAndRefundTransaction.immediate(generationId, errorMessage);
+function failGenerationAndRefund(generationId, errorMessage, leaseOwner) {
+  return failGenerationAndRefundTransaction.immediate(generationId, errorMessage, leaseOwner);
 }
 
 // 获取用户积分余额
