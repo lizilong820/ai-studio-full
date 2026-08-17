@@ -1,0 +1,2251 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>个人中心 · AI工作室</title>
+  <link rel="stylesheet" href="css/style.css?v=26">
+  <style>
+    .profile-page {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 32px 28px 80px;
+    }
+    .profile-header {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 28px 32px;
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      margin-bottom: 24px;
+      box-shadow: var(--shadow-sm);
+      position: relative;
+      overflow: hidden;
+    }
+    .profile-header::before {
+      content: '';
+      position: absolute;
+      top: 0; right: 0;
+      width: 200px; height: 200px;
+      background: radial-gradient(circle, rgba(232,196,160,0.15), transparent 70%);
+      pointer-events: none;
+    }
+    .profile-avatar {
+      width: 68px;
+      height: 68px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #F5E6D3, #E8C4A0);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      font-weight: 600;
+      color: #5C4A3A;
+      flex-shrink: 0;
+    }
+    .profile-info h2 {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .profile-info p {
+      color: var(--text-2);
+      font-size: 13px;
+    }
+    .profile-actions {
+      margin-left: auto;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .credit-pill {
+      background: linear-gradient(135deg, var(--brand-soft), #fff);
+      border: 1px solid var(--brand-light);
+      padding: 10px 18px;
+      border-radius: 14px;
+      text-align: center;
+    }
+    .credit-pill .num {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--brand);
+      line-height: 1.2;
+    }
+    .credit-pill .label {
+      font-size: 11px;
+      color: var(--text-3);
+    }
+    .recharge-btn {
+      padding: 10px 20px;
+      background: var(--brand);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .recharge-btn:hover { background: var(--brand-hover); transform: translateY(-1px); }
+
+    .profile-tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 20px;
+      background: var(--bg-card-soft);
+      padding: 6px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      overflow-x: auto;
+      width: fit-content;
+      max-width: 100%;
+    }
+    .profile-tab {
+      padding: 10px 20px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 13.5px;
+      color: var(--text-2);
+      transition: all 0.2s;
+      font-weight: 450;
+      white-space: nowrap;
+    }
+    .profile-tab:hover { color: var(--text); }
+    .profile-tab.active {
+      background: var(--brand);
+      color: #fff;
+      font-weight: 500;
+      box-shadow: 0 2px 8px rgba(212, 184, 150, 0.3);
+    }
+
+    .profile-content { min-height: 400px; position: relative; }
+
+    /* 作品网格 */
+    .works-filter-bar {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .filter-group {
+      display: flex;
+      gap: 6px;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 4px;
+    }
+    .filter-btn {
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 12.5px;
+      color: var(--text-2);
+      cursor: pointer;
+      transition: all 0.2s;
+      border: none;
+      background: transparent;
+      font-weight: 450;
+    }
+    .filter-btn:hover { color: var(--text); background: var(--brand-soft); }
+    .filter-btn.active { background: var(--brand); color: #fff; }
+
+    .batch-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 16px;
+      margin-bottom: 16px;
+      transition: all 0.25s;
+    }
+    .batch-bar.hidden { display: none; }
+    .batch-info {
+      font-size: 13px;
+      color: var(--text-2);
+      flex: 1;
+    }
+    .batch-info strong { color: var(--brand); font-weight: 600; }
+    .batch-btns { display: flex; gap: 8px; }
+    .batch-btn {
+      padding: 7px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--text);
+      transition: all 0.2s;
+    }
+    .batch-btn:hover { background: var(--brand-soft); border-color: var(--brand); }
+    .batch-btn.danger { color: #e74c3c; border-color: #f5c6cb; }
+    .batch-btn.danger:hover { background: #fde8e8; border-color: #e74c3c; }
+    .batch-btn.primary { background: var(--brand); color: #fff; border-color: var(--brand); }
+    .batch-btn.primary:hover { opacity: 0.9; }
+    .batch-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* 选择框 */
+    .work-card.select-mode { cursor: pointer; }
+    .work-checkbox {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      width: 22px;
+      height: 22px;
+      border-radius: 6px;
+      border: 2px solid rgba(255,255,255,0.8);
+      background: rgba(255,255,255,0.3);
+      backdrop-filter: blur(4px);
+      z-index: 10;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .work-card.select-mode .work-checkbox { display: flex; }
+    .work-checkbox.checked {
+      background: var(--brand);
+      border-color: var(--brand);
+    }
+    .work-checkbox.checked::after {
+      content: '✓';
+      color: #fff;
+      font-size: 14px;
+      font-weight: bold;
+    }
+    .work-card.selected .work-cover::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(212, 184, 150, 0.3);
+      border-radius: 12px;
+      z-index: 5;
+      pointer-events: none;
+    }
+    .work-cover { position: relative; }
+
+    .select-mode-toggle {
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 12.5px;
+      color: var(--text-2);
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 1px solid var(--border);
+      background: #fff;
+      font-weight: 450;
+    }
+    .select-mode-toggle:hover { color: var(--text); border-color: var(--brand); }
+    .select-mode-toggle.active { background: var(--brand); color: #fff; border-color: var(--brand); }
+
+    /* 支付弹窗 */
+.pay-modal-mask {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: none; align-items: center; justify-content: center;
+  z-index: 1000;
+}
+.pay-modal-mask.show { display: flex; }
+.pay-modal-box {
+  background: #fff; border-radius: 16px;
+  padding: 28px 32px; width: 90%; max-width: 420px;
+  text-align: center; position: relative;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+}
+.pay-modal-box h3 {
+  font-size: 18px; font-weight: 700; margin-bottom: 6px; color: var(--text-1);
+}
+.pay-modal-box .pay-sub {
+  font-size: 13px; color: var(--text-3); margin-bottom: 20px;
+}
+.pay-modal-box .pay-amount {
+  font-size: 36px; font-weight: 700; color: var(--brand-color);
+  margin: 16px 0 4px;
+}
+.pay-modal-box .pay-amount small { font-size: 18px; font-weight: 500; }
+.pay-modal-box .pay-credits {
+  font-size: 14px; color: var(--text-2); margin-bottom: 20px;
+}
+.pay-qrcode-wrap {
+  width: 200px; height: 200px; margin: 0 auto 16px;
+  border: 1px solid var(--border-color); border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  background: #fff;
+}
+.pay-qrcode-wrap img { width: 180px; height: 180px; }
+.pay-qrcode-loading {
+  width: 40px; height: 40px;
+  border: 3px solid var(--border-color);
+  border-top-color: var(--brand-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.pay-tip {
+  font-size: 13px; color: var(--text-2); margin-bottom: 12px;
+}
+.pay-status {
+  padding: 12px 16px; border-radius: 10px;
+  font-size: 13px; margin-bottom: 16px;
+  background: var(--warn-bg); color: #9A7B4A;
+}
+.pay-status.success { background: var(--success-bg); color: var(--success-color); }
+.pay-status.error { background: var(--error-bg); color: var(--error-color); }
+.pay-method-tabs {
+  display: flex; gap: 8px; margin-bottom: 20px;
+}
+.pay-method-tab {
+  flex: 1; padding: 10px; border: 1px solid var(--border-color);
+  border-radius: 10px; cursor: pointer; font-size: 13px;
+  background: #fff; transition: all .15s;
+}
+.pay-method-tab.active {
+  border-color: var(--brand-color);
+  background: var(--brand-bg);
+  color: var(--brand-color);
+  font-weight: 600;
+}
+.pay-close {
+  position: absolute; top: 12px; right: 16px;
+  font-size: 20px; cursor: pointer; color: var(--text-3);
+  background: none; border: none;
+}
+.pay-close:hover { color: var(--text-1); }
+.pay-modal-box .pay-btn {
+  width: 100%; padding: 12px; border: none; border-radius: 10px;
+  background: var(--brand-color); color: #fff; font-size: 15px;
+  cursor: pointer; font-weight: 600;
+}
+.pay-modal-box .pay-btn:hover { background: var(--brand-hover); }
+
+/* 下载进度弹窗 */
+    .download-progress-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+    .progress-box {
+      background: #fff;
+      border-radius: 16px;
+      padding: 28px 32px;
+      width: 420px;
+      max-width: 90vw;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+    }
+    .progress-box h3 {
+      margin: 0 0 8px;
+      font-size: 18px;
+      color: var(--text);
+    }
+    .progress-tip {
+      margin: 0 0 20px;
+      font-size: 13px;
+      color: var(--text-2);
+    }
+    .progress-bar-wrap {
+      width: 100%;
+      height: 8px;
+      background: #f0ebe3;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 10px;
+    }
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--brand), #c4a882);
+      border-radius: 4px;
+      transition: width 0.3s ease;
+      width: 0%;
+    }
+    .progress-text {
+      margin: 0 0 20px;
+      font-size: 13px;
+      color: var(--text-2);
+      text-align: center;
+    }
+    .progress-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-bottom: 16px;
+    }
+    .progress-actions .batch-btn { padding: 8px 18px; }
+    .progress-notice {
+      margin: 0;
+      font-size: 12px;
+      color: #999;
+      background: #f9f5ef;
+      padding: 10px 12px;
+      border-radius: 8px;
+      line-height: 1.5;
+    }
+
+    .works-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 16px;
+    }
+    .work-card {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      position: relative;
+    }
+    .work-card:hover {
+      transform: translateY(-3px);
+      box-shadow: var(--shadow-md);
+      border-color: var(--brand-light);
+    }
+    .work-cover {
+      width: 100%;
+      aspect-ratio: 1;
+      background: linear-gradient(135deg, #FFF7EC, #FDF0E0);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .work-cover img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .work-cover-text {
+      padding: 16px;
+      font-size: 13px;
+      color: var(--text-2);
+      line-height: 1.6;
+      display: -webkit-box;
+      -webkit-line-clamp: 5;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    /* 音频作品卡片 */
+    .work-cover-audio {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #FFF5E6 0%, #FFE8CC 100%);
+      gap: 10px;
+    }
+    .work-audio-icon {
+      font-size: 36px;
+    }
+    .work-audio-name {
+      font-size: 12.5px;
+      color: var(--text-2);
+      max-width: 85%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .work-cover-icon {
+      font-size: 40px;
+      opacity: 0.5;
+    }
+    .work-cover-video {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #000;
+    }
+    .work-cover-video video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .work-video-play {
+      position: absolute;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.6);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      padding-left: 3px;
+    }
+    .work-fav-btn {
+      position: absolute;
+      top: 10px; right: 10px;
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.9);
+      border: none;
+      cursor: pointer;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      z-index: 2;
+    }
+    .work-fav-btn:hover { transform: scale(1.1); }
+    .work-fav-btn.active { background: #fff; }
+    .work-studio-tag {
+      position: absolute;
+      top: 10px; left: 10px;
+      padding: 3px 10px;
+      background: rgba(0,0,0,0.5);
+      color: #fff;
+      font-size: 11px;
+      border-radius: 999px;
+      z-index: 2;
+    }
+    .work-count-badge {
+      position: absolute;
+      bottom: 10px; right: 10px;
+      padding: 2px 8px;
+      background: rgba(0,0,0,0.5);
+      color: #fff;
+      font-size: 11px;
+      border-radius: 999px;
+      z-index: 2;
+    }
+    .work-info {
+      padding: 12px 14px;
+    }
+    .work-title {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+      margin-bottom: 6px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .work-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      color: var(--text-3);
+    }
+    .work-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .status-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+    }
+    .status-dot.success { background: var(--success); }
+    .status-dot.pending { background: var(--warn); }
+    .status-dot.failed { background: var(--danger); }
+
+    .work-actions {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      background: linear-gradient(transparent, rgba(0,0,0,0.6));
+      padding: 20px 10px 10px;
+      display: flex;
+      gap: 6px;
+      opacity: 0;
+      transition: opacity 0.2s;
+      z-index: 2;
+    }
+    .work-card:hover .work-actions { opacity: 1; }
+    .work-action-btn {
+      flex: 1;
+      padding: 6px;
+      background: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 11px;
+      color: var(--text);
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+    .work-action-btn:hover { background: var(--brand); color: #fff; }
+    .work-action-btn.danger:hover { background: var(--danger); color: #fff; }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-3);
+    }
+    .empty-state .icon { font-size: 56px; margin-bottom: 16px; opacity: 0.5; }
+    .empty-state .text { font-size: 14px; }
+
+    .pagination {
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+      margin-top: 28px;
+    }
+    .page-btn {
+      min-width: 34px;
+      height: 34px;
+      padding: 0 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--text-2);
+      cursor: pointer;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+    .page-btn:hover { border-color: var(--brand); color: var(--brand); }
+    .page-btn.active { background: var(--brand); border-color: var(--brand); color: #fff; }
+    .page-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* 充值页面 */
+    .recharge-section {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 32px;
+      box-shadow: var(--shadow-sm);
+    }
+    .recharge-section h3 {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .recharge-section .sub {
+      color: var(--text-2);
+      font-size: 13px;
+      margin-bottom: 24px;
+    }
+    .package-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 16px;
+    }
+    .package-card {
+      border: 2px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px 18px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.25s;
+      position: relative;
+    }
+    .package-card:hover { border-color: var(--brand-light); transform: translateY(-2px); }
+    .package-card.selected {
+      border-color: var(--brand);
+      background: var(--brand-soft);
+    }
+    .package-card.hot::after {
+      content: '超值';
+      position: absolute;
+      top: -1px; right: -1px;
+      background: linear-gradient(135deg, var(--warn), #E8A04A);
+      color: #fff;
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 0 var(--radius) 0 var(--radius);
+      font-weight: 500;
+    }
+    .package-name {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 10px;
+    }
+    .package-credits {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--brand);
+      line-height: 1.2;
+      margin-bottom: 4px;
+    }
+    .package-credits small { font-size: 14px; font-weight: 500; }
+    .package-bonus {
+      font-size: 12px;
+      color: var(--success);
+      margin-bottom: 14px;
+      font-weight: 500;
+    }
+    .package-price {
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .package-price small { font-size: 13px; font-weight: 400; color: var(--text-3); }
+
+    /* 签到卡片 */
+    .sign-card {
+      background: linear-gradient(135deg, #FFF5E6, #FFE8CC);
+      border: 1px solid #F0D9B5;
+      border-radius: var(--radius-lg);
+      padding: 24px 28px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+    .sign-calendar {
+      display: flex;
+      gap: 6px;
+    }
+    .sign-day {
+      width: 38px;
+      text-align: center;
+    }
+    .sign-day .circle {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.6);
+      margin: 0 auto 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      color: var(--text-2);
+      font-weight: 500;
+    }
+    .sign-day.signed .circle {
+      background: var(--brand);
+      color: #fff;
+    }
+    .sign-day.today .circle {
+      border: 2px solid var(--brand);
+    }
+    .sign-day .bonus {
+      font-size: 10px;
+      color: var(--text-3);
+    }
+    .sign-info { flex: 1; }
+    .sign-info h4 { font-size: 16px; margin-bottom: 6px; }
+    .sign-info p { font-size: 13px; color: var(--text-2); margin-bottom: 10px; }
+    .sign-btn {
+      padding: 10px 22px;
+      background: var(--brand);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .sign-btn:hover { background: var(--brand-hover); }
+    .sign-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    /* 邀请卡片 */
+    .invite-card {
+      background: linear-gradient(135deg, #F0F5FF, #E0ECFF);
+      border: 1px solid #C5D6F0;
+      border-radius: var(--radius-lg);
+      padding: 24px 28px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+    .invite-info { flex: 1; }
+    .invite-info h4 { font-size: 16px; margin-bottom: 6px; color: #3A5A8C; }
+    .invite-info p { font-size: 13px; color: #6B88B0; margin-bottom: 10px; }
+    .invite-code-box {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #fff;
+      border-radius: 10px;
+      padding: 6px 12px;
+      width: fit-content;
+      border: 1px solid #D0E0F5;
+    }
+    .invite-code {
+      font-family: ui-monospace, monospace;
+      font-size: 16px;
+      font-weight: 600;
+      color: #3A5A8C;
+      letter-spacing: 2px;
+    }
+    .copy-btn {
+      padding: 4px 12px;
+      background: #3A5A8C;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 11px;
+      cursor: pointer;
+    }
+
+    /* 数据表格 */
+    .data-table {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      font-size: 13.5px;
+      box-shadow: var(--shadow-sm);
+    }
+    .data-table table { width: 100%; border-collapse: collapse; }
+    .data-table th {
+      background: var(--bg-card-soft);
+      padding: 12px 16px;
+      text-align: left;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      border-bottom: 1px solid var(--border);
+    }
+    .data-table td {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-2);
+    }
+    .data-table tr:last-child td { border-bottom: none; }
+
+    .status-badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 999px;
+      font-size: 11.5px;
+      font-weight: 500;
+    }
+    .status-success { background: var(--success-bg); color: #6B8F62; }
+    .status-pending { background: var(--warn-bg); color: #C49B5B; }
+    .status-failed { background: var(--danger-bg); color: #C48B82; }
+    .status-paid { background: var(--success-bg); color: #6B8F62; }
+
+    /* 表单卡片 */
+    .form-card {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      max-width: 480px;
+      box-shadow: var(--shadow-sm);
+    }
+    .form-card h3 {
+      font-size: 18px;
+      margin-bottom: 20px;
+      font-weight: 600;
+    }
+
+    /* 订单tab */
+    .orders-actions {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      align-items: center;
+    }
+    .orders-total {
+      font-size: 13px;
+      color: var(--text-3);
+    }
+
+    /* 图片预览灯箱 */
+    .lightbox {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.85);
+      z-index: 10000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+    }
+    .lightbox img {
+      max-width: 90%;
+      max-height: 90%;
+      border-radius: 8px;
+      object-fit: contain;
+    }
+    .lightbox-close {
+      position: absolute;
+      top: 20px; right: 20px;
+      width: 40px; height: 40px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.2);
+      color: #fff;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .lightbox-nav {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 48px; height: 48px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.2);
+      color: #fff;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+    .lightbox-nav:hover { background: rgba(255,255,255,0.35); }
+    .lightbox-prev { left: 30px; }
+    .lightbox-next { right: 30px; }
+    .lightbox-counter {
+      position: absolute;
+      bottom: 20px; left: 50%;
+      transform: translateX(-50%);
+      color: rgba(255,255,255,0.7);
+      font-size: 13px;
+    }
+
+    /* 响应式 */
+    @media (max-width: 768px) {
+      .profile-page { padding: 16px; }
+      .profile-header { padding: 20px; flex-wrap: wrap; }
+      .profile-actions { width: 100%; }
+      .works-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="navbar-inner">
+      <div class="logo" onclick="location.href='/'">
+        <div class="logo-icon">🎨</div>
+        <span class="logo-text">AI工作室</span>
+      </div>
+      <div class="nav-links">
+        <a href="/" class="nav-link">首页</a>
+        <a href="/profile.html" class="nav-link active">个人中心</a>
+      </div>
+      <div class="nav-right">
+        <div class="credit-badge" id="creditBadge">
+          <span class="credit-icon">💎</span>
+          <b id="creditNum">--</b> 积分
+        </div>
+        <div class="avatar" id="userAvatar" onclick="location.href='/profile.html'">U</div>
+      </div>
+    </div>
+  </nav>
+
+  <div class="profile-page">
+    <!-- 头部信息 -->
+    <div class="profile-header">
+      <div class="profile-avatar" id="bigAvatar">U</div>
+      <div class="profile-info">
+        <h2 id="profileUsername">用户</h2>
+        <p id="profileEmail">--</p>
+        <p class="text-xs text-muted" id="profileDate">注册于 --</p>
+      </div>
+      <div class="profile-actions">
+        <div class="credit-pill">
+          <div class="num" id="profileCredits">--</div>
+          <div class="label">积分余额</div>
+        </div>
+        <button class="recharge-btn" onclick="switchTab('recharge')">💰 充值积分</button>
+      </div>
+    </div>
+
+    <!-- Tab切换 -->
+    <div class="profile-tabs">
+      <div class="profile-tab active" data-tab="works">我的作品</div>
+      <div class="profile-tab" data-tab="recharge">充值中心</div>
+      <div class="profile-tab" data-tab="orders">我的订单</div>
+      <div class="profile-tab" data-tab="credits">积分流水</div>
+      <div class="profile-tab" data-tab="sign">每日签到</div>
+      <div class="profile-tab" data-tab="invite">邀请好友</div>
+      <div class="profile-tab" data-tab="password">修改密码</div>
+      <div class="profile-tab" data-tab="logout" onclick="doLogout()" style="color: var(--danger);margin-left:auto;">退出登录</div>
+    </div>
+
+    <div class="profile-content">
+      <!-- 我的作品 -->
+      <div id="tab-works" class="tab-content">
+        <div class="works-filter-bar">
+          <div class="filter-group" id="studioFilter">
+            <button class="filter-btn active" data-studio="">全部</button>
+            <button class="filter-btn" data-studio="image">AI图片生成</button>
+            <button class="filter-btn" data-studio="image-edit">图片编辑</button>
+            <button class="filter-btn" data-studio="video-gen">视频生成</button>
+            <button class="filter-btn" data-studio="gif">GIF表情包</button>
+            <button class="filter-btn" data-studio="audio">音频合成</button>
+            <button class="filter-btn" data-studio="prompt-extract">提示词反推</button>
+            <button class="filter-btn" data-studio="ecommerce">电商套图</button>
+            <button class="filter-btn" data-studio="xiaohongshu">小红书</button>
+            <button class="filter-btn" data-studio="poster">海报工厂</button>
+            <button class="filter-btn" data-studio="copywriting">AI文案</button>
+            <button class="filter-btn" data-studio="idphoto">AI证件照</button>
+            <button class="filter-btn" data-studio="face-swap">视频换人</button>
+          </div>
+          <div class="filter-group">
+            <button class="filter-btn active" data-status="">全部状态</button>
+            <button class="filter-btn" data-status="success">成功</button>
+            <button class="filter-btn" data-status="pending">处理中</button>
+            <button class="filter-btn" data-status="failed">失败</button>
+          </div>
+          <div class="filter-group">
+            <button class="filter-btn" data-favored="1">⭐ 收藏</button>
+          </div>
+          <div class="filter-group">
+            <button class="select-mode-toggle" id="selectModeBtn">☑ 批量选择</button>
+          </div>
+        </div>
+        <div class="batch-bar hidden" id="batchBar">
+          <div class="batch-info">已选择 <strong id="selectedCount">0</strong> 个作品</div>
+          <div class="batch-btns">
+            <button class="batch-btn" onclick="selectAllWorks()">全选本页</button>
+            <button class="batch-btn primary" onclick="batchDownload()">⬇ 批量下载</button>
+            <button class="batch-btn danger" onclick="batchDelete()">🗑 批量删除</button>
+            <button class="batch-btn" onclick="exitSelectMode()">取消</button>
+          </div>
+        </div>
+        <div class="works-grid" id="worksGrid">
+          <div class="empty-state" style="grid-column:1/-1;">
+            <div class="icon">🎨</div>
+            <div class="text">加载中...</div>
+          </div>
+        </div>
+        <div class="pagination" id="worksPagination"></div>
+      </div>
+
+      <!-- 充值中心 -->
+      <div id="tab-recharge" class="tab-content" style="display:none;">
+        <div class="recharge-section">
+          <h3>💰 积分充值</h3>
+          <p class="sub">选择适合你的套餐，积分永不过期，支持多场景使用</p>
+          <div class="package-grid" id="packageGrid"></div>
+          <div style="margin-top: 24px; display:flex; justify-content:flex-end; gap:12px; align-items:center;">
+            <span id="selectedPkgInfo" style="font-size:13px;color:var(--text-2);">请选择套餐</span>
+            <button class="generate-btn" style="width:auto;padding:12px 36px;" onclick="confirmRecharge()" disabled id="rechargeConfirmBtn">
+              立即充值
+            </button>
+          </div>
+          <div style="margin-top: 20px; padding: 14px 18px; background: var(--warn-bg); border-radius: 12px; font-size: 12px; color: #9A7B4A;">
+            💡 💎 支付成功后积分自动到账，安全便捷
+          </div>
+        </div>
+      </div>
+
+      <!-- 我的订单 -->
+      <div id="tab-orders" class="tab-content" style="display:none;">
+        <div class="data-table">
+          <table>
+            <thead>
+              <tr>
+                <th>订单号</th>
+                <th>套餐</th>
+                <th>金额</th>
+                <th>积分</th>
+                <th>状态</th>
+                <th>时间</th>
+              </tr>
+            </thead>
+            <tbody id="ordersTbody">
+              <tr><td colspan="6" style="text-align:center;color:var(--text-3);padding:40px;">加载中...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pagination" id="ordersPagination"></div>
+      </div>
+
+      <!-- 支付弹窗 -->
+    <div id="payModalMask" class="pay-modal-mask">
+      <div class="pay-modal-box">
+        <button class="pay-close" onclick="closePayModal()">&times;</button>
+        <h3>扫码支付</h3>
+        <p class="pay-sub" id="payModalSub">请使用手机扫码完成支付</p>
+        <div class="pay-amount"><small>￥</small><span id="payModalAmount">0</span></div>
+        <div class="pay-credits" id="payModalCredits">0 积分</div>
+        <div class="pay-qrcode-wrap" id="payQrcodeWrap">
+          <div class="pay-qrcode-loading"></div>
+        </div>
+        <div class="pay-tip">💡 扫码支付后将自动到账，请稍候...</div>
+        <div class="pay-status" id="payStatus">正在创建订单...</div>
+        <button class="pay-btn" id="payMobileBtn" style="display:none;" onclick="jumpToPay()">📱 手机端支付</button>
+      </div>
+    </div>
+
+    <!-- 积分流水 -->
+      <div id="tab-credits" class="tab-content" style="display:none;">
+        <div class="data-table">
+          <table>
+            <thead>
+              <tr>
+                <th>类型</th>
+                <th>变动</th>
+                <th>说明</th>
+                <th>时间</th>
+              </tr>
+            </thead>
+            <tbody id="creditTbody">
+              <tr><td colspan="4" style="text-align:center;color:var(--text-3);padding:40px;">加载中...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pagination" id="creditPagination"></div>
+      </div>
+
+      <!-- 每日签到 -->
+      <div id="tab-sign" class="tab-content" style="display:none;">
+        <div class="sign-card" id="signCard">
+          <div class="sign-calendar" id="signCalendar"></div>
+          <div class="sign-info">
+            <h4>📅 每日签到</h4>
+            <p id="signStatusText">连续签到 <b id="signDaysNum">0</b> 天，今日可领 <b id="todayBonus">5</b> 积分</p>
+            <button class="sign-btn" id="signBtn" onclick="doSign()">立即签到</button>
+          </div>
+        </div>
+        <div class="data-table">
+          <table>
+            <thead>
+              <tr><th colspan="2" style="text-align:center;">签到奖励规则</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>第 1 天</td><td>+5 积分</td></tr>
+              <tr><td>第 2 天</td><td>+6 积分</td></tr>
+              <tr><td>第 3 天</td><td>+7 积分</td></tr>
+              <tr><td>第 4 天</td><td>+8 积分</td></tr>
+              <tr><td>第 5 天</td><td>+9 积分</td></tr>
+              <tr><td>第 6 天</td><td>+10 积分</td></tr>
+              <tr><td>第 7 天及以上</td><td>+11 积分（最高 20 积分/天）</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 邀请好友 -->
+      <div id="tab-invite" class="tab-content" style="display:none;">
+        <div class="invite-card">
+          <div style="font-size: 64px;">🎁</div>
+          <div class="invite-info">
+            <h4>邀请好友一起玩</h4>
+            <p id="inviteDesc">每邀请一位好友注册，你和好友各得 <b>50</b> 积分奖励</p>
+            <p style="font-size:12px;color:#6B88B0;margin-top:4px;">
+              已邀请 <b id="inviteCountNum">0</b> 位好友
+            </p>
+          </div>
+        </div>
+        <div class="form-card" style="max-width:100%;">
+          <h3>🎫 我的邀请码</h3>
+          <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+            <div style="flex:1;min-width:200px;">
+              <div class="invite-code-box" style="width:100%;justify-content:space-between;">
+                <span class="invite-code" id="myInviteCode">------</span>
+                <button class="copy-btn" onclick="copyInviteCode()">复制</button>
+              </div>
+            </div>
+            <button class="generate-btn" style="width:auto;padding:10px 24px;" onclick="shareInvite()">
+              分享邀请链接
+            </button>
+          </div>
+          <div style="margin-top:20px;padding:14px 18px;background:var(--info-bg);border-radius:12px;font-size:12.5px;color:#6B88B0;">
+            💡 邀请链接会带你的邀请码参数，好友通过链接注册后自动绑定邀请关系，双方各得奖励积分。
+          </div>
+        </div>
+      </div>
+
+      <!-- 修改密码 -->
+      <div id="tab-password" class="tab-content" style="display:none;">
+        <div class="form-card">
+          <h3>修改密码</h3>
+          <form id="pwdForm">
+            <div class="form-group">
+              <label class="form-label">当前密码</label>
+              <input type="password" class="form-input" id="oldPassword" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">新密码</label>
+              <input type="password" class="form-input" id="newPassword" required minlength="6">
+            </div>
+            <div class="form-group">
+              <label class="form-label">确认新密码</label>
+              <input type="password" class="form-input" id="confirmPassword" required>
+            </div>
+            <button type="submit" class="generate-btn" style="width:100%;margin-top:12px;">确认修改</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/common.js?v=26"></script>
+  <script src="js/app.js?v=26"></script>
+  <script>
+    const token = localStorage.getItem('token');
+    if (!token) { window.location.href = '/login'; }
+
+    // 当前筛选状态
+    let currentFilter = { studio: '', status: '', favored: false };
+    let worksPage = 1, worksTotal = 0;
+    let selectMode = false;
+    let selectedWorkIds = new Set();
+    let creditPage = 1, creditTotal = 0;
+    let ordersPage = 1, ordersTotal = 0;
+    let selectedPkgId = null;
+
+    // ===== Tab切换 =====
+    document.querySelectorAll('.profile-tab').forEach(tab => {
+      tab.addEventListener('click', function() {
+        if (this.dataset.tab === 'logout') return;
+        switchTab(this.dataset.tab);
+      });
+    });
+
+    function switchTab(tabName) {
+      document.querySelectorAll('.profile-tab').forEach(t => t.classList.remove('active'));
+      document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+      document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+      document.getElementById('tab-' + tabName).style.display = 'block';
+
+      if (tabName === 'works') loadWorks(1);
+      if (tabName === 'credits') loadCredits(1);
+      if (tabName === 'recharge') loadPackages();
+      if (tabName === 'orders') loadOrders(1);
+      if (tabName === 'sign') loadSignStatus();
+      if (tabName === 'invite') loadInviteInfo();
+    }
+
+    // ===== 用户信息 =====
+    async function loadProfile() {
+      const res = await apiRequest('/api/user/profile');
+      if (res.code !== 0) {
+        localStorage.removeItem('token');
+        window.location.href = '/login';
+        return;
+      }
+      const u = res.data;
+      document.getElementById('profileUsername').textContent = u.username;
+      document.getElementById('profileEmail').textContent = u.email || '未设置邮箱';
+      document.getElementById('profileCredits').textContent = u.credits;
+      document.getElementById('profileDate').textContent = '注册于 ' + u.created_at;
+      const ch = u.username.charAt(0).toUpperCase();
+      document.getElementById('bigAvatar').textContent = ch;
+      document.getElementById('userAvatar').textContent = ch;
+      document.getElementById('creditNum').textContent = u.credits;
+    }
+
+    // ===== 我的作品 (网格视图) =====
+    async function loadWorks(page = 1) {
+      const params = new URLSearchParams({
+        page,
+        pageSize: 12,
+        studio: currentFilter.studio,
+        status: currentFilter.status,
+      });
+      if (currentFilter.favored) params.set('favored', '1');
+
+      const res = await apiRequest('/api/user/works?' + params.toString());
+      if (res.code !== 0) return;
+
+      worksPage = page;
+      worksTotal = res.data.total;
+      const list = res.data.list;
+      const grid = document.getElementById('worksGrid');
+
+      if (list.length === 0) {
+        grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;">
+          <div class="icon">🖼️</div>
+          <div class="text">暂无作品，去创作你的第一个作品吧</div>
+        </div>`;
+      } else {
+        const studioMap = { image: 'AI图片生成', 'image-edit': '图片编辑', 'video-gen': 'AI视频生成', gif: 'GIF表情包', audio: '音频合成', 'prompt-extract': '提示词反推', ecommerce: '电商套图', xiaohongshu: '小红书', poster: '海报工厂', copywriting: 'AI文案', idphoto: 'AI证件照', 'face-swap': '视频换人' };
+        const studioIcon = { image: '🖼️', 'image-edit': '✏️', 'video-gen': '🎬', gif: '🎞️', audio: '🎙️', 'prompt-extract': '🔍', ecommerce: '🏪', xiaohongshu: '📕', poster: '🎨', copywriting: '✍️', idphoto: '📷', 'face-swap': '🎭' };
+        grid.innerHTML = list.map(item => {
+          const isImage = !!item.cover;
+          const isVideo = item.cover && /\.(mp4|webm|mov|avi)(\?|$)/i.test(item.cover);
+          const isAudio = item.studio_type === 'audio' && item.cover;
+          let coverHtml = '';
+          if (isAudio) {
+            coverHtml = `<div class="work-cover-audio">
+                <div class="work-audio-icon">🎵</div>
+                <div class="work-audio-name">${item.title || '音频作品'}</div>
+              </div>`;
+          } else if (isImage && !isVideo) {
+            const thumbSrc = item.thumbnail || item.cover;
+            coverHtml = `<img src="${thumbSrc}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+              <div class="work-cover-icon" style="display:none;">${studioIcon[item.studio_type] || '🎨'}</div>`;
+          } else if (isVideo) {
+            const thumbSrc = item.thumbnail || '';
+            if (thumbSrc) {
+              coverHtml = `<div class="work-cover-video">
+                <img src="${thumbSrc}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;">
+                <div class="work-video-play">▶</div>
+              </div>`;
+            } else {
+              coverHtml = `<div class="work-cover-video">
+                <video src="${item.cover}" muted playsinline preload="metadata"></video>
+                <div class="work-video-play">▶</div>
+              </div>`;
+            }
+          } else if (item.title) {
+            coverHtml = `<div class="work-cover-text">${item.title}</div>`;
+          } else {
+            coverHtml = `<div class="work-cover-icon">${studioIcon[item.studio_type] || '🎨'}</div>`;
+          }
+          return `
+          <div class="work-card ${selectMode ? 'select-mode' : ''} ${selectedWorkIds.has(item.id) ? 'selected' : ''}" 
+               onclick="${selectMode ? `toggleWorkSelect(${item.id}, event)` : `openWorkDetail(${item.id})`}">
+            <div class="work-cover">
+              <div class="work-checkbox ${selectedWorkIds.has(item.id) ? 'checked' : ''}"></div>
+              ${coverHtml}
+              <span class="work-studio-tag">${studioMap[item.studio_type] || item.studio_type}</span>
+              <button class="work-fav-btn ${item.is_favorite ? 'active' : ''}"
+                onclick="event.stopPropagation();toggleFav(${item.id}, ${item.is_favorite})">
+                ${item.is_favorite ? '❤️' : '🤍'}
+              </button>
+              ${item.item_count > 1 ? `<span class="work-count-badge">${item.item_count}张</span>` : ''}
+              <div class="work-actions">
+                <button class="work-action-btn" onclick="event.stopPropagation();openWorkDetail(${item.id})">查看</button>
+                <button class="work-action-btn danger" onclick="event.stopPropagation();deleteWork(${item.id})">删除</button>
+              </div>
+            </div>
+            <div class="work-info">
+              <div class="work-title">${item.title || studioMap[item.studio_type] + '作品 #' + item.id}</div>
+              <div class="work-meta">
+                <span class="work-status">
+                  <span class="status-dot ${item.status}"></span>
+                  ${item.status === 'success' ? '成功' : item.status === 'pending' ? '处理中' : '失败'}
+                </span>
+                <span>-${item.credits_used}分</span>
+              </div>
+            </div>
+          </div>`;
+        }).join('');
+      }
+
+      renderPagination('worksPagination', page, Math.ceil(worksTotal / 12), loadWorks);
+    }
+
+    // 批量选择模式
+    document.getElementById('selectModeBtn').addEventListener('click', function() {
+      selectMode = !selectMode;
+      this.classList.toggle('active', selectMode);
+      this.textContent = selectMode ? '✕ 退出选择' : '☑ 批量选择';
+      document.getElementById('batchBar').classList.toggle('hidden', !selectMode);
+      if (!selectMode) selectedWorkIds.clear();
+      loadWorks(worksPage);
+      updateSelectedCount();
+    });
+
+    function toggleWorkSelect(id, event) {
+      if (event) event.stopPropagation();
+      if (selectedWorkIds.has(id)) {
+        selectedWorkIds.delete(id);
+      } else {
+        selectedWorkIds.add(id);
+      }
+      updateSelectedCount();
+      // 只更新当前卡片样式，不全刷
+      const cards = document.querySelectorAll('.work-card');
+      cards.forEach(card => {
+        const onClick = card.getAttribute('onclick') || '';
+        if (onClick.includes(`toggleWorkSelect(${id}`)) {
+          card.classList.toggle('selected', selectedWorkIds.has(id));
+          const cb = card.querySelector('.work-checkbox');
+          if (cb) cb.classList.toggle('checked', selectedWorkIds.has(id));
+        }
+      });
+    }
+
+    function updateSelectedCount() {
+      document.getElementById('selectedCount').textContent = selectedWorkIds.size;
+    }
+
+    function selectAllWorks() {
+      const cards = document.querySelectorAll('.work-card');
+      const allSelected = cards.length > 0 && Array.from(cards).every(c => c.classList.contains('selected'));
+      if (allSelected) {
+        // 取消全选
+        cards.forEach(card => {
+          card.classList.remove('selected');
+          const cb = card.querySelector('.work-checkbox');
+          if (cb) cb.classList.remove('checked');
+        });
+        selectedWorkIds.clear();
+      } else {
+        // 全选本页
+        cards.forEach(card => {
+          const onClick = card.getAttribute('onclick') || '';
+          const match = onClick.match(/toggleWorkSelect\((\d+)/);
+          if (match) {
+            const id = parseInt(match[1]);
+            selectedWorkIds.add(id);
+            card.classList.add('selected');
+            const cb = card.querySelector('.work-checkbox');
+            if (cb) cb.classList.add('checked');
+          }
+        });
+      }
+      updateSelectedCount();
+    }
+
+    function exitSelectMode() {
+      selectMode = false;
+      selectedWorkIds.clear();
+      document.getElementById('selectModeBtn').classList.remove('active');
+      document.getElementById('selectModeBtn').textContent = '☑ 批量选择';
+      document.getElementById('batchBar').classList.add('hidden');
+      loadWorks(worksPage);
+    }
+
+    // 批量删除
+    async function batchDelete() {
+      if (selectedWorkIds.size === 0) { showToast('请先选择作品', 'error'); return; }
+      if (!confirm(`确定要删除选中的 ${selectedWorkIds.size} 个作品吗？此操作不可恢复！`)) return;
+
+      try {
+        const res = await apiRequest('/api/user/works/batch-delete', {
+          method: 'POST',
+          body: JSON.stringify({ ids: Array.from(selectedWorkIds) })
+        });
+        if (res.code === 0) {
+          showToast(res.msg || '删除成功', 'success');
+          selectedWorkIds.clear();
+          loadWorks(worksPage);
+          updateSelectedCount();
+        } else {
+          showToast(res.msg || '删除失败', 'error');
+        }
+      } catch(e) {
+        showToast('操作失败', 'error');
+      }
+    }
+
+    // 批量下载
+    async function batchDownload() {
+      if (selectedWorkIds.size === 0) { showToast('请先选择作品', 'error'); return; }
+      if (selectedWorkIds.size > 50) { showToast('一次最多下载50个作品', 'error'); return; }
+
+      // 创建打包任务
+      try {
+        const res = await apiRequest('/api/user/works/batch-download', {
+          method: 'POST',
+          body: JSON.stringify({ ids: Array.from(selectedWorkIds) })
+        });
+        if (res.code !== 0) {
+          showToast(res.msg || '下载失败', 'error');
+          return;
+        }
+
+        const taskId = res.data.taskId;
+        showDownloadProgress(taskId);
+      } catch(e) {
+        showToast('操作失败', 'error');
+      }
+    }
+
+    // 显示下载进度弹窗
+    function showDownloadProgress(taskId) {
+      // 先清理旧的轮询，防止叠加
+      if (window._dlInterval) { clearInterval(window._dlInterval); window._dlInterval = null; }
+      if (window._zipAnimTimer) { clearInterval(window._zipAnimTimer); window._zipAnimTimer = null; }
+      window._autoDownloadTriggered = false;
+      window._downloading = false;
+
+      // 创建弹窗
+      let modal = document.getElementById('downloadProgressModal');
+      if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'downloadProgressModal';
+        modal.className = 'download-progress-modal';
+        modal.innerHTML = '<div class="progress-box"><h3>📦 正在打包</h3><p class="progress-tip">后台正在为您打包图片，请稍候...</p><div class="progress-bar-wrap"><div class="progress-bar" id="dlProgressBar"></div></div><p class="progress-text" id="dlProgressText">准备中...</p><div class="progress-actions"><button class="batch-btn" onclick="closeDownloadProgress()">关闭</button><button class="batch-btn primary download-btn" id="dlDownloadBtn" style="display:none;">⬇ 下载文件</button></div><p class="progress-notice">💡 打包在后台进行，您可以离开此页面继续操作，稍后回来下载即可。文件保留30分钟。</p></div>';
+        document.body.appendChild(modal);
+      }
+      modal.style.display = 'flex';
+      document.getElementById('dlProgressBar').style.width = '0%';
+      document.getElementById('dlProgressText').textContent = '准备中...';
+      const dlBtn = document.getElementById('dlDownloadBtn');
+      dlBtn.style.display = 'none';
+      dlBtn.textContent = '⬇ 下载文件';
+      dlBtn.disabled = false;
+
+      let currentDownloadUrl = null;
+
+      // 轮询进度
+      let pollCount = 0;
+      const maxPoll = 180; // 最多轮询3分钟
+      const interval = setInterval(async function() {
+        pollCount++;
+        if (pollCount > maxPoll) {
+          clearInterval(interval);
+          document.getElementById('dlProgressText').textContent = '打包超时，请稍后重试';
+          return;
+        }
+
+        try {
+          const res = await apiRequest('/api/user/works/batch-download/' + taskId);
+          if (res.code !== 0) {
+            clearInterval(interval);
+            document.getElementById('dlProgressText').textContent = res.msg || '打包失败';
+            return;
+          }
+
+          const data = res.data;
+
+          if (data.status === 'processing') {
+            const percent = data.total > 0 ? Math.round((data.done / data.total) * 80) : 0;
+            document.getElementById('dlProgressBar').style.width = percent + '%';
+            document.getElementById('dlProgressText').textContent = '正在整理图片... ' + data.done + '/' + data.total;
+          } else if (data.status === 'done') {
+            if (window._autoDownloadTriggered) return; // 防止重复触发
+            window._autoDownloadTriggered = true;
+            clearInterval(interval);
+
+            currentDownloadUrl = data.downloadUrl;
+
+            // 进度条动画：80% -> 100%，模拟zip压缩阶段
+            let curPct = 80;
+            document.getElementById('dlProgressText').textContent = '正在压缩打包...';
+            window._zipAnimTimer = setInterval(function() {
+              curPct += 2;
+              if (curPct >= 100) {
+                curPct = 100;
+                clearInterval(window._zipAnimTimer);
+                window._zipAnimTimer = null;
+                document.getElementById('dlProgressText').textContent = '✅ 打包完成！';
+              }
+              document.getElementById('dlProgressBar').style.width = curPct + '%';
+            }, 60);
+
+            // 绑定下载按钮
+            const btn = document.getElementById('dlDownloadBtn');
+            btn.style.display = 'inline-block';
+            btn.onclick = function() { downloadZipFile(currentDownloadUrl); };
+            showToast('打包完成，准备下载', 'success');
+            // 自动触发下载（只触发一次）
+            setTimeout(function() { downloadZipFile(currentDownloadUrl); }, 500);
+          } else if (data.status === 'failed') {
+            clearInterval(interval);
+            document.getElementById('dlProgressText').textContent = '打包失败：' + (data.error || '未知错误');
+          }
+        } catch(e) {
+          // 忽略网络错误，继续轮询
+        }
+      }, 1000);
+
+      window._dlInterval = interval;
+    }
+
+    function closeDownloadProgress() {
+      const modal = document.getElementById('downloadProgressModal');
+      if (modal) modal.style.display = 'none';
+      if (window._dlInterval) clearInterval(window._dlInterval);
+    }
+
+    // 带token下载zip文件
+    async function downloadZipFile(url) {
+      if (window._downloading) return; // 防止重复点击
+      window._downloading = true;
+
+      const btn = document.getElementById('dlDownloadBtn');
+      const progressText = document.getElementById('dlProgressText');
+
+      if (btn) { btn.textContent = '⏳ 下载中...'; btn.disabled = true; }
+
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch(url, {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(function() { return {}; });
+          showToast(data.msg || '下载失败', 'error');
+          return;
+        }
+
+        // 用 ReadableStream 监控下载进度
+        const contentLength = res.headers.get('content-length');
+        const total = contentLength ? parseInt(contentLength) : 0;
+        const reader = res.body.getReader();
+        let received = 0;
+        const chunks = [];
+
+        while (true) {
+          const result = await reader.read();
+          if (result.done) break;
+          chunks.push(result.value);
+          received += result.value.length;
+          if (total > 0 && progressText) {
+            const pct = Math.round((received / total) * 100);
+            const mb = (received / 1024 / 1024).toFixed(1);
+            const totalMb = (total / 1024 / 1024).toFixed(1);
+            progressText.textContent = '正在下载... ' + mb + 'MB / ' + totalMb + 'MB (' + pct + '%)';
+          } else if (progressText) {
+            const mb = (received / 1024 / 1024).toFixed(1);
+            progressText.textContent = '正在下载... ' + mb + 'MB';
+          }
+        }
+
+        const blob = new Blob(chunks);
+        const blobUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = 'ai工作室作品_' + Date.now() + '.zip';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(function() { window.URL.revokeObjectURL(blobUrl); }, 1000);
+
+        showToast('下载完成', 'success');
+        if (progressText) progressText.textContent = '✅ 下载完成';
+      } catch(e) {
+        console.error('download error:', e);
+        showToast('下载失败', 'error');
+        if (progressText) progressText.textContent = '下载失败';
+      } finally {
+        window._downloading = false;
+        if (btn) { btn.textContent = '⬇ 下载文件'; btn.disabled = false; }
+      }
+    }
+
+    // 筛选器事件
+    document.querySelectorAll('#studioFilter .filter-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        document.querySelectorAll('#studioFilter .filter-btn').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        currentFilter.studio = this.dataset.studio;
+        loadWorks(1);
+      });
+    });
+    document.querySelectorAll('[data-status]').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const group = this.parentElement;
+        group.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        currentFilter.status = this.dataset.status;
+        loadWorks(1);
+      });
+    });
+    document.querySelector('[data-favored]').addEventListener('click', function() {
+      this.classList.toggle('active');
+      currentFilter.favored = this.classList.contains('active');
+      loadWorks(1);
+    });
+
+    // 收藏切换
+    async function toggleFav(id, current) {
+      const res = await apiRequest('/api/user/generation/' + id + '/favorite', { method: 'POST' });
+      if (res.code === 0) {
+        showToast(res.msg, 'success');
+        loadWorks(worksPage);
+      } else {
+        showToast(res.msg, 'error');
+      }
+    }
+
+    // 删除作品
+    function deleteWork(id) {
+      if (!confirm('确定要删除这个作品吗？删除后不可恢复。')) return;
+      apiRequest('/api/user/generation/' + id, { method: 'DELETE' }).then(res => {
+        if (res.code === 0) {
+          showToast('已删除', 'success');
+          loadWorks(worksPage);
+        } else {
+          showToast(res.msg, 'error');
+        }
+      });
+    }
+
+    // 查看作品详情
+    async function openWorkDetail(id) {
+      const data = await apiRequest('/api/generation/' + id);
+      if (data.code !== 0) { showToast(data.msg || '加载失败', 'error'); return; }
+      showGenDetailModal(data.data);
+    }
+
+    // ===== 充值套餐 =====
+    async function loadPackages() {
+      const res = await apiRequest('/api/user/recharge/packages');
+      if (res.code !== 0) return;
+      const list = res.data;
+      const grid = document.getElementById('packageGrid');
+      grid.innerHTML = list.map((pkg, i) => `
+        <div class="package-card ${i === 1 ? 'hot' : ''}" data-id="${pkg.id}" onclick="selectPackage(${pkg.id}, this)">
+          <div class="package-name">${pkg.name}</div>
+          <div class="package-credits">${pkg.credits}<small> 积分</small></div>
+          <div class="package-bonus">${pkg.bonus > 0 ? '🎁 赠送 ' + pkg.bonus + ' 积分' : ''}</div>
+          <div class="package-price"><small>￥</small>${pkg.price}</div>
+        </div>
+      `).join('');
+    }
+
+    function selectPackage(id, el) {
+      document.querySelectorAll('.package-card').forEach(c => c.classList.remove('selected'));
+      el.classList.add('selected');
+      selectedPkgId = id;
+      const pkg = Array.from(document.querySelectorAll('.package-card'))
+        .find(c => parseInt(c.dataset.id) === id);
+      const name = pkg.querySelector('.package-name').textContent;
+      const credits = pkg.querySelector('.package-credits').textContent.replace('积分','').trim();
+      document.getElementById('selectedPkgInfo').textContent =
+        `已选：${name} · ${credits} 积分`;
+      document.getElementById('rechargeConfirmBtn').disabled = false;
+    }
+
+    // ===== 支付相关 =====
+    let currentPayOrderId = null;
+    let payPollTimer = null;
+    let payPollCount = 0;
+    const PAY_POLL_MAX = 60; // 最多轮询60次=3分钟
+    let currentPayUrl = '';
+
+    async function confirmRecharge() {
+      if (!selectedPkgId) return;
+
+      // 获取当前选中的套餐信息
+      const pkgEl = document.querySelector('.package-card.selected');
+      if (!pkgEl) return;
+      const pkgName = pkgEl.querySelector('.package-name').textContent;
+      const priceText = pkgEl.querySelector('.package-price').textContent.replace('￥','').trim();
+
+      // 显示弹窗
+      document.getElementById('payModalAmount').textContent = priceText;
+      document.getElementById('payModalCredits').textContent =
+        pkgEl.querySelector('.package-credits').textContent.trim();
+      document.getElementById('payModalSub').textContent = pkgName;
+      document.getElementById('payStatus').textContent = '正在创建订单...';
+      document.getElementById('payStatus').className = 'pay-status';
+      document.getElementById('payQrcodeWrap').innerHTML = '<div class="pay-qrcode-loading"></div>';
+      document.getElementById('payMobileBtn').style.display = 'none';
+      document.getElementById('payModalMask').classList.add('show');
+
+      try {
+        // 调起支付
+        const res = await apiRequest('/api/user/recharge/pay', {
+          method: 'POST',
+          body: JSON.stringify({ package_id: selectedPkgId })
+        });
+
+        if (res.code !== 0) {
+          document.getElementById('payStatus').textContent = res.msg || '支付创建失败';
+          document.getElementById('payStatus').className = 'pay-status error';
+          return;
+        }
+
+        const data = res.data;
+        currentPayOrderId = data.order_id;
+        currentPayUrl = data.url || '';
+
+        // 显示二维码
+        if (data.url_qrcode) {
+          document.getElementById('payQrcodeWrap').innerHTML =
+            '<img src="' + data.url_qrcode + '" alt="支付二维码" />';
+        } else {
+          document.getElementById('payQrcodeWrap').innerHTML =
+            '<p style="font-size:13px;color:var(--text-2)">请使用手机端支付</p>';
+        }
+
+        // 手机端显示跳转按钮
+        if (data.url && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)) {
+          document.getElementById('payMobileBtn').style.display = 'block';
+        }
+
+        document.getElementById('payStatus').textContent = '请扫码支付，支付成功后将自动到账';
+        document.getElementById('payStatus').className = 'pay-status';
+
+        // 开始轮询
+        startPayPolling();
+
+      } catch (err) {
+        document.getElementById('payStatus').textContent = '网络错误：' + err.message;
+        document.getElementById('payStatus').className = 'pay-status error';
+      }
+    }
+
+    function jumpToPay() {
+      if (currentPayUrl) window.open(currentPayUrl, '_blank');
+    }
+
+    function startPayPolling() {
+      if (payPollTimer) clearInterval(payPollTimer);
+      payPollCount = 0;
+      payPollTimer = setInterval(async () => {
+        if (!currentPayOrderId) {
+          clearInterval(payPollTimer);
+          return;
+        }
+        payPollCount++;
+        if (payPollCount > PAY_POLL_MAX) {
+          clearInterval(payPollTimer);
+          document.getElementById('payStatus').textContent = '支付超时，请重新发起支付';
+          document.getElementById('payStatus').className = 'pay-status error';
+          return;
+        }
+        try {
+          const res = await apiRequest('/api/user/recharge/query/' + currentPayOrderId);
+          if (res.code === 0 && res.data.status === 'paid') {
+            clearInterval(payPollTimer);
+            document.getElementById('payStatus').textContent = '✅ 支付成功！积分已到账';
+            document.getElementById('payStatus').className = 'pay-status success';
+            // 更新顶部积分
+            loadUserInfo();
+            loadOrders();
+            setTimeout(() => {
+              closePayModal();
+              switchTab('orders');
+            }, 1500);
+          }
+        } catch (e) {
+          // 轮询出错不中断
+        }
+      }, 3000);
+    }
+
+    function closePayModal() {
+      document.getElementById('payModalMask').classList.remove('show');
+      if (payPollTimer) {
+        clearInterval(payPollTimer);
+        payPollTimer = null;
+      }
+      currentPayOrderId = null;
+    }
+
+    // ===== 我的订单 =====
+    async function loadOrders(page = 1) {
+      const res = await apiRequest(`/api/user/orders?page=${page}&pageSize=10`);
+      if (res.code !== 0) return;
+      ordersPage = page; ordersTotal = res.data.total;
+      const list = res.data.list;
+      const tbody = document.getElementById('ordersTbody');
+      if (list.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-3);padding:40px;">暂无订单</td></tr>';
+      } else {
+        const statusMap = {
+          pending: '<span class="status-badge status-pending">待支付</span>',
+          paid: '<span class="status-badge status-paid">已支付</span>',
+          failed: '<span class="status-badge status-failed">失败</span>',
+          cancelled: '<span class="status-badge">已取消</span>',
+          manual: '<span class="status-badge status-success">手动充值</span>',
+        };
+        tbody.innerHTML = list.map(o => `
+          <tr>
+            <td style="font-family:ui-monospace,monospace;font-size:12px;">${o.remark || ('ORD' + o.id)}</td>
+            <td>${o.package_name || '-'}</td>
+            <td>￥${o.amount}</td>
+            <td style="color:var(--brand);font-weight:600;">+${o.credits}</td>
+            <td>${statusMap[o.status] || o.status}</td>
+            <td style="font-size:12px;color:var(--text-3);">${o.created_at}</td>
+          </tr>
+        `).join('');
+      }
+      renderPagination('ordersPagination', page, Math.ceil(ordersTotal / 10), loadOrders);
+    }
+
+    // ===== 积分流水 =====
+    async function loadCredits(page = 1) {
+      const res = await apiRequest(`/api/user/credit-logs?page=${page}&pageSize=10`);
+      if (res.code !== 0) return;
+      creditPage = page; creditTotal = res.data.total;
+      const list = res.data.list;
+      const tbody = document.getElementById('creditTbody');
+      if (list.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-3);padding:40px;">暂无记录</td></tr>';
+      } else {
+        const typeMap = { recharge: '充值', consume: '消耗', refund: '退款', manual: '手动调整' };
+        tbody.innerHTML = list.map(item => {
+          const positive = item.amount > 0;
+          return `<tr>
+            <td>${typeMap[item.type] || item.type}</td>
+            <td style="color:${positive ? 'var(--success)' : 'var(--danger)'};font-weight:600;">
+              ${positive ? '+' : ''}${item.amount}
+            </td>
+            <td>${item.description || '-'}</td>
+            <td style="font-size:12px;color:var(--text-3);">${item.created_at}</td>
+          </tr>`;
+        }).join('');
+      }
+      renderPagination('creditPagination', page, Math.ceil(creditTotal / 10), loadCredits);
+    }
+
+    // ===== 每日签到 =====
+    async function loadSignStatus() {
+      const res = await apiRequest('/api/user/sign-status');
+      if (res.code !== 0) return;
+      const d = res.data;
+      document.getElementById('signDaysNum').textContent = d.sign_days;
+      document.getElementById('todayBonus').textContent = d.today_bonus;
+
+      const cal = document.getElementById('signCalendar');
+      cal.innerHTML = d.week_days.map(day => `
+        <div class="sign-day ${day.signed ? 'signed' : ''} ${day.is_today ? 'today' : ''}">
+          <div class="circle">${day.signed ? '✓' : day.day}</div>
+          <div class="bonus">${day.bonus}分</div>
+        </div>
+      `).join('');
+
+      const btn = document.getElementById('signBtn');
+      if (d.signed_today) {
+        btn.textContent = '今日已签到';
+        btn.disabled = true;
+        document.getElementById('signStatusText').innerHTML =
+          `已连续签到 <b>${d.sign_days}</b> 天，明天可领 <b>${Math.min(5 + (d.sign_days), 20)}</b> 积分`;
+      } else {
+        btn.textContent = '立即签到 +' + d.today_bonus + '分';
+        btn.disabled = false;
+      }
+    }
+
+    async function doSign() {
+      const res = await apiRequest('/api/user/sign', { method: 'POST' });
+      if (res.code === 0) {
+        showToast(res.msg, 'success');
+        loadSignStatus();
+        loadProfile(); // 刷新积分
+      } else {
+        showToast(res.msg, 'error');
+      }
+    }
+
+    // ===== 邀请好友 =====
+    async function loadInviteInfo() {
+      const res = await apiRequest('/api/user/invite-info');
+      if (res.code !== 0) return;
+      const d = res.data;
+      document.getElementById('myInviteCode').textContent = d.invite_code;
+      document.getElementById('inviteCountNum').textContent = d.invite_count;
+      document.getElementById('inviteDesc').innerHTML =
+        `每邀请一位好友注册，你和好友各得 <b>${d.invite_bonus}</b> 积分奖励`;
+    }
+
+    function copyInviteCode() {
+      const code = document.getElementById('myInviteCode').textContent;
+      navigator.clipboard.writeText(code).then(() => {
+        showToast('邀请码已复制', 'success');
+      }).catch(() => {
+        showToast('复制失败，请手动复制', 'error');
+      });
+    }
+
+    function shareInvite() {
+      const code = document.getElementById('myInviteCode').textContent;
+      const url = window.location.origin + '/register?invite=' + code;
+      navigator.clipboard.writeText(url).then(() => {
+        showToast('邀请链接已复制，快分享给好友吧', 'success');
+      }).catch(() => {
+        prompt('复制以下链接分享给好友：', url);
+      });
+    }
+
+    // ===== 修改密码 =====
+    document.getElementById('pwdForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const oldPwd = document.getElementById('oldPassword').value;
+      const newPwd = document.getElementById('newPassword').value;
+      const confirmPwd = document.getElementById('confirmPassword').value;
+      if (newPwd !== confirmPwd) { showToast('两次输入的新密码不一致', 'error'); return; }
+      const res = await apiRequest('/api/user/change-password', {
+        method: 'POST',
+        body: JSON.stringify({ oldPassword: oldPwd, newPassword: newPwd })
+      });
+      if (res.code === 0) { showToast('密码修改成功', 'success'); this.reset(); }
+      else { showToast(res.msg, 'error'); }
+    });
+
+    function doLogout() {
+      if (confirm('确定要退出登录吗？')) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+      }
+    }
+
+    // ===== 分页 =====
+    function renderPagination(containerId, current, total, callback) {
+      const container = document.getElementById(containerId);
+      if (total <= 1) { container.innerHTML = ''; return; }
+      let html = `<button class="page-btn" ${current === 1 ? 'disabled' : ''} onclick="__pg('${containerId}', ${current-1}, ${total})">上一页</button>`;
+      for (let i = 1; i <= total; i++) {
+        if (total > 7 && Math.abs(i - current) > 2 && i !== 1 && i !== total) {
+          if (i === 2 || i === total - 1) html += '<span style="color:var(--text-3);padding:0 4px;">...</span>';
+          continue;
+        }
+        html += `<button class="page-btn ${i === current ? 'active' : ''}" onclick="__pg('${containerId}', ${i}, ${total})">${i}</button>`;
+      }
+      html += `<button class="page-btn" ${current === total ? 'disabled' : ''} onclick="__pg('${containerId}', ${current+1}, ${total})">下一页</button>`;
+      container.innerHTML = html;
+      container.dataset.callback = callback.name;
+    }
+
+    window.__pg = function(containerId, page, total) {
+      if (page < 1 || page > total) return;
+      const cbMap = {
+        'worksPagination': loadWorks,
+        'creditPagination': loadCredits,
+        'ordersPagination': loadOrders,
+      };
+      const cb = cbMap[containerId];
+      if (cb) cb(page);
+    };
+
+    // ===== 详情弹窗 =====
+    // ===== 音频复制链接 =====
+    function copyAudioUrl(url) {
+      if (!url) { showToast('链接不存在', 'error'); return; }
+      const fullUrl = window.location.origin + url;
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(fullUrl).then(() => {
+          showToast('链接已复制到剪贴板', 'success');
+        }).catch(() => fallbackCopyAudio(fullUrl));
+      } else {
+        fallbackCopyAudio(fullUrl);
+      }
+    }
+
+    function fallbackCopyAudio(text) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand('copy');
+        showToast('链接已复制到剪贴板', 'success');
+      } catch (e) {
+        showToast('复制失败，请手动复制', 'error');
+      }
+      document.body.removeChild(ta);
+    }
+
+    function showGenDetailModal(gen) {
+      const studioMap = { image: 'AI图片生成', 'image-edit': '图片编辑', 'video-gen': 'AI视频生成', gif: 'GIF表情包', audio: '音频合成', 'prompt-extract': '提示词反推', ecommerce: '电商套图', xiaohongshu: '小红书笔记', poster: '海报工厂', copywriting: 'AI文案', idphoto: 'AI证件照', 'face-swap': '视频换人' };
+      const result = gen.result || {};
+
+      let contentHtml = '';
+      if (result.images && result.images.length > 0) {
+        contentHtml = `<div class="detail-img-grid">
+          ${result.images.map((img, i) => `
+            <div class="detail-img-item">
+              <img src="${img}" alt="图片${i+1}" onclick="openLightbox(${JSON.stringify(result.images).replace(/"/g,'&quot;')}, ${i})">
+              <div class="detail-img-index">${i+1}/${result.images.length}</div>
+            </div>
+          `).join('')}
+        </div>
+        <div style="text-align:center;margin-bottom:16px;">
+          <button class="action-btn" onclick="downloadAllImages(${JSON.stringify(result.images).replace(/"/g,'&quot;')})">📥 批量下载</button>
+        </div>`;
+      }
+      else if (result.posters && result.posters.length > 0) {
+        const urls = result.posters.map(p => typeof p === 'string' ? p : (p.image || '')).filter(Boolean);
+        contentHtml = `<div class="detail-img-grid">
+          ${result.posters.map((p, i) => {
+            const imgUrl = typeof p === 'string' ? p : (p.image || '');
+            return `<div class="detail-img-item">
+              <img src="${imgUrl}" alt="海报${i+1}" onclick="openLightbox(${JSON.stringify(urls).replace(/"/g,'&quot;')}, ${i})">
+              ${p.title ? `<div class="detail-img-title">${p.title}</div>` : ''}
+            </div>`;
+          }).join('')}
+        </div>
+        <div style="text-align:center;margin-bottom:16px;">
+          <button class="action-btn" onclick="downloadAllImages(${JSON.stringify(urls).replace(/"/g,'&quot;')})">📥 批量下载</button>
+        </div>`;
+      }
+      else if (result.notes && result.notes.length > 0) {
+        contentHtml = `<div class="detail-text-list">
+          ${result.notes.map((n, i) => `
+            <div class="detail-text-item">
+              <div class="detail-text-title">${n.title || '笔记 ' + (i+1)}</div>
+              <div class="detail-text-content">${(n.content || '').replace(/\n/g, '<br>')}</div>
+              ${n.tags && n.tags.length ? `<div class="detail-tags">${n.tags.map(t => `<span class="tag">${t}</span>`).join('')}</div>` : ''}
+              <div style="margin-top:10px;"><button class="link-btn" onclick="copyText(\`${(n.content || '').replace(/`/g, '\\`')}\`)">📋 复制文案</button></div>
+            </div>
+          `).join('')}
+        </div>`;
+      }
+      else if (result.versions && result.versions.length > 0) {
+        contentHtml = `<div class="detail-text-list">
+          ${result.versions.map((v, i) => `
+            <div class="detail-text-item">
+              <div class="detail-text-title">${v.title || '版本 ' + (i+1)}</div>
+              <div class="detail-text-content">${(v.content || '').replace(/\n/g, '<br>')}</div>
+              ${v.tags && v.tags.length ? `<div class="detail-tags">${v.tags.map(t => `<span class="tag">${t}</span>`).join('')}</div>` : ''}
+              <div style="margin-top:10px;"><button class="link-btn" onclick="copyText(\`${(v.content || '').replace(/`/g, '\\`')}\`)">📋 复制文案</button></div>
+            </div>
+          `).join('')}
+        </div>`;
+      }
+      else if (result.copies && result.copies.length > 0) {
+        contentHtml = `<div class="detail-text-list">
+          ${result.copies.map((c, i) => `
+            <div class="detail-text-item">
+              <div class="detail-text-title">${c.title || '方案 ' + (i+1)}</div>
+              <div class="detail-text-content">${(c.content || '').replace(/\n/g, '<br>')}</div>
+              ${c.tags && c.tags.length ? `<div class="detail-tags">${c.tags.map(t => `<span class="tag">${t}</span>`).join('')}</div>` : ''}
+              <div style="margin-top:10px;"><button class="link-btn" onclick="copyText(\`${(c.content || '').replace(/`/g, '\\`')}\`)">📋 复制文案</button></div>
+            </div>
+          `).join('')}
+        </div>`;
+      }
+      else if (result.text) {
+        contentHtml = `<div style="background:var(--bg-soft);border-radius:var(--radius-md);padding:16px;margin-bottom:8px;">
+          <div style="font-weight:500;margin-bottom:10px;font-size:13.5px;">📋 提取结果</div>
+          <div style="background:#fff;border-radius:var(--radius-sm);padding:12px;font-size:13px;line-height:1.7;white-space:pre-wrap;word-break:break-word;max-height:400px;overflow-y:auto;border:1px solid var(--border);">${result.text}</div>
+          <div style="margin-top:10px;text-align:right;"><button class="action-btn" onclick="navigator.clipboard.writeText(\`${result.text}\`).then(()=>{this.textContent='已复制 ✓';setTimeout(()=>{this.textContent='📋 复制内容'},1500)})">📋 复制内容</button></div>
+        </div>`;
+      }
+      else if (result.gif) {
+        contentHtml = `<div style="text-align:center;">
+          <img src="${result.gif}" alt="GIF" style="max-width:100%;max-height:500px;border-radius:12px;">
+          <div style="margin-top:16px;">
+            <button class="action-btn" onclick="downloadFile('${result.gif}', 'ai_gif.gif')">📥 下载GIF</button>
+          </div>
+        </div>`;
+      }
+      else if (result.video) {
+        contentHtml = `<div style="text-align:center;">
+          <video src="${result.video}" controls playsinline style="max-width:100%;max-height:500px;border-radius:12px;"></video>
+          <div style="margin-top:16px;">
+            <button class="action-btn" onclick="downloadFile('${result.video}', 'ai_video.mp4')">📥 下载视频</button>
+          </div>
+        </div>`;
+      }
+      else if (result.audio_url) {
+        const sizeKb = result.size ? (result.size / 1024).toFixed(1) + ' KB' : '';
+        const fileName = result.file_name || 'audio.wav';
+        contentHtml = `<div style="background:linear-gradient(135deg,#FFF3E6,#FFE8D6);border-radius:16px;padding:24px 20px;margin-bottom:8px;">
+          <div style="font-size:42px;text-align:center;margin-bottom:12px;">🎵</div>
+          <div style="text-align:center;font-weight:600;color:#8B4513;margin-bottom:4px;">${fileName}</div>
+          <div style="text-align:center;font-size:12.5px;color:#B8860B;margin-bottom:16px;">${sizeKb}</div>
+          <audio controls src="${result.audio_url}" style="width:100%;"></audio>
+          <div style="margin-top:16px;display:flex;gap:10px;justify-content:center;">
+            <button class="action-btn" onclick="downloadFile('${result.audio_url}', '${fileName}')">📥 下载音频</button>
+            <button class="action-btn secondary" onclick="copyAudioUrl('${result.audio_url}')">🔗 复制链接</button>
+          </div>
+        </div>`;
+      }
+      else if (gen.status === 'failed') {
+        contentHtml = `<div class="detail-failed">
+          <div style="font-size:48px;margin-bottom:12px;">❌</div>
+          <div style="color:var(--danger);font-weight:600;">生成失败</div>
+          <div style="color:var(--text-3);margin-top:8px;">${gen.error_msg || '未知错误'}</div>
+        </div>`;
+      }
+      else if (gen.status === 'pending') {
+        contentHtml = `<div class="detail-failed">
+          <div style="font-size:48px;margin-bottom:12px;">⏳</div>
+          <div style="color:var(--text-2);font-weight:600;">正在生成中...</div>
+          <div style="color:var(--text-3);margin-top:8px;">请稍后刷新查看</div>
+        </div>`;
+      }
+
+      // 参数
+      let paramsHtml = '';
+      if (gen.params) {
+        try {
+          const p = typeof gen.params === 'string' ? JSON.parse(gen.params) : gen.params;
+          const rows = Object.entries(p).filter(([k,v]) => v !== '' && v != null && !Array.isArray(v)).map(([k,v]) =>
+            `<div class="param-row"><span class="param-key">${k}</span><span class="param-val">${v}</span></div>`
+          ).join('');
+          if (rows) paramsHtml = `<div class="detail-params-title">生成参数</div><div class="detail-params">${rows}</div>`;
+        } catch (e) {}
+      }
+
+      const modal = document.createElement('div');
+      modal.className = 'modal-mask';
+      modal.innerHTML = `
+        <div class="modal-content detail-modal">
+          <div class="modal-header">
+            <div class="modal-title">生成详情 #${gen.id} · ${studioMap[gen.studio_type] || gen.studio_type}</div>
+            <div style="display:flex;gap:8px;">
+              <button class="link-btn" onclick="this.closest('.modal-mask').querySelector('.work-fav-btn-single').click()">
+                ${gen.is_favorite ? '❤️ 已收藏' : '🤍 收藏'}
+              </button>
+              <button class="modal-close" onclick="this.closest('.modal-mask').remove()">×</button>
+            </div>
+          </div>
+          <div class="modal-body">
+            ${contentHtml}
+            ${paramsHtml}
+          </div>
+        </div>
+      `;
+      modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+      document.body.appendChild(modal);
+    }
+
+    // 灯箱
+    window.openLightbox = function(images, index) {
+      let cur = index;
+      const lb = document.createElement('div');
+      lb.className = 'lightbox';
+      lb.innerHTML = `
+        <button class="lightbox-close">×</button>
+        <button class="lightbox-nav lightbox-prev">‹</button>
+        <img src="${images[cur]}" alt="">
+        <button class="lightbox-nav lightbox-next">›</button>
+        <div class="lightbox-counter">${cur + 1} / ${images.length}</div>
+      `;
+      const img = lb.querySelector('img');
+      const counter = lb.querySelector('.lightbox-counter');
+
+      function update() {
+        img.src = images[cur];
+        counter.textContent = `${cur + 1} / ${images.length}`;
+      }
+      lb.querySelector('.lightbox-close').onclick = () => lb.remove();
+      lb.querySelector('.lightbox-prev').onclick = (e) => { e.stopPropagation(); cur = (cur - 1 + images.length) % images.length; update(); };
+      lb.querySelector('.lightbox-next').onclick = (e) => { e.stopPropagation(); cur = (cur + 1) % images.length; update(); };
+      lb.onclick = (e) => { if (e.target === lb) lb.remove(); };
+      document.onkeydown = (e) => {
+        if (e.key === 'Escape') lb.remove();
+        if (e.key === 'ArrowLeft') { cur = (cur - 1 + images.length) % images.length; update(); }
+        if (e.key === 'ArrowRight') { cur = (cur + 1) % images.length; update(); }
+      };
+      document.body.appendChild(lb);
+    };
+
+    // 批量下载
+    window.downloadAllImages = function(urls) {
+      urls.forEach((url, i) => {
+        setTimeout(() => {
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `ai-studio-${i + 1}.png`;
+          a.target = '_blank';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        }, i * 500);
+      });
+      showToast('已开始下载，请注意浏览器弹窗', 'success');
+    };
+
+    window.downloadFile = function(url, filename) {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.target = '_blank';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    };
+
+    window.copyText = function(text) {
+      navigator.clipboard.writeText(text).then(() => {
+        showToast('已复制到剪贴板', 'success');
+      }).catch(() => showToast('复制失败', 'error'));
+    };
+
+    // 初始化
+    loadProfile();
+    loadWorks(1);
+  </script>
+</body>
+</html>

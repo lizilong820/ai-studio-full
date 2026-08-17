@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>简历优化工作室 · AI工作室</title>
+  <link rel="stylesheet" href="css/style.css?v=17">
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="navbar-inner">
+      <div class="logo">
+        <div class="logo-icon">🎨</div>
+        <span class="logo-text">AI工作室</span>
+      </div>
+      <div class="nav-links">
+        <a href="index.html" class="nav-link">工作室</a>
+        <a href="#" class="nav-link active">简历优化</a>
+        <a href="developer.html" class="nav-link">开发者平台</a>
+        <a href="#" class="nav-link">我的作品</a>
+      </div>
+      <div class="nav-right">
+        <div class="credit-badge" id="creditBadge">
+          <span class="credit-icon">💎</span>
+          <b id="creditNum">--</b> 积分
+        </div>
+        <a href="/profile" class="avatar" id="userAvatar">U</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Studio Page -->
+  <div class="studio-page">
+    <!-- Left Panel -->
+    <div class="studio-panel">
+      <div class="panel-header">
+        <a href="index.html" class="back-btn" title="返回工作室广场">←</a>
+        <div class="studio-icon-sm">📄</div>
+        <h2>简历优化工作室</h2>
+        <button class="action-btn" id="loadTplBtn" style="margin-left:auto;font-size:12px;padding:4px 10px;">📂 模板</button>
+      </div>
+
+      <div class="panel-body">
+        <!-- 基础信息区 -->
+        <div class="form-section">
+          <div class="form-section-header">
+            <div class="form-section-title">
+              <span class="sec-icon">👤</span>基础信息
+            </div>
+            <span class="form-section-toggle">▼</span>
+          </div>
+          <div class="form-fields">
+            <div class="form-group">
+              <label class="form-label">求职岗位 <span class="required">*</span></label>
+              <input type="text" class="form-input" id="targetPosition" placeholder="例如：高级产品经理、前端开发工程师">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">工作年限</label>
+              <select class="form-select" id="workYears">
+                <option>应届生</option>
+                <option>1-3年</option>
+                <option selected>3-5年</option>
+                <option>5-10年</option>
+                <option>10年+</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">目标公司类型</label>
+              <select class="form-select" id="companyType">
+                <option>互联网大厂</option>
+                <option>创业公司</option>
+                <option>国企央企</option>
+                <option>外企</option>
+                <option>事业单位</option>
+                <option>不限</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- 个人经历区 -->
+        <div class="form-section">
+          <div class="form-section-header">
+            <div class="form-section-title">
+              <span class="sec-icon">📝</span>个人经历
+            </div>
+            <span class="form-section-toggle">▼</span>
+          </div>
+          <div class="form-fields">
+            <div class="form-group">
+              <label class="form-label">教育背景</label>
+              <textarea class="form-textarea" placeholder="学校 + 专业 + 学历，例如：
+北京大学 · 计算机科学与技术 · 硕士
+浙江大学 · 软件工程 · 本科"></textarea>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">工作经历 <span class="required">*</span></label>
+              <textarea class="form-textarea" id="workExperience" placeholder="现任/历任职位和主要工作内容，例如：
+2022.03 - 至今  XX科技有限公司  高级产品经理
+- 负责XX产品从0到1的设计和迭代
+- 带领5人团队，推动核心功能上线
+- 产品DAU从0增长到50万"></textarea>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">项目经历</label>
+              <textarea class="form-textarea" id="projectExperience" placeholder="重点项目和成果，例如：
+XX电商中台项目 - 项目负责人
+- 搭建统一电商中台，支撑10+业务线
+- 提升研发效率40%，节约成本500万/年"></textarea>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">技能特长</label>
+              <div class="tag-input-wrapper" id="skillTags">
+                <span class="tag-item">产品设计<span class="tag-close">×</span></span>
+                <span class="tag-item">数据分析<span class="tag-close">×</span></span>
+                <input type="text" class="tag-input" placeholder="输入技能标签，回车添加">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 优化方向区 -->
+        <div class="form-section">
+          <div class="form-section-header">
+            <div class="form-section-title">
+              <span class="sec-icon">🎯</span>优化方向
+            </div>
+            <span class="form-section-toggle">▼</span>
+          </div>
+          <div class="form-fields">
+            <div class="form-group">
+              <label class="form-label">优化目标</label>
+              <div class="option-group cols-2">
+                <div class="option-item active">突出成果</div>
+                <div class="option-item">增强专业度</div>
+                <div class="option-item">转行适配</div>
+                <div class="option-item">应届生包装</div>
+                <div class="option-item">管理层晋升</div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">简历语言</label>
+              <select class="form-select" id="resumeLanguage">
+                <option>中文</option>
+                <option>英文</option>
+                <option>中英双语</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">生成版本数</label>
+              <div class="number-stepper">
+                <button class="stepper-btn minus">−</button>
+                <input type="number" class="stepper-input" id="resumeCount" value="2" min="1" max="3">
+                <button class="stepper-btn plus">+</button>
+              </div>
+              <span class="text-xs text-muted" style="margin-left: 12px;">最多 3 个版本</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 进阶设置 -->
+        <div class="form-section collapsed">
+          <div class="form-section-header">
+            <div class="form-section-title">
+              <span class="sec-icon">🔬</span>进阶设置
+            </div>
+            <span class="form-section-toggle">▼</span>
+          </div>
+          <div class="form-fields">
+            <div class="form-group">
+              <label class="form-label">LLM 模型选择</label>
+              <select class="form-select" id="llmModel">
+                <option value="">加载中...</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">创意程度</label>
+              <div class="slider-container">
+                <input type="range" class="slider" min="0" max="100" value="40" data-suffix="%">
+                <span class="slider-value">40%</span>
+              </div>
+              <div class="flex justify-between text-xs text-muted mt-8">
+                <span>保守严谨</span>
+                <span>创意发散</span>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">特殊要求 / 补充说明</label>
+              <textarea class="form-textarea" placeholder="其他特殊要求，例如：需要突出某段经历、希望加入自我评价部分、调整篇幅为1页..."></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-footer">
+        <div class="cost-info">
+          <span class="cost-label">预计消耗</span>
+          <span class="cost-value" id="costDisplay">💎 10-25 积分/份</span>
+        </div>
+        <button class="generate-btn" id="generateBtn">
+          <span class="btn-icon">✨</span>优化简历
+        </button>
+      </div>
+    </div>
+
+    <!-- Right Preview -->
+    <div class="preview-area">
+      <div class="preview-header">
+        <div class="preview-title">
+          <span>📄 预览区域</span>
+        </div>
+        <div class="preview-actions">
+          <button class="action-btn" onclick="showToast('已复制全部内容','success')">📋 复制全部</button>
+          <button class="action-btn primary" onclick="showToast('已导出为 Word 文件','success')">📥 导出</button>
+        </div>
+      </div>
+
+      <div class="preview-content" id="previewContent">
+        <div class="preview-empty">
+          <div class="empty-icon">📄</div>
+          <h3>优化你的简历</h3>
+          <p>填写求职目标和个人经历，选择优化方向，点击「优化简历」，AI 将用 STAR 法则帮你重写经历，量化成果。</p>
+          <div style="margin-top: 24px; display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;">
+            <div style="text-align: center;">
+              <div style="font-size: 28px; margin-bottom: 4px;">⚡</div>
+              <div class="text-xs text-muted">1分钟出稿</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 28px; margin-bottom: 4px;">🎯</div>
+              <div class="text-xs text-muted">STAR法则</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 28px; margin-bottom: 4px;">💡</div>
+              <div class="text-xs text-muted">数据量化</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/common.js?v=17"></script>
+  <script src="js/app.js?v=17"></script>
+  <script>
+    // 登录检查
+    if (!isLoggedIn()) {
+      showToast('请先登录', 'error');
+      setTimeout(() => window.location.href = '/login', 800);
+    }
+
+    initCommonComponents();
+
+    // 动态加载文本模型
+    async function loadModels() {
+      const data = await apiRequest('/api/models?type=text');
+      if (data.code === 0) {
+        const select = document.getElementById('llmModel');
+        if (select && data.data.length > 0) {
+          select.innerHTML = data.data.map(m => 
+            `<option value="${m.id}">${m.name} (${m.model_identifier}) - ${m.price_per_call}积分/版本${m.is_default ? ' · 默认' : ''}</option>`
+          ).join('');
+          updateCost();
+        }
+      }
+    }
+
+    function updateCost() {
+      const count = parseInt(document.getElementById('resumeCount').value) || 1;
+      const modelId = document.getElementById('llmModel')?.value;
+      if (!modelId || isNaN(modelId)) {
+        document.getElementById('costDisplay').textContent = '💎 10-25 积分/份';
+        return;
+      }
+      
+      apiRequest('/api/calculate-cost', {
+        method: 'POST',
+        body: JSON.stringify({ model_id: parseInt(modelId), count })
+      }).then(data => {
+        if (data.code === 0) {
+          document.getElementById('costDisplay').textContent = '💎 ' + data.data.cost + ' 积分';
+        }
+      });
+    }
+
+    // 获取选中的选项文本
+    function getActiveOptionText(selector) {
+      const active = document.querySelector(selector);
+      return active ? active.textContent.trim() : '';
+    }
+
+    // 收集表单数据
+    function getFormData() {
+      const count = parseInt(document.getElementById('resumeCount').value) || 2;
+      const targetPosition = document.getElementById('targetPosition').value.trim();
+      const workExperience = document.getElementById('workExperience').value.trim();
+      
+      return {
+        model_id: parseInt(document.getElementById('llmModel').value),
+        target_position: targetPosition,
+        work_years: document.getElementById('workYears').value,
+        company_type: document.getElementById('companyType').value,
+        education: document.querySelector('.form-section:nth-of-type(2) .form-group:nth-of-type(1) .form-textarea')?.value || '',
+        work_experience: workExperience,
+        project_experience: document.getElementById('projectExperience').value.trim(),
+        skills: Array.from(document.querySelectorAll('#skillTags .tag-item')).map(t => t.textContent.replace('×','').trim()),
+        optimize_goal: getActiveOptionText('.form-section:nth-of-type(3) .option-item.active') || '突出成果',
+        language: document.getElementById('resumeLanguage').value,
+        count: count,
+        creativity: document.querySelector('.form-section:nth-of-type(4) .slider')?.value || 40,
+      };
+    }
+
+    // 保存模板
+    function __saveTpl() {
+      const params = getFormData();
+      showSaveTemplateDialog('resume', params, () => {
+        showToast('模板保存成功，下次可直接套用', 'success');
+      });
+    }
+
+    // 加载模板弹窗
+    document.getElementById('loadTplBtn').addEventListener('click', async function() {
+      const templates = await loadTemplates('resume');
+      if (!templates || templates.length === 0) {
+        showToast('暂无保存的模板', 'info');
+        return;
+      }
+      const modal = document.createElement('div');
+      modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+      modal.innerHTML = `
+        <div style="background:#fff;border-radius:16px;padding:24px;width:420px;max-width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.2);">
+          <h3 style="font-size:17px;font-weight:600;margin-bottom:16px;color:var(--text);">📂 选择模板</h3>
+          <div id="tplList" style="margin-bottom:16px;"></div>
+          <div style="display:flex;justify-content:flex-end;">
+            <button class="action-btn" id="tplClose">关闭</button>
+          </div>
+        </div>
+      `;
+      const tplList = modal.querySelector('#tplList');
+      tplList.innerHTML = templates.map(t => `
+        <div data-id="${t.id}" style="padding:12px 14px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--brand)'" onmouseout="this.style.borderColor='var(--border)'">
+          <div style="font-size:14px;font-weight:500;color:var(--text);">${t.name}</div>
+          <div style="font-size:11.5px;color:var(--text-3);margin-top:3px;">${new Date(t.created_at).toLocaleString()}</div>
+        </div>
+      `).join('');
+      tplList.querySelectorAll('[data-id]').forEach(item => {
+        item.onclick = function() {
+          const tpl = templates.find(t => t.id == this.dataset.id);
+          if (tpl && tpl.params) applyTemplate(tpl.params);
+          modal.remove();
+          showToast('模板已加载', 'success');
+        };
+      });
+      modal.querySelector('#tplClose').onclick = () => modal.remove();
+      modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+      document.body.appendChild(modal);
+    });
+
+    // 应用模板到表单
+    function applyTemplate(params) {
+      if (params.target_position) document.getElementById('targetPosition').value = params.target_position;
+      if (params.work_years) document.getElementById('workYears').value = params.work_years;
+      if (params.company_type) document.getElementById('companyType').value = params.company_type;
+      if (params.work_experience) document.getElementById('workExperience').value = params.work_experience;
+      if (params.project_experience) document.getElementById('projectExperience').value = params.project_experience;
+      if (params.language) document.getElementById('resumeLanguage').value = params.language;
+      if (params.count) document.getElementById('resumeCount').value = params.count;
+      updateCost();
+    }
+
+    // 生成函数
+    async function doGenerate() {
+      const btn = document.getElementById('generateBtn');
+      const targetPosition = document.getElementById('targetPosition').value.trim();
+      const workExperience = document.getElementById('workExperience').value.trim();
+      
+      if (!targetPosition) {
+        showToast('请填写求职岗位', 'error');
+        return;
+      }
+      if (!workExperience) {
+        showToast('请填写工作经历', 'error');
+        return;
+      }
+      
+      btn.classList.add('loading');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="btn-icon">⏳</span>优化中...';
+      
+      const formData = getFormData();
+      
+      try {
+        const data = await apiRequest('/api/generate/resume', {
+          method: 'POST',
+          body: JSON.stringify(formData)
+        });
+        
+        if (data.code === 402 || data.code === 401) {
+          showToast(data.msg, 'error');
+          btn.classList.remove('loading');
+          btn.disabled = false;
+          btn.innerHTML = '<span class="btn-icon">✨</span>优化简历';
+          if (data.code === 401) {
+            setTimeout(() => window.location.href = '/login', 1000);
+          }
+          return;
+        }
+        if (data.code !== 0) {
+          showToast(data.msg, 'error');
+          btn.classList.remove('loading');
+          btn.disabled = false;
+          btn.innerHTML = '<span class="btn-icon">✨</span>优化简历';
+          return;
+        }
+        
+        // 更新积分
+        if (data.data.new_balance != null) {
+          const user = getUser();
+          user.credits = data.data.new_balance;
+          localStorage.setItem('user', JSON.stringify(user));
+          updateNavAuth();
+        }
+        
+        const versions = data.data.result || [];
+        displayTextResults(versions, '简历优化');
+        
+        btn.classList.remove('loading');
+        btn.disabled = false;
+        btn.innerHTML = '<span class="btn-icon">✨</span>重新优化';
+        showToast('生成成功！' + versions.length + ' 个版本的简历已生成', 'success');
+        refreshUserInfo();
+      } catch (err) {
+        showToast('生成失败：' + err.message, 'error');
+        btn.classList.remove('loading');
+        btn.disabled = false;
+        btn.innerHTML = '<span class="btn-icon">✨</span>优化简历';
+      }
+    }
+
+    // Generate button
+    document.getElementById('generateBtn').addEventListener('click', doGenerate);
+    
+    // 加载模型列表
+    loadModels();
+    
+    // 监听变化
+    document.getElementById('resumeCount')?.addEventListener('input', updateCost);
+    document.getElementById('llmModel')?.addEventListener('change', updateCost);
+  </script>
+</body>
+</html>

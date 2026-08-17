@@ -1,0 +1,955 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI证件照工作室 · AI工作室</title>
+  <link rel="stylesheet" href="css/style.css?v=24">
+  <style>
+    /* 证件照工作室定制样式 - 基于统一奶油风体系 */
+    .upload-area {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius-md);
+      padding: 32px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      background: var(--bg-soft);
+    }
+    .upload-area:hover {
+      border-color: var(--brand-light);
+      background: var(--brand-soft);
+    }
+    .upload-icon { font-size: 36px; margin-bottom: 8px; }
+    .upload-text { font-size: 14px; color: var(--text); font-weight: 500; margin-bottom: 4px; }
+    .upload-hint { font-size: 12px; color: var(--text-3); }
+    .upload-preview {
+      position: relative;
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      background: var(--bg-soft);
+    }
+    .upload-preview img {
+      width: 100%; max-height: 280px; object-fit: contain; display: block;
+    }
+    .remove-img-btn {
+      position: absolute; top: 8px; right: 8px;
+      width: 28px; height: 28px;
+      background: rgba(0,0,0,0.5); color: #fff;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 14px; transition: background 0.2s;
+    }
+    .remove-img-btn:hover { background: rgba(220, 50, 50, 0.8); }
+
+    /* 背景色选项 - 圆形色板 */
+    .bg-option {
+      padding: 12px 6px !important;
+      text-align: center;
+    }
+    .bg-preview {
+      width: 32px; height: 32px; border-radius: 50%;
+      margin: 0 auto 6px;
+      border: 2px solid var(--border);
+      transition: all 0.2s;
+    }
+    .bg-option.active .bg-preview {
+      border-color: var(--brand);
+      transform: scale(1.1);
+      box-shadow: 0 2px 8px rgba(212, 184, 150, 0.3);
+    }
+
+    /* 尺寸选项 */
+    .size-option .size-name { font-weight: 500; font-size: 13px; display: block; }
+    .size-option .size-mm { font-size: 10.5px; color: var(--text-3); display: block; margin-top: 3px; }
+
+    /* 证件照结果卡片 */
+    .result-card {
+      background: var(--bg-card);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      box-shadow: var(--shadow-sm);
+      transition: transform 0.2s;
+    }
+    .result-card:hover { transform: translateY(-2px); }
+    .result-card .result-img {
+      aspect-ratio: 3/4;
+      background: var(--bg-soft);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .result-card .result-img img {
+      width: 100%; height: 100%; object-fit: cover;
+    }
+    .result-card .result-actions {
+      padding: 10px;
+      display: flex; gap: 8px;
+    }
+    .result-card .result-action-btn {
+      flex: 1;
+      padding: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      cursor: pointer;
+      color: var(--text-2);
+      transition: all 0.2s;
+    }
+    .result-card .result-action-btn:hover {
+      background: var(--brand-soft);
+      border-color: var(--brand-light);
+      color: var(--text);
+    }
+
+    /* 排版区域 */
+    .layout-section {
+      margin-top: 24px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border-light);
+    }
+    .layout-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 12px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .layout-options {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .layout-btn {
+      padding: 8px 16px;
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      cursor: pointer;
+      color: var(--text-2);
+      transition: all 0.2s;
+    }
+    .layout-btn:hover {
+      background: var(--brand-soft);
+      border-color: var(--brand-light);
+    }
+    .layout-btn.active {
+      background: var(--brand-soft);
+      border-color: var(--brand);
+      color: var(--text);
+      font-weight: 500;
+    }
+    .layout-canvas-wrap {
+      text-align: center;
+      background: var(--bg-soft);
+      border-radius: var(--radius-md);
+      padding: 20px;
+    }
+    .layout-canvas {
+      max-width: 100%;
+      border-radius: var(--radius-sm);
+      box-shadow: var(--shadow-sm);
+      background: #fff;
+    }
+    .layout-download-btn {
+      margin-top: 12px;
+      padding: 10px 24px;
+      background: linear-gradient(135deg, var(--brand), var(--brand-dark));
+      color: #fff;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .layout-download-btn:hover { transform: translateY(-1px); }
+
+    /* 提示条 */
+    .tips-bar {
+      background: var(--brand-soft);
+      border: 1px solid var(--brand-light);
+      color: var(--text);
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 12.5px;
+      margin-bottom: 16px;
+      line-height: 1.5;
+    }
+    .tips-bar strong { color: var(--brand); }
+
+    /* 模型选择 */
+    .model-select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--bg-input);
+      font-size: 13px;
+      color: var(--text);
+      cursor: pointer;
+    }
+    .model-select:focus { outline: none; border-color: var(--brand); }
+    .model-hint {
+      font-size: 11.5px;
+      color: var(--text-3);
+      margin-top: 6px;
+    }
+
+    /* 生成中状态微调 */
+    .gen-hint {
+      font-size: 13px;
+      color: var(--text-2);
+      margin-bottom: 16px;
+    }
+
+    /* 数量选择器兼容 */
+    .number-stepper {
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--bg-input);
+      overflow: hidden;
+    }
+    .stepper-btn {
+      width: 36px;
+      height: 36px;
+      border: none;
+      background: var(--bg-card);
+      cursor: pointer;
+      font-size: 16px;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+    .stepper-btn:hover { background: var(--brand-soft); }
+    .stepper-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .stepper-input {
+      width: 50px;
+      height: 36px;
+      border: none;
+      border-left: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+      text-align: center;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+      background: var(--bg-card);
+      -moz-appearance: textfield;
+    }
+    .stepper-input::-webkit-outer-spin-button,
+    .stepper-input::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    .stepper-input:focus { outline: none; }
+  </style>
+</head>
+<body>
+  <!-- 导航栏 -->
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="navbar-inner">
+      <div class="logo">
+        <div class="logo-icon">🎨</div>
+        <span class="logo-text">AI工作室</span>
+      </div>
+      <div class="nav-links">
+        <a href="index.html" class="nav-link">工作室</a>
+        <a href="#" class="nav-link active">AI证件照</a>
+        <a href="developer.html" class="nav-link">开发者平台</a>
+        <a href="#" class="nav-link">我的作品</a>
+      </div>
+      <div class="nav-right">
+        <div class="credit-badge" id="creditBadge">
+          <span class="credit-icon">💎</span>
+          <b id="creditNum">--</b> 积分
+        </div>
+        <a href="/profile" class="avatar" id="userAvatar">U</a>
+      </div>
+    </div>
+  </nav>
+
+      <div class="studio-page">
+    <!-- Left Panel -->
+    <div class="studio-panel">
+      <div class="panel-header">
+        <a href="index.html" class="back-btn" title="返回工作室广场">←</a>
+        <div class="studio-icon-sm">📷</div>
+        <h2>AI证件照工作室</h2>
+      </div>
+
+      <div class="panel-body">
+        <div class="tips-bar">
+          <strong>💡 拍摄建议：</strong>正面免冠、光线均匀、露出耳朵眉毛、背景简洁效果最佳
+        </div>
+
+        <!-- 基础设置 -->
+        <div class="form-section">
+          <div class="form-section-header">
+            <div class="form-section-title">
+              <span class="sec-icon">⚙️</span>基础设置
+            </div>
+            <span class="form-section-toggle">▼</span>
+          </div>
+          <div class="form-fields">
+            <div class="form-group">
+              <label class="form-label">生图模型</label>
+              <select class="model-select" id="modelSelect">
+                <option value="">加载中...</option>
+              </select>
+              <div class="model-hint" id="modelHint">请选择生图模型</div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">上传照片</label>
+              <div class="upload-area" id="uploadArea">
+                <div class="upload-icon">📸</div>
+                <div class="upload-text">点击上传自拍</div>
+                <div class="upload-hint">支持 JPG/PNG，正面清晰效果最佳</div>
+              </div>
+              <div class="upload-preview" id="uploadPreview" style="display:none;">
+                <img id="previewImg" src="" alt="预览">
+                <div class="remove-img-btn" id="removeImg">✕</div>
+              </div>
+              <input type="file" id="fileInput" accept="image/*" style="display:none;">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">证件照尺寸</label>
+              <div class="option-group cols-3" id="sizeOptions">
+                <div class="option-item size-option active" data-size="1inch">
+                  <span class="size-name">一寸</span>
+                  <span class="size-mm">25×35mm</span>
+                </div>
+                <div class="option-item size-option" data-size="small1inch">
+                  <span class="size-name">小一寸</span>
+                  <span class="size-mm">22×32mm</span>
+                </div>
+                <div class="option-item size-option" data-size="big1inch">
+                  <span class="size-name">大一寸</span>
+                  <span class="size-mm">33×48mm</span>
+                </div>
+                <div class="option-item size-option" data-size="2inch">
+                  <span class="size-name">两寸</span>
+                  <span class="size-mm">35×49mm</span>
+                </div>
+                <div class="option-item size-option" data-size="small2inch">
+                  <span class="size-name">小二寸</span>
+                  <span class="size-mm">35×45mm</span>
+                </div>
+                <div class="option-item size-option" data-size="passport">
+                  <span class="size-name">护照签证</span>
+                  <span class="size-mm">33×48mm</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">背景颜色</label>
+              <div class="option-group cols-5" id="bgOptions">
+                <div class="option-item bg-option active" data-bg="white">
+                  <div class="bg-preview" style="background:#FFFFFF;"></div>
+                  <span class="option-label">白色</span>
+                </div>
+                <div class="option-item bg-option" data-bg="blue">
+                  <div class="bg-preview" style="background:#438EDB;"></div>
+                  <span class="option-label">蓝色</span>
+                </div>
+                <div class="option-item bg-option" data-bg="red">
+                  <div class="bg-preview" style="background:#D03B31;"></div>
+                  <span class="option-label">红色</span>
+                </div>
+                <div class="option-item bg-option" data-bg="blue_dark">
+                  <div class="bg-preview" style="background:#2B5FB8;"></div>
+                  <span class="option-label">深蓝</span>
+                </div>
+                <div class="option-item bg-option" data-bg="gray">
+                  <div class="bg-preview" style="background:#E8E8E8;"></div>
+                  <span class="option-label">灰色</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">正装（AI换装）</label>
+              <div class="option-group cols-3" id="suitOptions">
+                <div class="option-item active" data-suit="none">
+                  <span class="option-icon">👔</span>
+                  <span class="option-label">不换</span>
+                </div>
+                <div class="option-item" data-suit="suit_black">
+                  <span class="option-icon">🕴️</span>
+                  <span class="option-label">黑西装</span>
+                </div>
+                <div class="option-item" data-suit="suit_gray">
+                  <span class="option-icon">👨‍💼</span>
+                  <span class="option-label">灰西装</span>
+                </div>
+                <div class="option-item" data-suit="blazer_women">
+                  <span class="option-icon">👩‍💼</span>
+                  <span class="option-label">女西装</span>
+                </div>
+                <div class="option-item" data-suit="shirt_white">
+                  <span class="option-icon">👕</span>
+                  <span class="option-label">白衬衫</span>
+                </div>
+                <div class="option-item" data-suit="military">
+                  <span class="option-icon">🎖️</span>
+                  <span class="option-label">制式</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">生成数量</label>
+              <div class="number-stepper">
+                <button class="stepper-btn minus" id="numMinus">−</button>
+                <input type="number" class="stepper-input" id="numValue" value="1" min="1" max="4">
+                <button class="stepper-btn plus" id="numPlus">+</button>
+              </div>
+              <span class="text-xs text-muted" style="margin-left:12px;">最多 4 张</span>
+            </div>
+          </div>
+        </div>
+
+        <button class="generate-btn" id="generateBtn">
+          <span class="btn-icon">✨</span>生成证件照
+        </button>
+        <div class="cost-info">
+          <span class="cost-label">预计消耗</span>
+          <span class="cost-value" id="costNum">0</span>
+          <span class="cost-label">积分/张</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: Preview Area -->
+    <div class="preview-area">
+      <div class="preview-header">
+        <div class="preview-title">
+          <span>📷 预览区域</span>
+        </div>
+        <div class="preview-actions">
+          <button class="action-btn" onclick="showToast('可在结果卡片中下载单张','info')">📥 单张下载</button>
+          <button class="action-btn primary" onclick="document.getElementById('downloadLayoutBtn').click()">🖨️ 排版打印</button>
+        </div>
+      </div>
+      <div class="preview-content" id="previewContent">
+        <!-- 空状态 -->
+        <div class="preview-empty" id="emptyState">
+          <div class="empty-icon">🪪</div>
+          <h3>AI 智能证件照</h3>
+          <p>上传一张自拍，选择尺寸和背景色，AI 一键生成专业证件照，支持排版打印。</p>
+          <div style="margin-top:24px;display:flex;gap:16px;justify-content:center;flex-wrap:wrap;">
+            <div style="text-align:center;">
+              <div style="font-size:28px;margin-bottom:4px;">⚡</div>
+              <div class="text-xs text-muted">约 15-30 秒</div>
+            </div>
+            <div style="text-align:center;">
+              <div style="font-size:28px;margin-bottom:4px;">📐</div>
+              <div class="text-xs text-muted">6种尺寸</div>
+            </div>
+            <div style="text-align:center;">
+              <div style="font-size:28px;margin-bottom:4px;">🎨</div>
+              <div class="text-xs text-muted">5种背景</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 生成中 -->
+        <div class="preview-generating" id="generatingState" style="display:none;">
+          <div class="generating-animation">
+            <div class="gen-ring"></div>
+            <div class="gen-ring"></div>
+            <div class="gen-center-icon">📷</div>
+          </div>
+          <div class="generating-text">
+            <h3 id="genStatus">AI 正在生成证件照...</h3>
+            <p class="gen-hint">证件照生成大约需要 15-30 秒，请耐心等待 ☕</p>
+            <div class="progress-bar">
+              <div class="progress-fill" id="genProgressFill" style="width:5%"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 结果 -->
+        <div id="resultSection" style="display:none;">
+          <div class="results-grid" id="resultGrid"></div>
+
+          <!-- 排版区域 -->
+          <div class="layout-section">
+            <div class="layout-title">📐 排版打印</div>
+            <div class="layout-options" id="layoutOptions">
+              <button class="layout-btn active" data-layout="single">单张</button>
+              <button class="layout-btn" data-layout="4x6_8">6寸相纸 8张一寸</button>
+              <button class="layout-btn" data-layout="4x6_4">6寸相纸 4张两寸</button>
+            </div>
+            <div class="layout-canvas-wrap">
+              <canvas class="layout-canvas" id="layoutCanvas" width="600" height="400"></canvas>
+              <br>
+              <button class="layout-download-btn" id="downloadLayoutBtn">⬇️ 下载排版图</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+    <script src="js/common.js?v=24"></script>
+  <script src="js/app.js?v=19"></script>
+  <script>
+    // ===== 状态 =====
+    let uploadedImageBase64 = '';
+    let selectedSize = '1inch';
+    let selectedBg = 'white';
+    let selectedSuit = 'none';
+    let numPhotos = 1;
+    let currentTaskId = null;
+    let pollTimer = null;
+    let resultImages = [];
+    let currentLayout = 'single';
+    let selectedResultIndex = 0;
+    let imageModels = [];
+    let currentPricePer = 0;
+
+    // ===== 初始化 =====
+    document.addEventListener('DOMContentLoaded', function() {
+      if (typeof updateNavAuth === 'function') updateNavAuth();
+      initCommonComponents();
+      loadModels();
+      initEventListeners();
+      updateCost();
+    });
+
+    // ===== 加载模型 =====
+    async function loadModels() {
+      try {
+        const res = await apiRequest('/api/models');
+        if (res.code === 0 && res.data) {
+          // 只筛选生图模型（接口返回的已经是启用状态）
+          imageModels = res.data.filter(m => m.type === 'image');
+          const select = document.getElementById('modelSelect');
+          select.innerHTML = '';
+          
+          if (imageModels.length === 0) {
+            select.innerHTML = '<option value="">暂无可用于证件照的模型</option>';
+            document.getElementById('modelHint').textContent = '请联系管理员添加生图模型';
+            return;
+          }
+          
+          imageModels.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m.id;
+            opt.textContent = `${m.name} (${m.price_per_call}积分/次)`;
+            select.appendChild(opt);
+          });
+          
+          currentPricePer = imageModels[0].price_per_call || 10;
+          updateCost();
+          document.getElementById('modelHint').textContent = `当前模型 ${imageModels[0].name}，效果最好`;
+        }
+      } catch (e) {
+        console.error('加载模型失败:', e);
+      }
+    }
+
+    // ===== 事件监听 =====
+    function initEventListeners() {
+      // 上传
+      const uploadArea = document.getElementById('uploadArea');
+      const fileInput = document.getElementById('fileInput');
+      const removeImg = document.getElementById('removeImg');
+      const uploadPreview = document.getElementById('uploadPreview');
+
+      uploadArea.addEventListener('click', () => fileInput.click());
+      uploadPreview.addEventListener('click', (e) => {
+        if (e.target.id !== 'removeImg') fileInput.click();
+      });
+      fileInput.addEventListener('change', (e) => {
+        if (e.target.files[0]) handleFile(e.target.files[0]);
+      });
+
+      function handleFile(file) {
+        if (!file.type.startsWith('image/')) {
+          showToast('请上传图片文件', 'error');
+          return;
+        }
+        if (file.size > 10 * 1024 * 1024) {
+          showToast('图片不能超过10MB', 'error');
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          uploadedImageBase64 = e.target.result;
+          document.getElementById('previewImg').src = uploadedImageBase64;
+          uploadArea.style.display = 'none';
+          uploadPreview.style.display = '';
+        };
+        reader.readAsDataURL(file);
+      }
+
+      removeImg.addEventListener('click', (e) => {
+        e.stopPropagation();
+        uploadedImageBase64 = '';
+        document.getElementById('previewImg').src = '';
+        uploadArea.style.display = '';
+        uploadPreview.style.display = 'none';
+        fileInput.value = '';
+      });
+
+      // 尺寸选择
+      document.getElementById('sizeOptions').addEventListener('click', (e) => {
+        const item = e.target.closest('.size-option');
+        if (!item) return;
+        document.querySelectorAll('#sizeOptions .size-option').forEach(el => el.classList.remove('active'));
+        item.classList.add('active');
+        selectedSize = item.dataset.size;
+      });
+
+      // 背景色选择
+      document.getElementById('bgOptions').addEventListener('click', (e) => {
+        const item = e.target.closest('.bg-option');
+        if (!item) return;
+        document.querySelectorAll('#bgOptions .bg-option').forEach(el => el.classList.remove('active'));
+        item.classList.add('active');
+        selectedBg = item.dataset.bg;
+      });
+
+      // 正装选择
+      document.getElementById('suitOptions').addEventListener('click', (e) => {
+        const item = e.target.closest('.option-item');
+        if (!item) return;
+        document.querySelectorAll('#suitOptions .option-item').forEach(el => el.classList.remove('active'));
+        item.classList.add('active');
+        selectedSuit = item.dataset.suit;
+      });
+
+      // 数量选择
+      const numMinus = document.getElementById('numMinus');
+      const numPlus = document.getElementById('numPlus');
+      const numValue = document.getElementById('numValue');
+
+      numMinus.addEventListener('click', () => {
+        if (numPhotos > 1) {
+          numPhotos--;
+          numValue.value = numPhotos;
+          updateCost();
+        }
+      });
+      numPlus.addEventListener('click', () => {
+        if (numPhotos < 4) {
+          numPhotos++;
+          numValue.value = numPhotos;
+          updateCost();
+        }
+      });
+
+      // 模型选择
+      document.getElementById('modelSelect').addEventListener('change', (e) => {
+        const model = imageModels.find(m => m.id == e.target.value);
+        if (model) {
+          currentPricePer = model.price_per_call || 10;
+          document.getElementById('modelHint').textContent = `当前模型：${model.name}`;
+          updateCost();
+        }
+      });
+
+      // 生成按钮
+      document.getElementById('generateBtn').addEventListener('click', doGenerate);
+
+      // 排版选择
+      document.getElementById('layoutOptions').addEventListener('click', (e) => {
+        const btn = e.target.closest('.layout-btn');
+        if (!btn) return;
+        document.querySelectorAll('.layout-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentLayout = btn.dataset.layout;
+        renderLayout();
+      });
+
+      // 下载排版
+      document.getElementById('downloadLayoutBtn').addEventListener('click', downloadLayout);
+    }
+
+    // ===== 费用更新 =====
+    function updateCost() {
+      const total = currentPricePer * numPhotos;
+      document.getElementById('costNum').textContent = total + '';
+    }
+
+    // ===== 生成证件照 =====
+    async function doGenerate() {
+      if (!isLoggedIn()) {
+        showToast('请先登录', 'error');
+        return;
+      }
+
+      const modelId = document.getElementById('modelSelect').value;
+      if (!modelId) {
+        showToast('请选择模型', 'error');
+        return;
+      }
+
+      if (!uploadedImageBase64) {
+        showToast('请先上传您的照片', 'error');
+        return;
+      }
+
+      // 切换到生成中状态
+      document.getElementById('emptyState').style.display = 'none';
+      document.getElementById('resultSection').style.display = 'none';
+      document.getElementById('generatingState').style.display = '';
+      document.getElementById('genStatus').textContent = 'AI正在生成证件照...';
+      document.getElementById('genProgressFill').style.width = '5%';
+      document.getElementById('generateBtn').disabled = true;
+      document.getElementById('generateBtn').innerHTML = '<span class="btn-icon">⏳</span>生成中...';
+
+      try {
+        const res = await apiRequest('/api/generate/idphoto', {
+          method: 'POST',
+          body: JSON.stringify({
+            model_id: parseInt(modelId),
+            ref_image: uploadedImageBase64,
+            bg_color: selectedBg,
+            size: selectedSize,
+            suit: selectedSuit,
+            num_photos: numPhotos,
+          }),
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (res.code !== 0) {
+          throw new Error(res.msg || '生成失败');
+        }
+
+        currentTaskId = res.data.task_id;
+        if (typeof updateNavAuth === 'function') updateNavAuth();
+
+        // 开始轮询
+        pollTaskStatus();
+
+      } catch (err) {
+        console.error(err);
+        showToast(err.message || '生成失败', 'error');
+        resetGenerateBtn();
+        document.getElementById('generatingState').style.display = 'none';
+        if (resultImages.length > 0) {
+          document.getElementById('resultSection').style.display = '';
+        } else {
+          document.getElementById('emptyState').style.display = '';
+        }
+      }
+    }
+
+    function resetGenerateBtn() {
+      document.getElementById('generateBtn').disabled = false;
+      document.getElementById('generateBtn').innerHTML = '<span class="btn-icon">✨</span>生成证件照';
+    }
+
+    // ===== 轮询任务状态 =====
+    function pollTaskStatus() {
+      if (pollTimer) clearInterval(pollTimer);
+      let progress = 5;
+
+      pollTimer = setInterval(async () => {
+        try {
+          const res = await apiRequest('/api/generate/idphoto/' + currentTaskId);
+          if (res.code !== 0) throw new Error(res.msg);
+
+          const data = res.data;
+          progress = Math.min(95, progress + Math.random() * 8);
+          document.getElementById('genProgressFill').style.width = progress + '%';
+
+          if (data.status === 'success') {
+            clearInterval(pollTimer);
+            pollTimer = null;
+            document.getElementById('genProgressFill').style.width = '100%';
+            document.getElementById('genStatus').textContent = '生成完成！';
+            
+            resultImages = data.images || [];
+            selectedResultIndex = 0;
+            
+            setTimeout(() => {
+              showResults();
+            }, 500);
+          } else if (data.status === 'failed') {
+            clearInterval(pollTimer);
+            pollTimer = null;
+            showToast('生成失败：' + (data.error_msg || '未知错误'), 'error');
+            resetGenerateBtn();
+            document.getElementById('generatingState').style.display = 'none';
+            if (resultImages.length > 0) {
+              document.getElementById('resultSection').style.display = '';
+            } else {
+              document.getElementById('emptyState').style.display = '';
+            }
+          }
+        } catch (err) {
+          console.error('轮询失败:', err);
+        }
+      }, 2000);
+    }
+
+    // ===== 展示结果 =====
+    function showResults() {
+      document.getElementById('generatingState').style.display = 'none';
+      document.getElementById('resultSection').style.display = '';
+      resetGenerateBtn();
+
+      const grid = document.getElementById('resultGrid');
+      grid.innerHTML = '';
+
+      resultImages.forEach((img, idx) => {
+        const card = document.createElement('div');
+        card.className = 'result-card';
+        card.innerHTML = `
+          <div class="result-img-wrap">
+            <img src="${img}" alt="证件照${idx + 1}" loading="lazy">
+          </div>
+          <div class="result-actions">
+            <button class="result-action-btn" data-idx="${idx}" data-action="download">下载</button>
+            <button class="result-action-btn" data-idx="${idx}" data-action="select">选这张</button>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+
+      grid.querySelectorAll('.result-action-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const idx = parseInt(e.target.dataset.idx);
+          const action = e.target.dataset.action;
+          if (action === 'download') {
+            downloadImage(resultImages[idx], `证件照_${idx + 1}.png`);
+          } else if (action === 'select') {
+            selectedResultIndex = idx;
+            showToast('已选择第' + (idx + 1) + '张用于排版', 'success');
+            renderLayout();
+            // 高亮选中
+            grid.querySelectorAll('.result-card').forEach((c, i) => {
+              c.style.outline = i === idx ? '3px solid var(--brand)' : 'none';
+              c.style.outlineOffset = '2px';
+            });
+          }
+        });
+      });
+
+      // 默认选中第一张
+      const firstCard = grid.querySelector('.result-card');
+      if (firstCard) {
+        firstCard.style.outline = '3px solid var(--brand)';
+        firstCard.style.outlineOffset = '2px';
+      }
+
+      renderLayout();
+      if (typeof updateNavAuth === 'function') updateNavAuth();
+    }
+
+    // ===== 下载图片 =====
+    function downloadImage(url, filename) {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+
+    // ===== 排版渲染 =====
+    function renderLayout() {
+      const canvas = document.getElementById('layoutCanvas');
+      const ctx = canvas.getContext('2d');
+      
+      if (!resultImages.length) return;
+      
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = function() {
+        if (currentLayout === 'single') {
+          // 单张展示
+          const maxW = 300;
+          const ratio = img.width / img.height;
+          const w = maxW;
+          const h = w / ratio;
+          canvas.width = w + 40;
+          canvas.height = h + 40;
+          ctx.fillStyle = '#fff';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 20, 20, w, h);
+        } else if (currentLayout === '4x6_8') {
+          // 6寸相纸排版：1寸×8张
+          const paperW = 600; // 6寸约等于 4R 152mm×102mm，按比例
+          const paperH = 400;
+          canvas.width = paperW;
+          canvas.height = paperH;
+          ctx.fillStyle = '#fff';
+          ctx.fillRect(0, 0, paperW, paperH);
+          
+          const photoW = 120; // 一寸照宽度
+          const photoH = photoW * (img.height / img.width);
+          const cols = 4;
+          const rows = 2;
+          const gapX = (paperW - cols * photoW) / (cols + 1);
+          const gapY = (paperH - rows * photoH) / (rows + 1);
+          
+          for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+              const x = gapX + c * (photoW + gapX);
+              const y = gapY + r * (photoH + gapY);
+              ctx.drawImage(img, x, y, photoW, photoH);
+              // 裁切参考线（淡灰色）
+              ctx.strokeStyle = 'rgba(200,200,200,0.5)';
+              ctx.setLineDash([4, 4]);
+              ctx.strokeRect(x, y, photoW, photoH);
+              ctx.setLineDash([]);
+            }
+          }
+        } else if (currentLayout === '4x6_4') {
+          // 6寸相纸排版：2寸×4张
+          const paperW = 600;
+          const paperH = 400;
+          canvas.width = paperW;
+          canvas.height = paperH;
+          ctx.fillStyle = '#fff';
+          ctx.fillRect(0, 0, paperW, paperH);
+          
+          const photoW = 160; // 两寸照更宽
+          const photoH = photoW * (img.height / img.width);
+          const cols = 2;
+          const rows = 2;
+          const gapX = (paperW - cols * photoW) / (cols + 1);
+          const gapY = (paperH - rows * photoH) / (rows + 1);
+          
+          for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+              const x = gapX + c * (photoW + gapX);
+              const y = gapY + r * (photoH + gapY);
+              ctx.drawImage(img, x, y, photoW, photoH);
+              ctx.strokeStyle = 'rgba(200,200,200,0.5)';
+              ctx.setLineDash([4, 4]);
+              ctx.strokeRect(x, y, photoW, photoH);
+              ctx.setLineDash([]);
+            }
+          }
+        }
+      };
+      img.src = resultImages[selectedResultIndex];
+    }
+
+    // ===== 下载排版图 =====
+    function downloadLayout() {
+      const canvas = document.getElementById('layoutCanvas');
+      const link = document.createElement('a');
+      link.download = `证件照排版_${currentLayout}.png`;
+      link.href = canvas.toDataURL('image/png');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  </script>
+</body>
+</html>

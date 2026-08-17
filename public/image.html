@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI图片生成工作室 · AI工作室</title>
+  <link rel="stylesheet" href="css/style.css?v=17">
+  <style>
+    /* 生成模式Tab */
+    .mode-tabs {
+      display: flex;
+      background: var(--bg-soft);
+      border-radius: var(--radius-sm);
+      padding: 4px;
+      gap: 4px;
+      margin-bottom: 18px;
+    }
+    .mode-tab {
+      flex: 1;
+      padding: 10px;
+      text-align: center;
+      border-radius: 10px;
+      font-size: 13.5px;
+      color: var(--text-2);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-weight: 450;
+    }
+    .mode-tab:hover {
+      color: var(--text);
+    }
+    .mode-tab.active {
+      background: #fff;
+      color: var(--text);
+      font-weight: 500;
+      box-shadow: 0 2px 6px rgba(200, 170, 140, 0.1);
+    }
+    .mode-tab .tab-icon {
+      margin-right: 6px;
+    }
+
+    /* 参考图多图网格 */
+    .ref-images-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .ref-image-item {
+      position: relative;
+      width: 90px;
+      height: 90px;
+      border-radius: 12px;
+      overflow: hidden;
+      background: var(--bg-soft);
+      border: 2px solid var(--border-color);
+    }
+    .ref-image-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .ref-image-item .img-index {
+      position: absolute;
+      bottom: 4px;
+      left: 4px;
+      background: rgba(0,0,0,.6);
+      color: #fff;
+      font-size: 11px;
+      padding: 2px 6px;
+      border-radius: 6px;
+    }
+    .ref-image-remove {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.6);
+      color: #fff;
+      font-size: 16px;
+      line-height: 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .ref-image-remove:hover {
+      background: rgba(220,60,60,0.9);
+    }
+    .ref-image-add {
+      width: 90px;
+      height: 90px;
+      border-radius: 12px;
+      border: 2px dashed var(--border-color);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: var(--bg-soft);
+      color: var(--text-3);
+    }
+    .ref-image-add:hover {
+      border-color: var(--brand);
+      color: var(--brand);
+      background: #FFF5E6;
+    }
+    .ref-image-add-icon {
+      font-size: 28px;
+      font-weight: 300;
+      line-height: 1;
+    }
+    .ref-image-add-text {
+      font-size: 11px;
+      margin-top: 4px;
+    }
+
+        /* 模式占位图 */
+    .mode-coming-soon {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-3);
+    }
+    .mode-coming-soon .cs-icon {
+      font-size: 48px;
+      margin-bottom: 14px;
+      opacity: 0.5;
+    }
+    .mode-coming-soon h4 {
+      font-size: 15px;
+      color: var(--text-2);
+      margin-bottom: 6px;
+    }
+    .mode-coming-soon p {
+      font-size: 12.5px;
+      color: var(--text-3);
+    }
+
+
+    /* 比例按钮组 */
+    .ratio-group {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+    }
+    .ratio-item {
+      padding: 12px 4px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      color: var(--text-2);
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-weight: 450;
+    }
+    .ratio-item:hover {
+      border-color: var(--brand-light);
+      color: var(--text);
+      background: var(--brand-soft);
+    }
+    .quality-group {
+      display: flex;
+      gap: 8px;
+    }
+    .quality-item {
+      flex: 1;
+      padding: 10px 0;
+      text-align: center;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-2);
+      background: var(--bg-soft);
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 2px solid transparent;
+    }
+    .quality-item:hover:not(.disabled) {
+      color: var(--text);
+      background: #FFF5E6;
+    }
+    .quality-item.active {
+      background: #fff;
+      color: var(--brand);
+      border-color: var(--brand);
+      box-shadow: 0 2px 8px rgba(200, 170, 140, 0.15);
+    }
+    .quality-item.disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+      text-decoration: line-through;
+    }
+
+        .ratio-item.active {
+      background: var(--brand-soft);
+      border-color: var(--brand);
+      color: var(--text);
+      font-weight: 500;
+    }
+    .ratio-item .ratio-icon {
+      display: block;
+      font-size: 16px;
+      margin-bottom: 4px;
+    }
+
+    /* 模型下拉自定义 */
+    .model-select option {
+      padding: 10px;
+    }
+
+    /* 预览区域结果网格调整 */
+    .preview-content.has-results {
+      align-items: flex-start;
+    }
+  </style>
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="navbar-inner">
+      <div class="logo">
+        <div class="logo-icon">🎨</div>
+        <span class="logo-text">AI工作室</span>
+      </div>
+      <div class="nav-links">
+        <a href="index.html" class="nav-link">工作室</a>
+        <a href="#" class="nav-link active">图片生成</a>
+        <a href="developer.html" class="nav-link">开发者平台</a>
+        <a href="/profile.html" class="nav-link" id="navMyWorks" style="display:none;">我的作品</a>
+      </div>
+      <div class="nav-right">
+        <div class="credit-badge" id="creditBadge" style="display:none;">
+          <span class="credit-icon">💎</span>
+          <b id="creditNum">--</b> 积分
+        </div>
+        <div id="navAuthLinks" style="display:flex;gap:8px;align-items:center;">
+          <a href="/login" class="nav-link" style="padding:6px 14px;">登录</a>
+          <a href="/register" style="padding:8px 18px;background:var(--brand);color:#fff;border-radius:10px;font-size:13px;font-weight:500;">注册</a>
+        </div>
+        <div class="avatar" id="userAvatar" style="display:none;">U</div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Studio Page -->
+  <div class="studio-page">
+    <!-- Left Panel -->
+    <div class="studio-panel">
+      <div class="panel-header">
+        <a href="index.html" class="back-btn" title="返回工作室广场">←</a>
+        <div class="studio-icon-sm">🖼️</div>
+        <h2>AI图片生成工作室</h2>
+      </div>
+
+      <div class="panel-body">
+        <!-- 生成模式 -->
+        <div class="form-section">
+          <div class="form-section-header">
+            <div class="form-section-title">
+              <span class="sec-icon">🎨</span>生成模式
+            </div>
+          </div>
+          <div class="form-fields">
+            <div class="mode-tabs">
+              <div class="mode-tab active" data-mode="text2img">
+                <span class="tab-icon">✍️</span>文生图
+              </div>
+              <div class="mode-tab" data-mode="img2img">
+                <span class="tab-icon">🖼️</span>图生图
+              </div>
+            </div>
+
+            <!-- 文生图内容 -->
+            <div id="text2imgContent">
+              <div class="form-group">
+                <label class="form-label">选择模型 <span class="required">*</span></label>
+                <select class="form-select model-select" id="modelSelect">
+                  <option value="">加载中...</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">图片描述 <span class="required">*</span></label>
+                <textarea class="form-textarea" id="promptInput" rows="4" placeholder="描述你想要的图片，越详细越好&#10;例如：一只可爱的橘猫坐在窗边，阳光洒在它身上，背景是温暖的书房，高清摄影风格"></textarea>
+                <div class="text-xs text-muted" style="margin-top:6px;text-align:right;">
+                  <span id="promptCount">0</span> / 1000 字
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">负面描述 <span style="font-weight:400;color:var(--text-3);">(可选)</span></label>
+                <textarea class="form-textarea" id="negativePromptInput" rows="2" placeholder="描述不想要的内容，如：低质量、模糊、变形、水印等"></textarea>
+              </div>
+            </div>
+
+            <!-- 图生图内容 -->
+            <div id="img2imgContent" style="display:none;">
+              <div class="form-group">
+                <label class="form-label">选择模型 <span class="required">*</span></label>
+                <select class="form-select model-select" id="img2imgModelSelect">
+                  <option value="">加载中...</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">参考图 <span class="required">*</span></label>
+                <div class="ref-images-grid" id="refImagesGrid">
+                  <!-- 已上传的图片会动态插入这里 -->
+                  <div class="ref-image-add" id="refImageAddBtn" title="添加参考图">
+                    <div class="ref-image-add-icon">+</div>
+                    <div class="ref-image-add-text">添加参考图</div>
+                  </div>
+                  <input type="file" id="refImageInput" accept="image/*" multiple style="display:none;" />
+                </div>
+                <div class="text-xs text-muted" style="margin-top:8px;">
+                  💡 支持上传多张参考图（最多4张），可用"第一张/第二张"在描述里指代
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">图片描述 <span class="required">*</span></label>
+                <textarea class="form-textarea" id="img2imgPromptInput" rows="3" placeholder="描述你想要的效果，例如：将这张图变成油画风格，色彩更加鲜艳"></textarea>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">负面描述 <span style="font-weight:400;color:var(--text-3);">(可选)</span></label>
+                <textarea class="form-textarea" id="img2imgNegativeInput" rows="2" placeholder="不想要的内容，如：低质量、模糊、变形"></textarea>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 图片规格 -->
+        <div class="form-section">
+          <div class="form-section-header">
+            <div class="form-section-title">
+              <span class="sec-icon">📐</span>图片规格
+            </div>
+            <span class="form-section-toggle">▼</span>
+          </div>
+          <div class="form-fields">
+            <div class="form-group">
+              <label class="form-label">图片比例</label>
+              <div class="ratio-group" id="ratioGroup">
+                <div class="ratio-item active" data-ratio="1:1">
+                  <span class="ratio-icon">⬜</span>1:1
+                </div>
+                <div class="ratio-item" data-ratio="16:9">
+                  <span class="ratio-icon">▭</span>16:9
+                </div>
+                <div class="ratio-item" data-ratio="9:16">
+                  <span class="ratio-icon">▯</span>9:16
+                </div>
+                <div class="ratio-item" data-ratio="3:4">
+                  <span class="ratio-icon">▯</span>3:4
+                </div>
+                <div class="ratio-item" data-ratio="4:3">
+                  <span class="ratio-icon">▭</span>4:3
+                </div>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">画质档位</label>
+              <div class="quality-group" id="qualityGroup">
+                <div class="quality-item active" data-quality="1K">1K</div>
+                <div class="quality-item" data-quality="2K">2K</div>
+                <div class="quality-item" data-quality="4K">4K</div>
+              </div>
+              <div class="text-xs text-muted" style="margin-top:6px;" id="qualityHint">当前模型仅支持1K画质</div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">生成数量</label>
+              <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                <div class="number-stepper">
+                  <button class="stepper-btn minus">−</button>
+                  <input type="number" class="stepper-input" id="imageCount" value="1" min="1" max="9">
+                  <button class="stepper-btn plus">+</button>
+                </div>
+                <span class="text-xs text-muted">最多 9 张</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-footer">
+        <div class="cost-info">
+          <span class="cost-label">预计消耗</span>
+          <span class="cost-value" id="costDisplay">💎 -- 积分</span>
+        </div>
+        <button class="generate-btn" id="generateBtn">
+          <span class="btn-icon">✨</span>立即生成
+        </button>
+      </div>
+    </div>
+
+    <!-- Right Preview -->
+    <div class="preview-area">
+      <div class="preview-header">
+        <div class="preview-title">
+          <span>🖼️ 预览区域</span>
+        </div>
+        <div class="preview-actions">
+          <button class="action-btn" id="copyParamsBtn">📋 复制参数</button>
+        </div>
+      </div>
+
+      <div class="preview-content" id="previewContent">
+        <div class="preview-empty">
+          <div class="empty-icon">🖼️</div>
+          <h3>用文字画出你的想象</h3>
+          <p>输入图片描述，选择风格和比例，点击「立即生成」，AI 将为你创作独一无二的精美图片。支持多模型多风格，尽情释放你的创意。</p>
+          <div style="margin-top: 24px; display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;">
+            <div style="text-align: center;">
+              <div style="font-size: 28px; margin-bottom: 4px;">🎨</div>
+              <div class="text-xs text-muted">8种风格</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 28px; margin-bottom: 4px;">📐</div>
+              <div class="text-xs text-muted">5种比例</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 28px; margin-bottom: 4px;">⚡</div>
+              <div class="text-xs text-muted">约30秒出图</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 28px; margin-bottom: 4px;">🖼️</div>
+              <div class="text-xs text-muted">高清画质</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/common.js?v=17"></script>
+  <script src="js/app.js?v=17"></script>
+  <script>
+    // 登录检查
+    if (!isLoggedIn()) {
+      showToast('请先登录', 'error');
+      setTimeout(() => window.location.href = '/login', 800);
+    }
+
+    initCommonComponents();
+
+    // 当前模式
+    let currentMode = 'text2img';
+    // 当前生成任务ID
+    let currentPollInterval = null;
+    // 模型列表缓存
+    let modelList = [];
+
+    // ===== 模式切换 =====
+    document.querySelectorAll('.mode-tab').forEach(tab => {
+      tab.addEventListener('click', function() {
+        document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+        this.classList.add('active');
+        currentMode = this.dataset.mode;
+        
+        const text2imgEl = document.getElementById('text2imgContent');
+        const img2imgEl = document.getElementById('img2imgContent');
+        
+        if (currentMode === 'text2img') {
+          text2imgEl.style.display = '';
+          img2imgEl.style.display = 'none';
+        } else {
+          text2imgEl.style.display = 'none';
+          img2imgEl.style.display = '';
+        }
+        updateCost();
+      });
+    });
+
+    // ===== 比例选择 =====
+    document.querySelectorAll('#ratioGroup .ratio-item').forEach(item => {
+      item.addEventListener('click', function() {
+        document.querySelectorAll('#ratioGroup .ratio-item').forEach(i => i.classList.remove('active'));
+        this.classList.add('active');
+      });
+    });
+
+    // ===== 字数统计 =====
+    const promptInput = document.getElementById('promptInput');
+    const promptCount = document.getElementById('promptCount');
+    promptInput.addEventListener('input', function() {
+      const len = this.value.length;
+      promptCount.textContent = len;
+      if (len > 1000) {
+        promptCount.style.color = 'var(--danger)';
+      } else {
+        promptCount.style.color = '';
+      }
+    });
+
+    // ===== 加载模型列表 =====
+    async function loadModels() {
+      try {
+        const data = await apiRequest('/api/models?type=image');
+        if (data.code === 0 && data.data && data.data.length > 0) {
+          modelList = data.data;
+          const optionsHtml = data.data.map(m => 
+            `<option value="${m.id}">${m.name} - ${m.price_per_call || '--'}积分/张${m.is_default ? ' · 默认' : ''}</option>`
+          ).join('');
+          
+          document.getElementById('modelSelect').innerHTML = optionsHtml;
+          document.getElementById('img2imgModelSelect').innerHTML = optionsHtml;
+          
+          // 选默认模型
+          const defaultModel = data.data.find(m => m.is_default);
+          if (defaultModel) {
+            document.getElementById('modelSelect').value = defaultModel.id;
+            document.getElementById('img2imgModelSelect').value = defaultModel.id;
+          }
+          updateCost();
+          updateQualityOptions();
+        } else {
+          document.getElementById('modelSelect').innerHTML = '<option value="">暂无可用模型</option>';
+          document.getElementById('img2imgModelSelect').innerHTML = '<option value="">暂无可用模型</option>';
+        }
+      } catch (e) {
+        document.getElementById('modelSelect').innerHTML = '<option value="">模型加载失败</option>';
+        document.getElementById('img2imgModelSelect').innerHTML = '<option value="">模型加载失败</option>';
+      }
+    }
+
+    // ===== 更新费用预估 =====
+    // ===== 画质档位 =====
+    const QUALITY_LEVELS = {
+      '1K': { label: '1K' },
+      '2K': { label: '2K' },
+      '4K': { label: '4K' },
+    };
+    let currentQuality = '1K';
+
+    function getModelQuality(modelId) {
+      const model = modelList.find(m => m.id === parseInt(modelId));
+      if (!model) return '1K';
+      const name = model.name || '';
+      if (name.includes('4K')) return '4K';
+      if (name.includes('2K')) return '2K';
+      return '1K';
+    }
+
+    function updateQualityOptions() {
+      const modelSel = currentMode === 'text2img' ? 'modelSelect' : 'img2imgModelSelect';
+      const modelId = document.getElementById(modelSel).value;
+      const modelQuality = getModelQuality(modelId);
+
+      const items = document.querySelectorAll('#qualityGroup .quality-item');
+      items.forEach(item => {
+        const q = item.dataset.quality;
+        const available = q === modelQuality;
+        item.classList.toggle('disabled', !available);
+      });
+
+      // 切换到模型对应的档位
+      if (currentQuality !== modelQuality) {
+        currentQuality = modelQuality;
+        items.forEach(item => {
+          item.classList.toggle('active', item.dataset.quality === currentQuality);
+        });
+      }
+
+      const hint = document.getElementById('qualityHint');
+      if (hint) {
+        hint.textContent = '当前模型仅支持' + modelQuality + '画质';
+      }
+    }
+
+    document.getElementById('qualityGroup').addEventListener('click', e => {
+      const item = e.target.closest('.quality-item');
+      if (!item || item.classList.contains('disabled')) return;
+      document.querySelectorAll('#qualityGroup .quality-item').forEach(i => i.classList.remove('active'));
+      item.classList.add('active');
+      currentQuality = item.dataset.quality;
+      updateCost();
+    });
+
+        function updateCost() {
+      const count = parseInt(document.getElementById('imageCount').value) || 1;
+      const modelSel = currentMode === 'text2img' ? 'modelSelect' : 'img2imgModelSelect';
+      const modelId = document.getElementById(modelSel)?.value;
+      
+      if (!modelId || isNaN(parseInt(modelId))) {
+        document.getElementById('costDisplay').textContent = '💎 -- 积分';
+        return;
+      }
+      
+      apiRequest('/api/calculate-cost', {
+        method: 'POST',
+        body: JSON.stringify({ model_id: parseInt(modelId), count })
+      }).then(data => {
+        if (data.code === 0) {
+          document.getElementById('costDisplay').textContent = '💎 ' + data.data.cost + ' 积分';
+        } else {
+          // 失败则用本地计算
+          const model = modelList.find(m => m.id == modelId);
+          if (model && model.price_per_call) {
+            document.getElementById('costDisplay').textContent = '💎 ' + (model.price_per_call * count) + ' 积分';
+          }
+        }
+      }).catch(() => {
+        const model = modelList.find(m => m.id == modelId);
+        if (model && model.price_per_call) {
+          document.getElementById('costDisplay').textContent = '💎 ' + (model.price_per_call * count) + ' 积分';
+        }
+      });
+    }
+
+    // 监听模型和数量变化
+    document.getElementById('modelSelect')?.addEventListener('change', () => {
+      updateCost();
+      updateQualityOptions();
+    });
+    document.getElementById('img2imgModelSelect')?.addEventListener('change', () => {
+      updateCost();
+      updateQualityOptions();
+    });
+    document.getElementById('img2imgModelSelect')?.addEventListener('change', updateCost);
+    document.getElementById('imageCount')?.addEventListener('change', updateCost);
+    document.getElementById('imageCount')?.addEventListener('input', updateCost);
+
+    // ===== 获取选中比例 =====
+    function getSelectedRatio() {
+      const active = document.querySelector('#ratioGroup .ratio-item.active');
+      return active ? active.dataset.ratio : '1:1';
+    }
+
+    // ===== 收集表单数据 =====
+    // 参考图 base64 缓存
+    let refImageBase64s = []; // 多图base64数组
+
+    function getFormData() {
+      const count = parseInt(document.getElementById('imageCount').value) || 1;
+      
+      if (currentMode === 'text2img') {
+        return {
+          mode: 'text2img',
+          model_id: parseInt(document.getElementById('modelSelect').value),
+          prompt: document.getElementById('promptInput').value.trim(),
+          negative_prompt: document.getElementById('negativePromptInput').value.trim(),
+          size: getSelectedRatio(),
+          quality: currentQuality,
+          count: count
+        };
+      } else {
+        return {
+          mode: 'img2img',
+          model_id: parseInt(document.getElementById('img2imgModelSelect').value),
+          prompt: document.getElementById('img2imgPromptInput').value.trim(),
+          negative_prompt: document.getElementById('img2imgNegativeInput').value.trim(),
+          size: getSelectedRatio(),
+          quality: currentQuality,
+          count: count,
+          ref_image: refImageBase64s.length === 1 ? refImageBase64s[0] : refImageBase64s
+        };
+      }
+    }
+
+    // ===== 复制参数 =====
+    document.getElementById('copyParamsBtn').addEventListener('click', function() {
+      const params = getFormData();
+      const model = modelList.find(m => m.id == params.model_id);
+      const text = `【AI图片生成参数】
+模型：${model ? model.name : '--'}
+描述：${params.prompt || '无'}
+负面描述：${params.negative_prompt || '无'}
+风格：${params.style}
+比例：${params.size}
+数量：${params.count}张`;
+      
+      navigator.clipboard.writeText(text).then(() => {
+        showToast('参数已复制到剪贴板', 'success');
+      }).catch(() => {
+        showToast('复制失败，请手动复制', 'error');
+      });
+    });
+
+    // ===== 生成函数 =====
+    function doGenerate() {
+      const btn = document.getElementById('generateBtn');
+      const formData = getFormData();
+      
+      // 验证
+      if (!formData.model_id || isNaN(formData.model_id)) {
+        showToast('请选择生成模型', 'error');
+        return;
+      }
+      if (!formData.prompt) {
+        showToast('请输入图片描述', 'error');
+        const inputId = currentMode === 'text2img' ? 'promptInput' : 'img2imgPromptInput';
+        document.getElementById(inputId)?.focus();
+        return;
+      }
+      if (formData.prompt.length > 1000) {
+        showToast('图片描述不能超过1000字', 'error');
+        return;
+      }
+      if (formData.count < 1 || formData.count > 9) {
+        showToast('生成数量必须在 1-9 之间', 'error');
+        return;
+      }
+      if (formData.mode === 'img2img' && (!formData.ref_image || (Array.isArray(formData.ref_image) && formData.ref_image.length === 0))) {
+        showToast('请上传参考图', 'error');
+        return;
+      }
+      
+      // 设置loading状态
+      btn.classList.add('loading');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="btn-icon">⏳</span>生成中...';
+      
+      // 停止之前的轮询
+      if (currentPollInterval) {
+        clearInterval(currentPollInterval);
+        currentPollInterval = null;
+      }
+      
+      // 提交生成
+      apiRequest('/api/generate/image', {
+        method: 'POST',
+        body: JSON.stringify(formData)
+      }).then(data => {
+        if (data.code === 402) {
+          showToast(data.msg || '积分不足', 'error');
+          resetGenerateBtn();
+          return;
+        }
+        if (data.code === 401) {
+          showToast(data.msg || '请先登录', 'error');
+          resetGenerateBtn();
+          setTimeout(() => window.location.href = '/login', 1000);
+          return;
+        }
+        if (data.code !== 0) {
+          showToast(data.msg || '生成失败', 'error');
+          resetGenerateBtn();
+          return;
+        }
+        
+        const taskId = data.data.task_id;
+        
+        // 更新顶部积分
+        if (data.data.new_balance != null) {
+          const user = getUser();
+          user.credits = data.data.new_balance;
+          localStorage.setItem('user', JSON.stringify(user));
+          updateNavAuth();
+        }
+        
+        // 显示生成动画
+        showGeneratingState(formData.count);
+        
+        // 轮询任务状态 (每2秒)
+        let pollCount = 0;
+        const maxPolls = 120; // 最多轮询4分钟
+        
+        currentPollInterval = setInterval(async () => {
+          pollCount++;
+          
+          if (pollCount > maxPolls) {
+            clearInterval(currentPollInterval);
+            currentPollInterval = null;
+            showToast('生成超时，请稍后在个人中心查看结果', 'error');
+            resetGenerateBtn();
+            return;
+          }
+          
+          try {
+            const statusData = await apiRequest('/api/generation/' + taskId);
+            
+            if (statusData.code === 0 && statusData.data.status === 'success') {
+              clearInterval(currentPollInterval);
+              currentPollInterval = null;
+              
+              // 解析结果
+              let images = [];
+              if (statusData.data.result) {
+                try {
+                  const result = typeof statusData.data.result === 'string' 
+                    ? JSON.parse(statusData.data.result) 
+                    : statusData.data.result;
+                  images = result.images || [];
+                } catch (e) {
+                  console.error('解析结果失败', e);
+                }
+              }
+              
+              if (images.length > 0) {
+                displayImageResults(images, {
+                  studio_type: 'image',
+                  params: getFormData(),
+                  regenerate_fn: doRegenerate,
+                  save_template: true,
+                });
+                showToast('生成成功！共 ' + images.length + ' 张图片', 'success');
+              } else {
+                showToast('生成成功，但未获取到图片', 'warn');
+                showEmptyResult();
+              }
+              
+              resetGenerateBtn();
+              refreshUserInfo();
+              
+            } else if (statusData.code === 0 && statusData.data.status === 'failed') {
+              clearInterval(currentPollInterval);
+              currentPollInterval = null;
+              showToast('生成失败：' + (statusData.data.error_msg || '未知错误'), 'error');
+              resetGenerateBtn();
+              showFailedState(statusData.data.error_msg || '未知错误');
+              refreshUserInfo();
+            }
+            // pending状态继续轮询
+          } catch (e) {
+            console.error('轮询出错', e);
+          }
+        }, 2000);
+      }).catch(err => {
+        showToast('网络错误，请稍后重试', 'error');
+        resetGenerateBtn();
+      });
+    }
+
+    // 重置生成按钮
+    function resetGenerateBtn() {
+      const btn = document.getElementById('generateBtn');
+      btn.classList.remove('loading');
+      btn.disabled = false;
+      btn.innerHTML = '<span class="btn-icon">✨</span>重新生成';
+    }
+
+    // 显示生成中状态
+    function showGeneratingState(count) {
+      const previewContent = document.getElementById('previewContent');
+      previewContent.style.display = 'flex';
+      previewContent.style.padding = '48px 32px';
+      previewContent.innerHTML = `
+        <div class="preview-generating fade-in">
+          <div class="generating-animation">
+            <div class="gen-ring"></div>
+            <div class="gen-ring"></div>
+            <div class="gen-ring"></div>
+            <div class="gen-center-icon">🎨</div>
+          </div>
+          <div class="generating-text">
+            <h3>AI 正在创作中...</h3>
+            <p>正在生成 ${count} 张图片，请稍候</p>
+            <div class="progress-bar">
+              <div class="progress-fill" id="genProgress" style="width: 0%"></div>
+            </div>
+            <div class="progress-text" id="progressText">准备中...</div>
+          </div>
+        </div>
+      `;
+      
+      // 模拟进度动画
+      const progressBar = document.getElementById('genProgress');
+      const progressText = document.getElementById('progressText');
+      let progress = 0;
+      
+      const stages = [
+        { at: 10, text: '解析提示词...' },
+        { at: 25, text: '构建图像模型...' },
+        { at: 40, text: 'AI 绘制中 (1/' + count + ')...' },
+        { at: 55, text: 'AI 绘制中 (' + Math.ceil(count/2) + '/' + count + ')...' },
+        { at: 70, text: 'AI 绘制中 (' + count + '/' + count + ')...' },
+        { at: 85, text: '后期优化中...' },
+        { at: 95, text: '即将完成...' },
+      ];
+      
+      let stageIndex = 0;
+      const progressInterval = setInterval(() => {
+        progress += Math.random() * 2 + 0.5;
+        if (progress > 98) progress = 98;
+        
+        if (progressBar) progressBar.style.width = progress + '%';
+        
+        while (stageIndex < stages.length && progress >= stages[stageIndex].at) {
+          if (progressText) progressText.textContent = stages[stageIndex].text;
+          stageIndex++;
+        }
+        
+        if (progress >= 98 || !document.getElementById('genProgress')) {
+          clearInterval(progressInterval);
+        }
+      }, 200);
+      
+      // 保存interval引用用于清理（这里简化处理）
+      window._imgGenProgressInterval = progressInterval;
+    }
+
+    // 显示失败状态
+    function showFailedState(errorMsg) {
+      const previewContent = document.getElementById('previewContent');
+      previewContent.style.display = 'flex';
+      previewContent.style.padding = '48px 32px';
+      previewContent.innerHTML = `
+        <div class="preview-empty" style="max-width: 400px;">
+          <div class="empty-icon">😔</div>
+          <h3>生成失败</h3>
+          <p>${errorMsg || '生成过程中出现了错误，请稍后重试。'}<br>如问题持续出现，请联系客服。</p>
+          <button class="action-btn primary" style="margin-top: 20px; padding: 10px 24px;" onclick="document.getElementById('generateBtn').click()">🔄 重新生成</button>
+        </div>
+      `;
+    }
+
+    // 显示空结果
+    function showEmptyResult() {
+      const previewContent = document.getElementById('previewContent');
+      previewContent.style.display = 'flex';
+      previewContent.style.padding = '48px 32px';
+      previewContent.innerHTML = `
+        <div class="preview-empty" style="max-width: 400px;">
+          <div class="empty-icon">🖼️</div>
+          <h3>生成结果为空</h3>
+          <p>未获取到生成的图片，请稍后重试或调整参数。</p>
+        </div>
+      `;
+    }
+
+    // 重新生成
+    function doRegenerate(params, mode, refImage) {
+      if (mode === 'variation') {
+        showToast('图生图功能即将上线', 'info');
+        return;
+      }
+      doGenerate();
+    }
+
+    // 生成按钮点击事件
+    document.getElementById('generateBtn').addEventListener('click', doGenerate);
+    
+    // ===== 参考图上传 =====
+    const refImagesGrid = document.getElementById('refImagesGrid');
+    const refImageAddBtn = document.getElementById('refImageAddBtn');
+    const refImageInput = document.getElementById('refImageInput');
+    const MAX_REF_IMAGES = 4;
+
+    refImageAddBtn.addEventListener('click', () => refImageInput.click());
+
+    refImagesGrid.addEventListener('dragover', e => {
+      e.preventDefault();
+      refImageAddBtn.style.borderColor = 'var(--brand)';
+    });
+    refImagesGrid.addEventListener('dragleave', e => {
+      if (e.target === refImagesGrid) {
+        refImageAddBtn.style.borderColor = '';
+      }
+    });
+    refImagesGrid.addEventListener('drop', e => {
+      e.preventDefault();
+      refImageAddBtn.style.borderColor = '';
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        handleRefImages(Array.from(e.dataTransfer.files));
+      }
+    });
+    
+    refImageInput.addEventListener('change', e => {
+      if (e.target.files && e.target.files.length > 0) {
+        handleRefImages(Array.from(e.target.files));
+        e.target.value = '';
+      }
+    });
+    
+    function removeRefImage(index) {
+      refImageBase64s.splice(index, 1);
+      renderRefImages();
+      if (refImageBase64s.length === 0) {
+        refImageInput.value = '';
+      }
+    }
+    
+    function renderRefImages() {
+      // 先清空除了添加按钮和input之外的内容
+      const items = refImagesGrid.querySelectorAll('.ref-image-item');
+      items.forEach(item => item.remove());
+
+      // 倒序插入，让添加按钮始终在最后
+      refImageBase64s.forEach((src, idx) => {
+        const item = document.createElement('div');
+        item.className = 'ref-image-item';
+        const img = document.createElement('img');
+        img.src = src;
+        const removeBtn = document.createElement('div');
+        removeBtn.className = 'ref-image-remove';
+        removeBtn.textContent = '×';
+        removeBtn.addEventListener('click', () => removeRefImage(idx));
+        const label = document.createElement('div');
+        label.className = 'img-index';
+        label.textContent = '第' + (idx + 1) + '张';
+        item.appendChild(img);
+        item.appendChild(removeBtn);
+        item.appendChild(label);
+        refImagesGrid.insertBefore(item, refImageAddBtn);
+      });
+
+      // 达到上限则隐藏添加按钮
+      if (refImageBase64s.length >= MAX_REF_IMAGES) {
+        refImageAddBtn.style.display = 'none';
+      } else {
+        refImageAddBtn.style.display = 'flex';
+      }
+    }
+    
+    function handleRefImages(files) {
+      const remaining = MAX_REF_IMAGES - refImageBase64s.length;
+      if (remaining <= 0) {
+        showToast('最多上传' + MAX_REF_IMAGES + '张参考图', 'error');
+        return;
+      }
+      const validFiles = files.filter(f => f.type.startsWith('image/')).slice(0, remaining);
+      if (validFiles.length === 0) {
+        showToast('请上传图片文件', 'error');
+        return;
+      }
+      validFiles.forEach(file => {
+        if (file.size > 10 * 1024 * 1024) {
+          showToast(file.name + ' 超过10MB，已跳过', 'warning');
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = e => {
+          refImageBase64s.push(e.target.result);
+          renderRefImages();
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+    
+    // 初始化加载模型
+    loadModels();
+  </script>
+</body>
+</html>

@@ -1,0 +1,2358 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>图片编辑器 - AI工作室</title>
+<link rel="stylesheet" href="css/style.css?v=17">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: #FFF9F0;
+    color: #5C4A3A;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* 顶部栏 */
+  .top-bar {
+    height: 56px;
+    background: #fff;
+    border-bottom: 1px solid #F0E6D8;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    box-shadow: 0 1px 3px rgba(92,74,58,0.04);
+    flex-shrink: 0;
+  }
+  .top-bar-left { display: flex; align-items: center; gap: 16px; }
+  .logo { font-size: 18px; font-weight: 700; color: #5C4A3A; }
+  .logo span { color: #D4B896; }
+  .page-title {
+    font-size: 14px;
+    color: #8B7355;
+    padding-left: 16px;
+    border-left: 1px solid #E8DCC8;
+  }
+  .top-bar-right { display: flex; align-items: center; gap: 10px; }
+  .top-btn {
+    padding: 7px 14px;
+    border: 1px solid #E8DCC8;
+    background: #fff;
+    color: #5C4A3A;
+    border-radius: 10px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .top-btn:hover { border-color: #D4B896; background: #FFFBF5; }
+  .top-btn.primary {
+    background: linear-gradient(135deg, #D4B896, #B8956E);
+    color: #fff;
+    border: none;
+  }
+  .top-btn.primary:hover { filter: brightness(1.05); }
+
+  /* 主体三栏 */
+  .main-container {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+  }
+
+  /* 左侧工具栏 */
+  .toolbar {
+    width: 260px;
+    background: #fff;
+    border-right: 1px solid #F0E6D8;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+  .tool-section { padding: 14px 0; border-bottom: 1px solid #F5EDE0; }
+  .tool-section-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: #B0967A;
+    padding: 0 16px 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .tool-section-title .badge {
+    font-size: 9px;
+    padding: 1px 6px;
+    border-radius: 6px;
+    margin-left: 6px;
+    font-weight: 500;
+  }
+  .badge-free { background: #E8F5E9; color: #66BB6A; }
+  .badge-ai { background: #FFF3E0; color: #FF9800; }
+
+  .tool-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-size: 13.5px;
+    color: #5C4A3A;
+  }
+  .tool-item:hover { background: #FFFBF5; }
+  .tool-item.active {
+    background: #FFF5E8;
+    border-left: 3px solid #D4B896;
+    padding-left: 13px;
+    color: #8B6914;
+    font-weight: 500;
+  }
+  .tool-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: #FFF5E8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+  }
+  .tool-item.active .tool-icon { background: #D4B896; }
+  .tool-name { flex: 1; }
+
+  /* 工具选项面板 */
+  .tool-options {
+    padding: 10px 16px 14px;
+    border-top: 1px solid #F5EDE0;
+    background: #FFFBF5;
+    display: none;
+  }
+  .tool-options.show { display: block; }
+  .option-label {
+    font-size: 12px;
+    color: #8B7355;
+    margin-bottom: 6px;
+    font-weight: 500;
+  }
+  .option-row { margin-bottom: 12px; }
+  .option-row:last-child { margin-bottom: 0; }
+
+  .sticker-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+  .sticker-tag {
+    padding: 6px 4px;
+    text-align: center;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all 0.15s;
+    color: #fff;
+  }
+  .sticker-tag:hover { transform: scale(1.05); }
+  .sticker-tag.s1 { background: linear-gradient(135deg, #FF6B6B, #EE5A5A); }
+  .sticker-tag.s2 { background: linear-gradient(135deg, #FFA726, #FF8F00); }
+  .sticker-tag.s3 { background: linear-gradient(135deg, #FF9800, #F57C00); }
+  .sticker-tag.s4 { background: linear-gradient(135deg, #66BB6A, #43A047); }
+  .sticker-tag.s5 { background: linear-gradient(135deg, #EF5350, #C62828); }
+  .sticker-tag.s6 { background: linear-gradient(135deg, #42A5F5, #1E88E5); }
+  .sticker-tag.s7 { background: linear-gradient(135deg, #AB47BC, #8E24AA); }
+  .sticker-tag.s8 { background: linear-gradient(135deg, #EC407A, #C2185B); }
+  .sticker-tag.s9 { background: linear-gradient(135deg, #FF5722, #E64A19); }
+  .sticker-tag.s10 { background: linear-gradient(135deg, #78909C, #546E7A); }
+
+  .pos-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+  }
+  .pos-btn {
+    height: 32px;
+    border: 1px solid #E8DCC8;
+    background: #fff;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: #8B7355;
+    transition: all 0.15s;
+  }
+  .pos-btn:hover { border-color: #D4B896; }
+  .pos-btn.active { background: #D4B896; color: #fff; border-color: #D4B896; }
+
+  .size-btns {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+  .size-btn {
+    padding: 10px;
+    border: 1px solid #E8DCC8;
+    background: #fff;
+    border-radius: 8px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s;
+  }
+  .size-btn:hover { border-color: #D4B896; }
+  .size-btn .size-name { font-size: 12.5px; font-weight: 500; color: #5C4A3A; }
+  .size-btn .size-desc { font-size: 10.5px; color: #B0967A; margin-top: 2px; }
+
+  .text-input {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #E8DCC8;
+    border-radius: 8px;
+    font-size: 13px;
+    background: #fff;
+    color: #5C4A3A;
+    outline: none;
+  }
+  .text-input:focus { border-color: #D4B896; }
+
+  .color-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .color-dot {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid #fff;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+  .color-dot.active { border-color: #D4B896; transform: scale(1.15); }
+
+  .range-slider {
+    width: 100%;
+    -webkit-appearance: none;
+    height: 4px;
+    border-radius: 2px;
+    background: #E8DCC8;
+    outline: none;
+  }
+  .range-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #D4B896;
+    cursor: pointer;
+  }
+  .range-value { font-size: 11px; color: #B0967A; text-align: right; }
+
+  .apply-btn {
+    width: 100%;
+    padding: 9px;
+    border: none;
+    background: linear-gradient(135deg, #D4B896, #B8956E);
+    color: #fff;
+    border-radius: 8px;
+    font-size: 13px;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  .apply-btn:hover { filter: brightness(1.05); }
+  .apply-btn.secondary {
+    background: #fff;
+    color: #5C4A3A;
+    border: 1px solid #E8DCC8;
+  }
+
+  /* 中间画布区 */
+  .canvas-area {
+    flex: 1;
+    background: #FFF9F0;
+    background-image:
+      linear-gradient(45deg, #F5EDE0 25%, transparent 25%),
+      linear-gradient(-45deg, #F5EDE0 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #F5EDE0 75%),
+      linear-gradient(-45deg, transparent 75%, #F5EDE0 75%);
+    background-size: 20px 20px;
+    background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: auto;
+  }
+  /* 上传欢迎页 */
+  .upload-welcome {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #FFF9F0;
+    z-index: 10;
+  }
+  .upload-welcome-inner {
+    text-align: center;
+    max-width: 480px;
+    padding: 40px;
+  }
+  .upload-welcome-icon {
+    font-size: 64px;
+    margin-bottom: 16px;
+  }
+  .upload-welcome h2 {
+    margin: 0 0 8px 0;
+    color: #5C4A3A;
+    font-size: 28px;
+  }
+  .upload-welcome p {
+    margin: 0 0 28px 0;
+    color: #8B7355;
+    font-size: 14px;
+  }
+  .upload-drop-zone {
+    border: 2px dashed #D4B896;
+    border-radius: 16px;
+    padding: 40px 24px;
+    background: rgba(212,184,150,0.08);
+    cursor: pointer;
+    transition: all 0.25s ease;
+    margin-bottom: 24px;
+  }
+  .upload-drop-zone:hover, .upload-drop-zone.dragover {
+    border-color: #B8956E;
+    background: rgba(212,184,150,0.15);
+    transform: translateY(-2px);
+  }
+  .drop-icon { font-size: 40px; margin-bottom: 12px; }
+  .drop-text { color: #5C4A3A; font-size: 15px; margin-bottom: 6px; }
+  .drop-link { color: #D4B896; font-weight: 600; text-decoration: underline; }
+  .drop-hint { color: #B59F85; font-size: 12px; }
+  .quick-tips {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .tip-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #8B7355;
+    font-size: 13px;
+    background: rgba(212,184,150,0.12);
+    padding: 8px 14px;
+    border-radius: 20px;
+  }
+  .tip-icon { font-size: 16px; }
+  .canvas-wrapper {
+    position: relative;
+    box-shadow: 0 8px 32px rgba(92,74,58,0.12);
+    border-radius: 12px;
+    overflow: hidden;
+    background: #fff;
+  }
+  #editorCanvas {
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+  }
+  .canvas-overlay {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+  }
+  .canvas-overlay.active { pointer-events: auto; }
+
+  /* 选中元素控制点 */
+  .overlay-item {
+    position: absolute;
+    cursor: move;
+    user-select: none;
+    pointer-events: auto;
+  }
+  .overlay-item.selected {
+    outline: 2px dashed #D4B896;
+    outline-offset: 2px;
+  }
+  .resize-handle {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    background: #fff;
+    border: 2px solid #D4B896;
+    border-radius: 50%;
+    z-index: 10;
+  }
+  .resize-handle.br { right: -6px; bottom: -6px; cursor: nwse-resize; }
+  .resize-handle.bl { left: -6px; bottom: -6px; cursor: nesw-resize; }
+  .resize-handle.tr { right: -6px; top: -6px; cursor: nesw-resize; }
+  .resize-handle.tl { left: -6px; top: -6px; cursor: nwse-resize; }
+  .rotate-handle {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    background: #fff;
+    border: 2px solid #D4B896;
+    border-radius: 50%;
+    top: -28px;
+    left: 50%;
+    transform: translateX(-50%);
+    cursor: grab;
+    z-index: 10;
+    font-size: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* 右侧属性面板 */
+  .properties-panel {
+    width: 240px;
+    background: #fff;
+    border-left: 1px solid #F0E6D8;
+    overflow-y: auto;
+    flex-shrink: 0;
+    padding: 16px;
+  }
+  .prop-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #5C4A3A;
+    margin-bottom: 14px;
+  }
+  .prop-empty {
+    text-align: center;
+    color: #B0967A;
+    font-size: 13px;
+    padding: 40px 0;
+  }
+  .prop-empty-icon { font-size: 32px; margin-bottom: 8px; opacity: 0.5; }
+  .prop-group { margin-bottom: 16px; }
+  .prop-label {
+    font-size: 11.5px;
+    color: #8B7355;
+    margin-bottom: 5px;
+    display: flex;
+    justify-content: space-between;
+  }
+  .prop-input {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid #E8DCC8;
+    border-radius: 6px;
+    font-size: 12px;
+    outline: none;
+  }
+  .prop-input:focus { border-color: #D4B896; }
+  .delete-btn {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #FFCDD2;
+    background: #FFEBEE;
+    color: #E53935;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 12.5px;
+  }
+  .delete-btn:hover { background: #FFCDD2; }
+
+  /* 底部缩略图条 */
+  .thumb-bar {
+    height: 88px;
+    background: #fff;
+    border-top: 1px solid #F0E6D8;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    overflow-x: auto;
+    flex-shrink: 0;
+  }
+  .thumb-item {
+    width: 64px;
+    height: 64px;
+    border-radius: 8px;
+    overflow: hidden;
+    cursor: pointer;
+    border: 2px solid transparent;
+    flex-shrink: 0;
+    position: relative;
+    background: #F5EDE0;
+  }
+  .thumb-item.active { border-color: #D4B896; box-shadow: 0 2px 8px rgba(212,184,150,0.3); }
+  .thumb-item img { width: 100%; height: 100%; object-fit: cover; }
+  .thumb-item .thumb-num {
+    position: absolute;
+    bottom: 2px; right: 2px;
+    background: rgba(92,74,58,0.7);
+    color: #fff;
+    font-size: 10px;
+    padding: 1px 4px;
+    border-radius: 4px;
+  }
+
+  /* 弹窗 */
+  .modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(92,74,58,0.4);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: #fff;
+    border-radius: 16px;
+    width: 420px;
+    max-width: 90vw;
+    max-height: 85vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(92,74,58,0.2);
+  }
+  .modal-header {
+    padding: 18px 20px;
+    border-bottom: 1px solid #F0E6D8;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .modal-title { font-size: 15px; font-weight: 600; color: #5C4A3A; }
+  .modal-close {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    border: none;
+    background: #F5EDE0;
+    cursor: pointer;
+    font-size: 14px;
+    color: #8B7355;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-body { padding: 20px; }
+  .modal-footer {
+    padding: 14px 20px;
+    border-top: 1px solid #F0E6D8;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+
+  /* AI 加载动画 */
+  .ai-loading {
+    text-align: center;
+    padding: 30px 0;
+  }
+  .ai-spinner {
+    width: 40px; height: 40px;
+    border: 3px solid #F0E6D8;
+    border-top-color: #D4B896;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 14px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* 隐藏input */
+  .hidden-input { display: none; }
+</style>
+</head>
+<body>
+
+<!-- 顶部栏 -->
+<div class="top-bar">
+  <div class="top-bar-left">
+    <div class="logo">AI<span>工作室</span> · 图片编辑工作室</div>
+    <div class="page-title" id="pageInfo">加载中...</div>
+  </div>
+  <div class="top-bar-right">
+    <button class="top-btn" onclick="undo()">↶ 撤销</button>
+    <button class="top-btn" onclick="redo()">↷ 重做</button>
+    <button class="top-btn" onclick="applyToAll()">📋 应用到全部</button>
+    <button class="top-btn primary" onclick="downloadAll()">📥 下载全部</button>
+  </div>
+</div>
+
+<!-- 主体 -->
+<div class="main-container">
+
+  <!-- 左侧工具栏 -->
+  <div class="toolbar">
+    <div class="tool-section">
+      <div class="tool-section-title">基础工具 <span class="badge badge-free">免费</span></div>
+      <div class="tool-item active" data-tool="select" onclick="selectTool('select')">
+        <div class="tool-icon">🖱️</div>
+        <div class="tool-name">选择移动</div>
+      </div>
+      <div class="tool-item" data-tool="sticker" onclick="selectTool('sticker')">
+        <div class="tool-icon">🏷️</div>
+        <div class="tool-name">促销贴纸</div>
+      </div>
+      <div class="tool-item" data-tool="watermark" onclick="selectTool('watermark')">
+        <div class="tool-icon">🖼️</div>
+        <div class="tool-name">Logo水印</div>
+      </div>
+      <div class="tool-item" data-tool="text" onclick="selectTool('text')">
+        <div class="tool-icon">✏️</div>
+        <div class="tool-name">文字叠加</div>
+      </div>
+      <div class="tool-item" data-tool="resize" onclick="selectTool('resize')">
+        <div class="tool-icon">📐</div>
+        <div class="tool-name">批量改尺寸</div>
+      </div>
+      <div class="tool-item" data-tool="retouch" onclick="selectTool('retouch')">
+        <div class="tool-icon">🧹</div>
+        <div class="tool-name">涂抹修复</div>
+      </div>
+    </div>
+
+    <div class="tool-section">
+      <div class="tool-section-title">AI增强 <span class="badge badge-ai">扣积分</span></div>
+      <div class="tool-item" data-tool="rescene" onclick="selectTool('rescene')">
+        <div class="tool-icon">🔄</div>
+        <div class="tool-name">AI换场景</div>
+      </div>
+      <div class="tool-item" data-tool="dewatermark" onclick="selectTool('dewatermark')">
+        <div class="tool-icon">🫧</div>
+        <div class="tool-name">AI去水印</div>
+      </div>
+    </div>
+
+    <!-- 贴纸选项 -->
+    <div class="tool-options" id="opt-sticker">
+      <div class="option-row">
+        <div class="option-label">选择贴纸样式</div>
+        <div class="sticker-grid">
+          <div class="sticker-tag s1" onclick="addSticker('爆款', '#FF6B6B', 's1')">爆款</div>
+          <div class="sticker-tag s2" onclick="addSticker('新品', '#FFA726', 's2')">新品</div>
+          <div class="sticker-tag s3" onclick="addSticker('限时特惠', '#FF9800', 's3')">限时特惠</div>
+          <div class="sticker-tag s4" onclick="addSticker('买一送一', '#66BB6A', 's4')">买一送一</div>
+          <div class="sticker-tag s5" onclick="addSticker('秒杀', '#EF5350', 's5')">秒杀</div>
+          <div class="sticker-tag s6" onclick="addSticker('包邮', '#42A5F5', 's6')">包邮</div>
+          <div class="sticker-tag s7" onclick="addSticker('年终大促', '#AB47BC', 's7')">年终大促</div>
+          <div class="sticker-tag s8" onclick="addSticker('新品首发', '#EC407A', 's8')">新品首发</div>
+          <div class="sticker-tag s9" onclick="addSticker('热销爆款', '#FF5722', 's9')">热销爆款</div>
+          <div class="sticker-tag s10" onclick="addSticker('限时折扣', '#78909C', 's10')">限时折扣</div>
+        </div>
+      </div>
+      <div class="option-row">
+        <div class="option-label">贴纸大小 <span class="range-value" id="stickerSizeVal">80%</span></div>
+        <input type="range" class="range-slider" id="stickerSize" min="30" max="150" value="80" oninput="document.getElementById('stickerSizeVal').textContent=this.value+'%'">
+      </div>
+    </div>
+
+    <!-- 水印选项 -->
+    <div class="tool-options" id="opt-watermark">
+      <div class="option-row">
+        <div class="option-label">上传Logo/水印</div>
+        <input type="file" id="logoInput" class="hidden-input" accept="image/*" onchange="handleLogoUpload(event)">
+        <button class="apply-btn secondary" onclick="document.getElementById('logoInput').click()">📤 选择图片</button>
+      </div>
+      <div class="option-row">
+        <div class="option-label">位置</div>
+        <div class="pos-grid">
+          <div class="pos-btn" data-pos="tl" onclick="setLogoPos('tl')">↖</div>
+          <div class="pos-btn" data-pos="tc" onclick="setLogoPos('tc')">↑</div>
+          <div class="pos-btn" data-pos="tr" onclick="setLogoPos('tr')">↗</div>
+          <div class="pos-btn" data-pos="cl" onclick="setLogoPos('cl')">←</div>
+          <div class="pos-btn" data-pos="cc" onclick="setLogoPos('cc')">⊙</div>
+          <div class="pos-btn" data-pos="cr" onclick="setLogoPos('cr')">→</div>
+          <div class="pos-btn" data-pos="bl" onclick="setLogoPos('bl')">↙</div>
+          <div class="pos-btn" data-pos="bc" onclick="setLogoPos('bc')">↓</div>
+          <div class="pos-btn active" data-pos="br" onclick="setLogoPos('br')">↘</div>
+        </div>
+      </div>
+      <div class="option-row">
+        <div class="option-label">大小 <span class="range-value" id="logoSizeVal">20%</span></div>
+        <input type="range" class="range-slider" id="logoSize" min="5" max="50" value="20" oninput="document.getElementById('logoSizeVal').textContent=this.value+'%'">
+      </div>
+      <div class="option-row">
+        <div class="option-label">透明度 <span class="range-value" id="logoOpacityVal">80%</span></div>
+        <input type="range" class="range-slider" id="logoOpacity" min="10" max="100" value="80" oninput="document.getElementById('logoOpacityVal').textContent=this.value+'%'">
+      </div>
+      <button class="apply-btn" onclick="applyWatermark()">应用水印</button>
+    </div>
+
+    <!-- 文字选项 -->
+    <div class="tool-options" id="opt-text">
+      <div class="option-row">
+        <div class="option-label">文字内容</div>
+        <input type="text" class="text-input" id="textContent" value="爆款热销" placeholder="输入文字">
+      </div>
+      <div class="option-row">
+        <div class="option-label">字号 <span class="range-value" id="fontSizeVal">32px</span></div>
+        <input type="range" class="range-slider" id="fontSize" min="12" max="120" value="32" oninput="document.getElementById('fontSizeVal').textContent=this.value+'px'">
+      </div>
+      <div class="option-row">
+        <div class="option-label">颜色</div>
+        <div class="color-row">
+          <div class="color-dot active" style="background:#fff;border-color:#E8DCC8;" onclick="pickColor(this,'#FFFFFF')"></div>
+          <div class="color-dot" style="background:#000;" onclick="pickColor(this,'#000000')"></div>
+          <div class="color-dot" style="background:#FF6B6B;" onclick="pickColor(this,'#FF6B6B')"></div>
+          <div class="color-dot" style="background:#FFA726;" onclick="pickColor(this,'#FFA726')"></div>
+          <div class="color-dot" style="background:#66BB6A;" onclick="pickColor(this,'#66BB6A')"></div>
+          <div class="color-dot" style="background:#42A5F5;" onclick="pickColor(this,'#42A5F5')"></div>
+        </div>
+      </div>
+      <div class="option-row">
+        <label style="font-size:12px;color:#8B7355;display:flex;align-items:center;gap:6px;">
+          <input type="checkbox" id="textBold" checked> 加粗
+        </label>
+        <label style="font-size:12px;color:#8B7355;display:flex;align-items:center;gap:6px;margin-top:4px;">
+          <input type="checkbox" id="textShadow" checked> 文字阴影
+        </label>
+      </div>
+      <button class="apply-btn" onclick="addText()">添加文字</button>
+    </div>
+
+    <!-- 改尺寸选项 -->
+    <div class="tool-options" id="opt-resize">
+      <div class="option-row">
+        <div class="option-label">选择目标尺寸</div>
+        <div class="size-btns">
+          <div class="size-btn" onclick="resizeCanvas('1:1')">
+            <div class="size-name">1:1 主图</div>
+            <div class="size-desc">淘宝/拼多多主图</div>
+          </div>
+          <div class="size-btn" onclick="resizeCanvas('3:4')">
+            <div class="size-name">3:4 详情</div>
+            <div class="size-desc">详情页/小红书</div>
+          </div>
+          <div class="size-btn" onclick="resizeCanvas('9:16')">
+            <div class="size-name">9:16 竖屏</div>
+            <div class="size-desc">抖音/视频封面</div>
+          </div>
+          <div class="size-btn" onclick="resizeCanvas('16:9')">
+            <div class="size-name">16:9 横屏</div>
+            <div class="size-desc">B站/横版封面</div>
+          </div>
+        </div>
+      </div>
+      <div class="option-row">
+        <label style="font-size:12px;color:#8B7355;display:flex;align-items:center;gap:6px;">
+          <input type="checkbox" id="resizeAll" checked> 应用到所有图片
+        </label>
+      </div>
+      <div class="option-row">
+        <label style="font-size:12px;color:#8B7355;display:flex;align-items:center;gap:6px;">
+          <input type="checkbox" id="resizeCrop" checked> 裁剪填充（不变形）
+        </label>
+      </div>
+    </div>
+
+    <!-- 涂抹修复选项 -->
+    <div class="tool-options" id="opt-retouch">
+      <div class="option-row">
+        <div class="option-label">画笔大小 <span class="range-value" id="brushSizeVal">30px</span></div>
+        <input type="range" class="range-slider" id="brushSize" min="5" max="100" value="30" oninput="document.getElementById('brushSizeVal').textContent=this.value+'px'">
+      </div>
+      <div class="option-row">
+        <div class="option-label">硬度 <span class="range-value" id="brushHardVal">50%</span></div>
+        <input type="range" class="range-slider" id="brushHard" min="10" max="100" value="50" oninput="document.getElementById('brushHardVal').textContent=this.value+'%'">
+      </div>
+      <p style="font-size:11px;color:#B0967A;line-height:1.5;">💡 在需要去除的位置涂抹，会用周围像素近似填充。适合去除简单背景上的小水印/瑕疵。</p>
+    </div>
+
+    <!-- AI换场景（内联表单） -->
+    <div class="tool-options" id="opt-rescene">
+      <p style="font-size:12px;color:#8B7355;line-height:1.6;margin-bottom:12px;">基于当前商品图，重新生成不同场景背景。商品主体保持不变，背景换新风格。</p>
+      <div class="option-row" style="margin-bottom:10px;">
+        <div class="option-label">选择模型</div>
+        <select class="text-input" id="resceneModel"></select>
+      </div>
+      <div class="option-row" style="margin-bottom:10px;">
+        <div class="option-label">场景描述</div>
+        <textarea class="text-input" id="rescenePrompt" rows="3" placeholder="例如：放在大理石台面上，旁边有新鲜水果和绿叶，自然光，高端摄影风格"></textarea>
+      </div>
+      <div style="font-size:12px;color:#5C4A3A;margin-bottom:10px;">
+        消耗积分：<span id="resceneCost" style="color:#D4B896;font-weight:600;">--</span>
+      </div>
+      <button class="apply-btn" onclick="doRescene()">🔄 开始换场景</button>
+      <p style="font-size:11px;color:#B59F85;line-height:1.5;margin-top:8px;">💡 生成后自动替换当前图片，可撤销恢复。</p>
+    </div>
+
+    <!-- AI去水印 -->
+    <div class="tool-options" id="opt-dewatermark">
+      <p style="font-size:12px;color:#8B7355;line-height:1.6;margin-bottom:12px;">一键AI智能去除图片中的水印文字，自动还原背景。</p>
+      <div class="option-row" style="margin-bottom:10px;">
+        <div class="option-label">选择模型</div>
+        <select class="text-input" id="dewatermarkModel"></select>
+      </div>
+      <div style="font-size:12px;color:#5C4A3A;margin-bottom:12px;">
+        消耗积分：<span id="dewatermarkCost" style="color:#D4B896;font-weight:600;">--</span>
+      </div>
+      <button class="apply-btn" onclick="startAIDewatermark()">✨ 开始智能去水印</button>
+    </div>
+  </div>
+
+  <!-- 中间画布 -->
+  <div class="canvas-area" id="canvasArea">
+    <!-- 上传欢迎页（无图片时显示） -->
+    <div class="upload-welcome" id="uploadWelcome" style="display:none;">
+      <div class="upload-welcome-inner">
+        <div class="upload-welcome-icon">🖼️</div>
+        <h2>图片编辑器</h2>
+        <p>上传图片开始编辑，支持贴纸、水印、文字、AI换场景等</p>
+        <div class="upload-drop-zone" id="dropZone">
+          <div class="drop-icon">📤</div>
+          <div class="drop-text">拖拽图片到这里，或 <span class="drop-link">点击选择</span></div>
+          <div class="drop-hint">支持 JPG / PNG / WebP，可多选</div>
+          <input type="file" id="fileInput" accept="image/*" multiple style="display:none;">
+        </div>
+        <div class="quick-tips">
+          <div class="tip-item"><span class="tip-icon">✨</span> 批量添加促销贴纸</div>
+          <div class="tip-item"><span class="tip-icon">💧</span> 一键加水印Logo</div>
+          <div class="tip-item"><span class="tip-icon">🔄</span> AI智能换场景</div>
+        </div>
+      </div>
+    </div>
+    <div class="canvas-wrapper" id="canvasWrapper">
+      <canvas id="editorCanvas"></canvas>
+      <div class="canvas-overlay" id="canvasOverlay"></div>
+    </div>
+  </div>
+
+  <!-- 右侧属性面板 -->
+  <div class="properties-panel" id="propPanel">
+    <div class="prop-title">属性</div>
+    <div id="propContent">
+      <div class="prop-empty">
+        <div class="prop-empty-icon">🎯</div>
+        <div>选中元素查看属性</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 底部缩略图 -->
+<div class="thumb-bar" id="thumbBar"></div>
+
+<!-- AI换场景弹窗 -->
+<div class="modal-overlay" id="resceneModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">🔄 AI换场景</div>
+      <button class="modal-close" onclick="closeModal('resceneModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="option-row">
+        <div class="option-label">选择模型</div>
+        <select class="text-input" id="resceneModel"></select>
+      </div>
+      <div class="option-row">
+        <div class="option-label">场景描述</div>
+        <textarea class="text-input" id="rescenePrompt" rows="4" placeholder="例如：放在大理石台面上，旁边有新鲜水果和绿叶，自然光，高端摄影风格"></textarea>
+      </div>
+      <div class="option-row">
+        <div class="option-label">消耗积分：<span id="resceneCost" style="color:#D4B896;font-weight:600;">--</span></div>
+      </div>
+      <p style="font-size:11.5px;color:#B0967A;line-height:1.5;">💡 基于当前图片生成新场景，商品主体保持不变。生成后可选择是否替换。</p>
+    </div>
+    <div class="modal-footer">
+      <button class="apply-btn secondary" onclick="closeModal('resceneModal')">取消</button>
+      <button class="apply-btn" onclick="doRescene()">开始生成</button>
+    </div>
+  </div>
+</div>
+
+<!-- 生成中弹窗 -->
+<div class="modal-overlay" id="loadingModal">
+  <div class="modal" style="width:320px;">
+    <div class="modal-header" style="border-bottom:none;padding-bottom:0;">
+      <div class="modal-title">AI处理中</div>
+      <button class="modal-close" onclick="cancelLoading()" title="取消/关闭">✕</button>
+    </div>
+    <div class="modal-body" style="padding-top:8px;">
+      <div class="ai-loading">
+        <div class="ai-spinner"></div>
+        <div id="loadingText" style="font-size:13px;color:#8B7355;">AI生成中，请稍候...</div>
+        <div style="font-size:11px;color:#B0967A;margin-top:10px;">
+          可点击右上角关闭，稍后可在作品中心查看结果
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============ 全局状态 ============
+const canvas = document.getElementById('editorCanvas');
+const ctx = canvas.getContext('2d');
+const overlay = document.getElementById('canvasOverlay');
+
+let images = [];        // 原始图片数组
+let currentIndex = 0;   // 当前编辑的图片索引
+let baseImage = null;   // 当前底图（Image对象）
+let elements = [];      // 叠加元素 {id, type, x, y, width, height, rotation, data}
+let selectedId = null;
+let currentTool = 'select';
+let historyStack = [];  // 撤销栈
+let redoStack = [];     // 重做栈
+let elementIdCounter = 0;
+let logoImage = null;
+let logoPos = 'br';
+let textColor = '#FFFFFF';
+
+// 涂抹模式相关
+let isDrawing = false;
+let lastDrawX = 0, lastDrawY = 0;
+
+// ============ 初始化 ============
+window.addEventListener('DOMContentLoaded', () => {
+  const params = new URLSearchParams(window.location.search);
+  const imgsParam = params.get('imgs');
+  if (imgsParam) {
+    const urls = imgsParam.split(',').map(decodeURIComponent);
+    loadImages(urls);
+  } else {
+    showUploadWelcome();
+  }
+  loadModels();
+  initUploadEvents();
+});
+
+function showUploadWelcome() {
+  document.getElementById('uploadWelcome').style.display = 'flex';
+  document.querySelector('.toolbar').style.opacity = '0.4';
+  document.querySelector('.toolbar').style.pointerEvents = 'none';
+  document.querySelector('.properties-panel').style.opacity = '0.4';
+  document.querySelector('.properties-panel').style.pointerEvents = 'none';
+  document.querySelector('.top-bar-right').style.opacity = '0.4';
+  document.querySelector('.top-bar-right').style.pointerEvents = 'none';
+}
+
+function hideUploadWelcome() {
+  document.getElementById('uploadWelcome').style.display = 'none';
+  document.querySelector('.toolbar').style.opacity = '1';
+  document.querySelector('.toolbar').style.pointerEvents = 'auto';
+  document.querySelector('.properties-panel').style.opacity = '1';
+  document.querySelector('.properties-panel').style.pointerEvents = 'auto';
+  document.querySelector('.top-bar-right').style.opacity = '1';
+  document.querySelector('.top-bar-right').style.pointerEvents = 'auto';
+}
+
+function initUploadEvents() {
+  const dropZone = document.getElementById('dropZone');
+  const fileInput = document.getElementById('fileInput');
+  if (!dropZone) return;
+  
+  dropZone.addEventListener('click', () => fileInput.click());
+  dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.classList.add('dragover');
+  });
+  dropZone.addEventListener('dragleave', () => {
+    dropZone.classList.remove('dragover');
+  });
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    handleFiles(e.dataTransfer.files);
+  });
+  fileInput.addEventListener('change', (e) => {
+    handleFiles(e.target.files);
+  });
+  
+  // 全页面拖拽也支持
+  window.addEventListener('dragover', (e) => {
+    if (!baseImage) e.preventDefault();
+  });
+  window.addEventListener('drop', (e) => {
+    if (!baseImage && e.dataTransfer.files.length > 0) {
+      e.preventDefault();
+      handleFiles(e.dataTransfer.files);
+    }
+  });
+}
+
+function handleFiles(files) {
+  const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+  if (imageFiles.length === 0) {
+    showToast('请选择图片文件', 'error');
+    return;
+  }
+  const urls = imageFiles.map(f => URL.createObjectURL(f));
+  hideUploadWelcome();
+  loadImages(urls);
+}
+
+async function loadImages(urls) {
+  const loaded = [];
+  for (const url of urls) {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    await new Promise((res, rej) => {
+      img.onload = () => res();
+      img.onerror = () => {
+        // 可能是相对路径，补全
+        img.src = url.startsWith('http') || url.startsWith('/') ? url : (window.location.origin + '/' + url);
+      };
+      img.src = url;
+    });
+    loaded.push(img);
+  }
+  images = loaded;
+  initThumbs();
+  switchImage(0);
+  // 初始状态入历史栈，保证撤销有起点
+  if (historyStack.length === 0) saveHistory();
+}
+
+function initThumbs() {
+  const bar = document.getElementById('thumbBar');
+  bar.innerHTML = '';
+  images.forEach((img, i) => {
+    const div = document.createElement('div');
+    div.className = 'thumb-item' + (i === currentIndex ? ' active' : '');
+    div.innerHTML = `<img src="${img.src}"><span class="thumb-num">${i+1}</span>`;
+    div.onclick = () => switchImage(i);
+    bar.appendChild(div);
+  });
+}
+
+function switchImage(idx) {
+  // 保存当前状态
+  if (baseImage) {
+    images[currentIndex]._elements = elements;
+    images[currentIndex]._history = historyStack;
+  }
+  
+  currentIndex = idx;
+  baseImage = images[idx];
+  elements = images[idx]._elements || [];
+  historyStack = images[idx]._history || [];
+  redoStack = [];
+  selectedId = null;
+  
+  // 重新设置canvas尺寸
+  canvas.width = baseImage.width;
+  canvas.height = baseImage.height;
+  
+  render();
+  renderOverlay();
+  updatePageInfo();
+  
+  // 更新缩略图高亮
+  document.querySelectorAll('.thumb-item').forEach((el, i) => {
+    el.classList.toggle('active', i === idx);
+  });
+}
+
+function updatePageInfo() {
+  document.getElementById('pageInfo').textContent = 
+    `第 ${currentIndex + 1} 张 / 共 ${images.length} 张 · ${canvas.width}×${canvas.height}`;
+}
+
+// ============ 渲染 ============
+function render() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(baseImage, 0, 0);
+  
+  // 绘制所有元素
+  elements.forEach(el => {
+    ctx.save();
+    ctx.translate(el.x + el.width / 2, el.y + el.height / 2);
+    ctx.rotate((el.rotation || 0) * Math.PI / 180);
+    ctx.translate(-el.width / 2, -el.height / 2);
+    
+    if (el.type === 'sticker') {
+      drawSticker(ctx, el, el.width, el.height);
+    } else if (el.type === 'text') {
+      ctx.globalAlpha = el.data.opacity || 1;
+      ctx.font = `${el.data.bold ? 'bold ' : ''}${el.data.fontSize}px -apple-system, sans-serif`;
+      ctx.fillStyle = el.data.color;
+      if (el.data.shadow) {
+        ctx.shadowColor = 'rgba(0,0,0,0.5)';
+        ctx.shadowBlur = 4;
+        ctx.shadowOffsetX = 1;
+        ctx.shadowOffsetY = 1;
+      }
+      ctx.textBaseline = 'top';
+      ctx.fillText(el.data.text, 0, 0);
+    } else if (el.type === 'logo' && el.data.image) {
+      ctx.globalAlpha = el.data.opacity || 1;
+      ctx.drawImage(el.data.image, 0, 0, el.width, el.height);
+    }
+    ctx.restore();
+  });
+}
+
+function drawSticker(ctx, el, w, h) {
+  const gradient = ctx.createLinearGradient(0, 0, w, h);
+  const colors = getStickerColors(el.data.style);
+  gradient.addColorStop(0, colors[0]);
+  gradient.addColorStop(1, colors[1]);
+  ctx.fillStyle = gradient;
+  const r = h / 2;
+  ctx.beginPath();
+  ctx.moveTo(r, 0);
+  ctx.lineTo(w - r, 0);
+  ctx.quadraticCurveTo(w, 0, w, r);
+  ctx.lineTo(w, h - r);
+  ctx.quadraticCurveTo(w, h, w - r, h);
+  ctx.lineTo(r, h);
+  ctx.quadraticCurveTo(0, h, 0, h - r);
+  ctx.lineTo(0, r);
+  ctx.quadraticCurveTo(0, 0, r, 0);
+  ctx.fill();
+  
+  ctx.fillStyle = '#fff';
+  ctx.font = `bold ${Math.max(12, h * 0.35)}px -apple-system, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.shadowColor = 'rgba(0,0,0,0.2)';
+  ctx.shadowBlur = 2;
+  ctx.fillText(el.data.text, w / 2, h / 2);
+  ctx.shadowBlur = 0;
+}
+
+function getStickerColors(style) {
+  const map = {
+    s1: ['#FF6B6B', '#EE5A5A'],
+    s2: ['#FFA726', '#FF8F00'],
+    s3: ['#FF9800', '#F57C00'],
+    s4: ['#66BB6A', '#43A047'],
+    s5: ['#EF5350', '#C62828'],
+    s6: ['#42A5F5', '#1E88E5'],
+    s7: ['#AB47BC', '#8E24AA'],
+    s8: ['#EC407A', '#C2185B'],
+    s9: ['#FF5722', '#E64A19'],
+    s10: ['#78909C', '#546E7A'],
+  };
+  return map[style] || ['#FF6B6B', '#EE5A5A'];
+}
+
+function renderOverlay() {
+  overlay.innerHTML = '';
+  const wrap = document.getElementById('canvasWrapper');
+  const scale = canvas.offsetWidth / canvas.width;
+  overlay.style.width = canvas.offsetWidth + 'px';
+  overlay.style.height = canvas.offsetHeight + 'px';
+  
+  elements.forEach(el => {
+    const div = document.createElement('div');
+    div.className = 'overlay-item' + (el.id === selectedId ? ' selected' : '');
+    div.style.left = (el.x * scale) + 'px';
+    div.style.top = (el.y * scale) + 'px';
+    div.style.width = (el.width * scale) + 'px';
+    div.style.height = (el.height * scale) + 'px';
+    div.style.transform = `rotate(${el.rotation || 0}deg)`;
+    div.dataset.id = el.id;
+    
+    if (el.id === selectedId) {
+      div.innerHTML = `
+        <div class="resize-handle tl" data-handle="tl"></div>
+        <div class="resize-handle tr" data-handle="tr"></div>
+        <div class="resize-handle bl" data-handle="bl"></div>
+        <div class="resize-handle br" data-handle="br"></div>
+        <div class="rotate-handle">↻</div>
+      `;
+    }
+    
+    div.addEventListener('mousedown', (e) => {
+      // 所有工具下都能拖动元素（涂抹模式除外，避免干扰修复操作）
+      if (currentTool === 'retouch') return;
+      e.preventDefault();
+      e.stopPropagation();
+      selectElement(el.id);
+      startDrag(e, el.id);
+      // 拖动时自动切到选择工具，让用户知道当前在选择状态
+      if (currentTool !== 'select') {
+        currentTool = 'select';
+        document.querySelectorAll('.tool-item').forEach(t => {
+          t.classList.toggle('active', t.dataset.tool === 'select');
+        });
+      }
+    });
+    
+    if (el.id === selectedId) {
+      div.querySelectorAll('.resize-handle').forEach(h => {
+        h.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          startResize(e, el.id, h.dataset.handle);
+        });
+      });
+      const rot = div.querySelector('.rotate-handle');
+      if (rot) {
+        rot.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          startRotate(e, el.id);
+        });
+      }
+    }
+    
+    overlay.appendChild(div);
+  });
+}
+
+// ============ 工具栏 ============
+function selectTool(tool) {
+  currentTool = tool;
+  document.querySelectorAll('.tool-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.tool === tool);
+  });
+  // 隐藏所有选项
+  document.querySelectorAll('.tool-options').forEach(el => el.classList.remove('show'));
+  const opt = document.getElementById('opt-' + tool);
+  if (opt) opt.classList.add('show');
+  
+  // 工具对应的overlay交互
+  const interactiveTools = ['select', 'sticker', 'watermark', 'text', 'resize', 'retouch'];
+  if (interactiveTools.includes(tool)) {
+    overlay.classList.add('active');
+    overlay.style.cursor = tool === 'retouch' ? 'crosshair' : '';
+  } else {
+    overlay.classList.remove('active');
+    overlay.style.cursor = '';
+  }
+}
+
+// canvas 点击（选中/涂抹）
+overlay.addEventListener('mousedown', (e) => {
+  if (currentTool === 'retouch') {
+    isDrawing = true;
+    saveHistory();
+    const rect = overlay.getBoundingClientRect();
+    const scale = canvas.width / rect.width;
+    lastDrawX = (e.clientX - rect.left) * scale;
+    lastDrawY = (e.clientY - rect.top) * scale;
+    retouchAt(lastDrawX, lastDrawY);
+  } else if (currentTool === 'select') {
+    // 点空白取消选择
+    if (e.target === overlay) {
+      selectElement(null);
+    }
+  }
+});
+
+overlay.addEventListener('mousemove', (e) => {
+  if (!isDrawing || currentTool !== 'retouch') return;
+  const rect = overlay.getBoundingClientRect();
+  const scale = canvas.width / rect.width;
+  const x = (e.clientX - rect.left) * scale;
+  const y = (e.clientY - rect.top) * scale;
+  retouchLine(lastDrawX, lastDrawY, x, y);
+  lastDrawX = x;
+  lastDrawY = y;
+});
+
+window.addEventListener('mouseup', () => {
+  if (isDrawing && currentTool === 'retouch') {
+    isDrawing = false;
+    redoStack = [];
+    // 涂抹后更新baseImage（把绘制后的canvas作为新底图，清空overlay元素）
+    updateBaseFromCanvas();
+  }
+});
+
+// 涂抹修复：简单克隆图章（取涂抹区域正上方的像素来覆盖）
+function retouchAt(x, y) {
+  const size = parseInt(document.getElementById('brushSize').value);
+  const half = size / 2;
+  const srcX = Math.max(0, x - half);
+  const srcY = Math.max(0, y - size - 10); // 从上方取像素
+  const w = Math.min(size, canvas.width - srcX);
+  const h = Math.min(size, canvas.height - srcY);
+  if (w <= 0 || h <= 0) return;
+  const dstX = Math.max(0, x - half);
+  const dstY = Math.max(0, y - half);
+  
+  ctx.globalAlpha = 0.7;
+  ctx.drawImage(canvas, srcX, srcY, w, h, dstX, dstY, w, h);
+  ctx.globalAlpha = 1;
+}
+
+function retouchLine(x1, y1, x2, y2) {
+  const dist = Math.sqrt((x2-x1)**2 + (y2-y1)**2);
+  const steps = Math.ceil(dist / 5);
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    retouchAt(x1 + (x2-x1)*t, y1 + (y2-y1)*t);
+  }
+}
+
+function updateBaseFromCanvas() {
+  const newImg = new Image();
+  newImg.src = canvas.toDataURL();
+  newImg.onload = () => {
+    baseImage = newImg;
+    images[currentIndex] = newImg;
+    // 保留elements
+    render();
+    renderOverlay();
+  };
+}
+
+// ============ 元素操作 ============
+function selectElement(id) {
+  selectedId = id;
+  renderOverlay();
+  updateProperties();
+}
+
+function updateProperties() {
+  const content = document.getElementById('propContent');
+  const el = elements.find(e => e.id === selectedId);
+  if (!el) {
+    content.innerHTML = `
+      <div class="prop-empty">
+        <div class="prop-empty-icon">🎯</div>
+        <div>选中元素查看属性</div>
+      </div>`;
+    return;
+  }
+  
+  let html = '';
+  html += `<div class="prop-group">
+    <div class="prop-label">位置 X <input type="number" class="prop-input" value="${Math.round(el.x)}" onchange="updateProp('x', this.value)" style="width:70px;"></div>
+    <div class="prop-label">位置 Y <input type="number" class="prop-input" value="${Math.round(el.y)}" onchange="updateProp('y', this.value)" style="width:70px;"></div>
+  </div>`;
+  html += `<div class="prop-group">
+    <div class="prop-label">宽度 <input type="number" class="prop-input" value="${Math.round(el.width)}" onchange="updateProp('width', this.value)" style="width:70px;"></div>
+    <div class="prop-label">高度 <input type="number" class="prop-input" value="${Math.round(el.height)}" onchange="updateProp('height', this.value)" style="width:70px;"></div>
+  </div>`;
+  html += `<div class="prop-group">
+    <div class="prop-label">旋转角度 <span>${Math.round(el.rotation || 0)}°</span></div>
+    <input type="range" class="range-slider" min="-180" max="180" value="${el.rotation || 0}" oninput="updateProp('rotation', this.value)">
+  </div>`;
+  html += `<div class="prop-group">
+    <div class="prop-label">透明度 <span>${Math.round((el.data?.opacity || 1) * 100)}%</span></div>
+    <input type="range" class="range-slider" min="10" max="100" value="${(el.data?.opacity || 1) * 100}" oninput="updateProp('opacity', this.value / 100)">
+  </div>`;
+  html += `<button class="delete-btn" onclick="deleteSelected()">🗑️ 删除元素</button>`;
+  content.innerHTML = html;
+}
+
+function updateProp(key, value) {
+  const el = elements.find(e => e.id === selectedId);
+  if (!el) return;
+  saveHistory();
+  if (key === 'opacity') {
+    el.data.opacity = parseFloat(value);
+  } else if (key === 'rotation') {
+    el.rotation = parseInt(value);
+  } else {
+    el[key] = parseInt(value);
+  }
+  render();
+  renderOverlay();
+  updateProperties();
+}
+
+function deleteSelected() {
+  if (!selectedId) return;
+  saveHistory();
+  elements = elements.filter(e => e.id !== selectedId);
+  selectedId = null;
+  render();
+  renderOverlay();
+  updateProperties();
+}
+
+// 拖拽
+let dragStartX, dragStartY, dragElX, dragElY;
+function startDrag(e, id) {
+  saveHistory();
+  const el = elements.find(x => x.id === id);
+  if (!el) return;
+  dragStartX = e.clientX;
+  dragStartY = e.clientY;
+  dragElX = el.x;
+  dragElY = el.y;
+  
+  function onMove(ev) {
+    const scale = canvas.width / canvas.offsetWidth;
+    const dx = (ev.clientX - dragStartX) * scale;
+    const dy = (ev.clientY - dragStartY) * scale;
+    el.x = dragElX + dx;
+    el.y = dragElY + dy;
+    render();
+    renderOverlay();
+    updateProperties();
+  }
+  function onUp() {
+    window.removeEventListener('mousemove', onMove);
+    window.removeEventListener('mouseup', onUp);
+    redoStack = [];
+  }
+  window.addEventListener('mousemove', onMove);
+  window.addEventListener('mouseup', onUp);
+}
+
+// 缩放
+function startResize(e, id, handle) {
+  saveHistory();
+  const el = elements.find(x => x.id === id);
+  if (!el) return;
+  const startX = e.clientX;
+  const startY = e.clientY;
+  const startW = el.width;
+  const startH = el.height;
+  const startElX = el.x;
+  const startElY = el.y;
+  const aspect = startW / startH;
+  
+  function onMove(ev) {
+    const scale = canvas.width / canvas.offsetWidth;
+    const dx = (ev.clientX - startX) * scale;
+    const dy = (ev.clientY - startY) * scale;
+    
+    let newW = startW, newH = startH, newX = startElX, newY = startElY;
+    
+    if (handle === 'br') {
+      newW = Math.max(20, startW + dx);
+      newH = Math.max(20, startH + dy);
+    } else if (handle === 'bl') {
+      newW = Math.max(20, startW - dx);
+      newH = Math.max(20, startH + dy);
+      newX = startElX + (startW - newW);
+    } else if (handle === 'tr') {
+      newW = Math.max(20, startW + dx);
+      newH = Math.max(20, startH - dy);
+      newY = startElY + (startH - newH);
+    } else if (handle === 'tl') {
+      newW = Math.max(20, startW - dx);
+      newH = Math.max(20, startH - dy);
+      newX = startElX + (startW - newW);
+      newY = startElY + (startH - newH);
+    }
+    
+    // 按住shift等比缩放
+    if (e.shiftKey) {
+      if (Math.abs(newW - startW) > Math.abs(newH - startH)) {
+        newH = newW / aspect;
+      } else {
+        newW = newH * aspect;
+      }
+    }
+    
+    el.width = newW;
+    el.height = newH;
+    el.x = newX;
+    el.y = newY;
+    render();
+    renderOverlay();
+    updateProperties();
+  }
+  function onUp() {
+    window.removeEventListener('mousemove', onMove);
+    window.removeEventListener('mouseup', onUp);
+    redoStack = [];
+  }
+  window.addEventListener('mousemove', onMove);
+  window.addEventListener('mouseup', onUp);
+}
+
+// 旋转
+function startRotate(e, id) {
+  saveHistory();
+  const el = elements.find(x => x.id === id);
+  if (!el) return;
+  const wrap = document.getElementById('canvasWrapper');
+  const rect = overlay.getBoundingClientRect();
+  const scale = canvas.width / rect.width;
+  const centerX = rect.left + (el.x + el.width/2) / scale;
+  const centerY = rect.top + (el.y + el.height/2) / scale;
+  const startAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * 180 / Math.PI;
+  const startRot = el.rotation || 0;
+  
+  function onMove(ev) {
+    const angle = Math.atan2(ev.clientY - centerY, ev.clientX - centerX) * 180 / Math.PI;
+    el.rotation = startRot + (angle - startAngle);
+    render();
+    renderOverlay();
+    updateProperties();
+  }
+  function onUp() {
+    window.removeEventListener('mousemove', onMove);
+    window.removeEventListener('mouseup', onUp);
+    redoStack = [];
+  }
+  window.addEventListener('mousemove', onMove);
+  window.addEventListener('mouseup', onUp);
+}
+
+// ============ 贴纸 ============
+function addSticker(text, color, style) {
+  saveHistory();
+  const sizePct = parseInt(document.getElementById('stickerSize').value) / 100;
+  const w = canvas.width * 0.3 * sizePct;
+  const h = w * 0.4;
+  elements.push({
+    id: ++elementIdCounter,
+    type: 'sticker',
+    x: canvas.width / 2 - w / 2,
+    y: canvas.height * 0.1,
+    width: w,
+    height: h,
+    rotation: -10,
+    data: { text, color, style, opacity: 1 }
+  });
+  selectedId = elementIdCounter;
+  render();
+  renderOverlay();
+  updateProperties();
+  redoStack = [];
+}
+
+// ============ Logo水印 ============
+function handleLogoUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const img = new Image();
+    img.onload = () => {
+      logoImage = img;
+      showToast('Logo上传成功，点击"应用水印"添加', 'success');
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function setLogoPos(pos) {
+  logoPos = pos;
+  document.querySelectorAll('.pos-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.pos === pos);
+  });
+}
+
+function applyWatermark() {
+  if (!logoImage) {
+    showToast('请先上传Logo图片', 'error');
+    return;
+  }
+  saveHistory();
+  const sizePct = parseInt(document.getElementById('logoSize').value) / 100;
+  const opacity = parseInt(document.getElementById('logoOpacity').value) / 100;
+  const w = canvas.width * sizePct;
+  const h = w * (logoImage.height / logoImage.width);
+  
+  let x, y;
+  const margin = canvas.width * 0.03;
+  const posMap = {
+    tl: [margin, margin],
+    tc: [canvas.width/2 - w/2, margin],
+    tr: [canvas.width - w - margin, margin],
+    cl: [margin, canvas.height/2 - h/2],
+    cc: [canvas.width/2 - w/2, canvas.height/2 - h/2],
+    cr: [canvas.width - w - margin, canvas.height/2 - h/2],
+    bl: [margin, canvas.height - h - margin],
+    bc: [canvas.width/2 - w/2, canvas.height - h - margin],
+    br: [canvas.width - w - margin, canvas.height - h - margin],
+  };
+  [x, y] = posMap[logoPos] || posMap['br'];
+  
+  elements.push({
+    id: ++elementIdCounter,
+    type: 'logo',
+    x, y, width: w, height: h, rotation: 0,
+    data: { image: logoImage, opacity }
+  });
+  selectedId = elementIdCounter;
+  render();
+  renderOverlay();
+  updateProperties();
+  redoStack = [];
+}
+
+// ============ 文字 ============
+function pickColor(el, color) {
+  document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('active'));
+  el.classList.add('active');
+  textColor = color;
+}
+
+function addText() {
+  saveHistory();
+  const text = document.getElementById('textContent').value.trim();
+  if (!text) return;
+  const fontSize = parseInt(document.getElementById('fontSize').value);
+  const bold = document.getElementById('textBold').checked;
+  const shadow = document.getElementById('textShadow').checked;
+  
+  // 估算文字宽度
+  ctx.font = `${bold ? 'bold ' : ''}${fontSize}px sans-serif`;
+  const w = ctx.measureText(text).width;
+  const h = fontSize * 1.2;
+  
+  elements.push({
+    id: ++elementIdCounter,
+    type: 'text',
+    x: canvas.width / 2 - w / 2,
+    y: canvas.height / 2 - h / 2,
+    width: w,
+    height: h,
+    rotation: 0,
+    data: { text, color: textColor, fontSize, bold, shadow, opacity: 1 }
+  });
+  selectedId = elementIdCounter;
+  render();
+  renderOverlay();
+  updateProperties();
+  redoStack = [];
+}
+
+// ============ 改尺寸 ============
+function resizeCanvas(ratio) {
+  const applyAll = document.getElementById('resizeAll').checked;
+  const crop = document.getElementById('resizeCrop').checked;
+  
+  const ratioMap = {
+    '1:1': 1,
+    '3:4': 3/4,
+    '9:16': 9/16,
+    '16:9': 16/9,
+  };
+  const targetRatio = ratioMap[ratio] || 1;
+  
+  const targetIndices = applyAll ? images.map((_, i) => i) : [currentIndex];
+  
+  saveHistory();
+  
+  // 异步处理所有图片
+  Promise.all(targetIndices.map(idx => {
+    return new Promise((resolve) => {
+      const img = images[idx];
+      let newW, newH;
+      const imgRatio = img.width / img.height;
+      
+      if (crop) {
+        // 裁剪填充：以短边为准，居中裁剪
+        if (imgRatio > targetRatio) {
+          // 原图更宽，裁剪宽度
+          newH = img.height;
+          newW = Math.round(newH * targetRatio);
+        } else {
+          // 原图更高，裁剪高度
+          newW = img.width;
+          newH = Math.round(newW / targetRatio);
+        }
+      } else {
+        // 等比缩放（留白）：以长边为准
+        if (imgRatio > targetRatio) {
+          // 原图更宽，以宽为准，上下留白
+          newW = img.width;
+          newH = Math.round(newW / targetRatio);
+        } else {
+          // 原图更高，以高为准，左右留白
+          newH = img.height;
+          newW = Math.round(newH * targetRatio);
+        }
+      }
+      
+      // 创建新canvas
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = newW;
+      tempCanvas.height = newH;
+      const tempCtx = tempCanvas.getContext('2d');
+      
+      if (crop) {
+        // 居中裁剪
+        const sx = (img.width - newW) / 2;
+        const sy = (img.height - newH) / 2;
+        tempCtx.drawImage(img, sx, sy, newW, newH, 0, 0, newW, newH);
+      } else {
+        // 留白（白背景）
+        tempCtx.fillStyle = '#fff';
+        tempCtx.fillRect(0, 0, newW, newH);
+        const drawW = crop ? newW : (imgRatio > targetRatio ? newW : newW * imgRatio / targetRatio);
+        const drawH = crop ? newH : (imgRatio > targetRatio ? newH * targetRatio / imgRatio : newH);
+        // 等比缩放后居中
+        let dw, dh;
+        if (imgRatio > targetRatio) {
+          dw = newW;
+          dh = newW / imgRatio;
+        } else {
+          dh = newH;
+          dw = newH * imgRatio;
+        }
+        const dx = (newW - dw) / 2;
+        const dy = (newH - dh) / 2;
+        tempCtx.drawImage(img, dx, dy, dw, dh);
+      }
+      
+      const newImg = new Image();
+      newImg.crossOrigin = 'anonymous';
+      newImg.onload = () => {
+        newImg._elements = []; // 重置叠加元素
+        newImg._history = [];
+        images[idx] = newImg;
+        resolve();
+      };
+      newImg.src = tempCanvas.toDataURL();
+    });
+  })).then(() => {
+    // 全部处理完后重新加载
+    const savedIdx = currentIndex;
+    baseImage = null; // 防止switchImage保存旧状态
+    switchImage(savedIdx);
+    initThumbs();
+    showToast('尺寸调整完成', 'success');
+    redoStack = [];
+  });
+}
+
+// ============ AI去水印（前端图像修复） ============
+let isWatermarking = false;
+let watermarkMask = null; // Uint8Array 掩码
+let watermarkW = 0, watermarkH = 0;
+let lastWmX = 0, lastWmY = 0;
+
+function updateWatermarkCursor() {
+  if (currentTool !== 'dewatermark') return;
+  const size = parseInt(document.getElementById('watermarkBrush')?.value || 30);
+  const rect = overlay.getBoundingClientRect();
+  const scale = canvas.width / rect.width;
+  overlay.style.cursor = 'crosshair';
+}
+
+// 去水印模式：mousedown开始涂抹标记，mouseup时执行修复
+overlay.addEventListener('mousedown', (e) => {
+  if (currentTool !== 'dewatermark') return;
+  e.preventDefault();
+  isWatermarking = true;
+  saveHistory();
+  
+  const rect = overlay.getBoundingClientRect();
+  const scale = canvas.width / rect.width;
+  watermarkW = canvas.width;
+  watermarkH = canvas.height;
+  watermarkMask = new Uint8Array(watermarkW * watermarkH);
+  
+  const x = Math.floor((e.clientX - rect.left) * scale);
+  const y = Math.floor((e.clientY - rect.top) * scale);
+  lastWmX = x;
+  lastWmY = y;
+  paintWatermarkMask(x, y);
+});
+
+overlay.addEventListener('mousemove', (e) => {
+  if (!isWatermarking || currentTool !== 'dewatermark') return;
+  e.preventDefault();
+  const rect = overlay.getBoundingClientRect();
+  const scale = canvas.width / rect.width;
+  const x = Math.floor((e.clientX - rect.left) * scale);
+  const y = Math.floor((e.clientY - rect.top) * scale);
+  // 连线涂抹
+  const dx = x - lastWmX;
+  const dy = y - lastWmY;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  const steps = Math.max(1, Math.floor(dist / 2));
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    paintWatermarkMask(
+      Math.floor(lastWmX + dx * t),
+      Math.floor(lastWmY + dy * t)
+    );
+  }
+  lastWmX = x;
+  lastWmY = y;
+  // 实时显示涂抹痕迹
+  renderWatermarkPreview();
+});
+
+window.addEventListener('mouseup', () => {
+  if (!isWatermarking || currentTool !== 'dewatermark') return;
+  isWatermarking = false;
+  // 保留掩码和预览，等用户点击按钮再执行
+});
+
+function paintWatermarkMask(cx, cy) {
+  const brushSize = parseInt(document.getElementById('watermarkBrush')?.value || 30);
+  const rect = overlay.getBoundingClientRect();
+  const scale = canvas.width / rect.width;
+  const r = Math.floor(brushSize * scale);
+  
+  for (let y = cy - r; y <= cy + r; y++) {
+    if (y < 0 || y >= watermarkH) continue;
+    for (let x = cx - r; x <= cx + r; x++) {
+      if (x < 0 || x >= watermarkW) continue;
+      const dx = x - cx;
+      const dy = y - cy;
+      if (dx * dx + dy * dy <= r * r) {
+        watermarkMask[y * watermarkW + x] = 1;
+      }
+    }
+  }
+}
+
+function renderWatermarkPreview() {
+  ctx.save();
+  // 半透明红色表示涂抹区域
+  ctx.fillStyle = 'rgba(255, 80, 80, 0.4)';
+  for (let y = 0; y < watermarkH; y++) {
+    for (let x = 0; x < watermarkW; x++) {
+      if (watermarkMask[y * watermarkW + x]) {
+        ctx.fillRect(x, y, 1, 1);
+      }
+    }
+  }
+  ctx.restore();
+}
+
+function startAIDewatermark() {
+  if (!baseImage) {
+    showToast('请先上传图片', 'error');
+    return;
+  }
+  if (!getToken()) {
+    if (confirm('需要登录后才能使用AI去水印，是否前往登录？')) {
+      window.location.href = '/login.html?redirect=' + encodeURIComponent(window.location.pathname + window.location.search);
+    }
+    return;
+  }
+  
+  showLoading('AI去水印中，请稍候...');
+  
+  const modelId = document.getElementById('dewatermarkModel')?.value;
+  const refDataUrl = canvas.toDataURL('image/jpeg', 0.9);
+  
+  (async () => {
+    try {
+      const data = await apiFetch('/api/generate/image', {
+        method: 'POST',
+        body: JSON.stringify({
+          model_id: parseInt(modelId || 3),
+          prompt: '去掉水印',
+          size: '1:1',
+          count: 1,
+          ref_image: refDataUrl,
+        })
+      });
+      
+      if (data.code !== 0) {
+        if (data.code === 401) {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          if (confirm('登录已过期，是否重新登录？')) {
+            window.location.href = '/login.html?redirect=' + encodeURIComponent(window.location.pathname + window.location.search);
+          }
+          return;
+        }
+        throw new Error(data.msg || '生成失败');
+      }
+      
+      const taskId = data.data.task_id;
+      await pollDewatermarkTask(taskId);
+      
+    } catch (err) {
+      hideLoading();
+      showToast('AI去水印失败：' + err.message, 'error');
+    }
+  })();
+}
+
+async function pollDewatermarkTask(taskId) {
+  return new Promise((resolve, reject) => {
+    let pollCount = 0;
+    const maxPolls = 60;
+    const timer = setInterval(async () => {
+      pollCount++;
+      if (pollCount > maxPolls) {
+        clearInterval(timer);
+        reject(new Error('生成超时（已等待2分钟），可稍后在历史记录查看结果'));
+        return;
+      }
+      try {
+        const data = await apiFetch(`/api/generation/${taskId}`);
+        if (data.code !== 0) {
+          clearInterval(timer);
+          reject(new Error(data.msg));
+          return;
+        }
+        if (data.data.status === 'success') {
+          clearInterval(timer);
+          const result = data.data.result;
+          if (result.images && result.images.length > 0) {
+            const imgUrl = result.images[0];
+            const newImg = new Image();
+            newImg.crossOrigin = 'anonymous';
+            let imgTimedOut = false;
+            const imgTimer = setTimeout(() => {
+              imgTimedOut = true;
+              hideLoading();
+              showToast('AI去水印完成，但图片加载较慢，已关闭弹窗', 'info');
+              resolve();
+            }, 15000);
+            newImg.onload = () => {
+              if (imgTimedOut) return;
+              clearTimeout(imgTimer);
+              // 替换底图
+              baseImage = newImg;
+              images[currentIndex] = newImg;
+              newImg._elements = elements;
+              newImg._history = historyStack;
+              // 重新绘制
+              canvas.width = newImg.width;
+              canvas.height = newImg.height;
+              ctx.drawImage(newImg, 0, 0);
+              drawElements();
+              initThumbs();
+              hideLoading();
+              showToast('AI去水印完成！', 'success');
+              resolve();
+            };
+            newImg.onerror = () => {
+              if (imgTimedOut) return;
+              clearTimeout(imgTimer);
+              hideLoading();
+              showToast('AI去水印成功，但图片加载失败（可能是跨域），请刷新后重试', 'error');
+              resolve();
+            };
+            newImg.src = imgUrl;
+          } else {
+            hideLoading();
+            reject(new Error('返回结果异常'));
+          }
+        } else if (data.data.status === 'failed') {
+          clearInterval(timer);
+          hideLoading();
+          reject(new Error(data.data.error_msg || '生成失败'));
+        }
+      } catch (err) {
+        clearInterval(timer);
+        reject(err);
+      }
+    }, 2000);
+  });
+}
+
+// ============ 撤销/重做 ============
+function saveHistory() {
+  // 保存底图+叠加元素状态（底图存base64，确保可完整回退）
+  let baseData = null;
+  try {
+    // 先确保canvas是最新渲染
+    render();
+    baseData = canvas.toDataURL('image/png');
+  } catch (e) {
+    baseData = baseImage?.src || null;
+  }
+  // 序列化elements，logo类型保留src用于恢复
+  const serializedEls = elements.map(e => {
+    const copy = { ...e, data: { ...e.data } };
+    if (e.type === 'logo' && e.data.image) {
+      copy.data._logoSrc = e.data.image.src;
+      copy.data.image = undefined;
+    }
+    return copy;
+  });
+  const state = {
+    baseData,
+    canvasWidth: canvas.width,
+    canvasHeight: canvas.height,
+    elements: JSON.parse(JSON.stringify(serializedEls)),
+  };
+  historyStack.push(state);
+  if (historyStack.length > 20) historyStack.shift();
+}
+
+function restoreState(state) {
+  canvas.width = state.canvasWidth;
+  canvas.height = state.canvasHeight;
+  
+  if (state.baseData) {
+    const img = new Image();
+    img.onload = () => {
+      baseImage = img;
+      // 恢复元素中的logo image引用
+      elements = state.elements.map(e => {
+        const copy = { ...e, data: { ...e.data } };
+        if (e.type === 'logo' && e.data._logoSrc) {
+          const logoImg = new Image();
+          logoImg.src = e.data._logoSrc;
+          copy.data.image = logoImg;
+          delete copy.data._logoSrc;
+        }
+        return copy;
+      });
+      selectedId = null;
+      render();
+      renderOverlay();
+      updateProperties();
+    };
+    img.src = state.baseData;
+  } else {
+    elements = state.elements.map(e => ({ ...e }));
+    selectedId = null;
+    updateProperties();
+    render();
+    renderOverlay();
+  }
+}
+
+function undo() {
+  if (historyStack.length < 2) {
+    showToast('没有可撤销的操作', 'info');
+    return;
+  }
+  const current = historyStack.pop();
+  redoStack.push(current);
+  const prev = historyStack[historyStack.length - 1];
+  restoreState(prev);
+}
+
+function redo() {
+  if (redoStack.length === 0) {
+    showToast('没有可重做的操作', 'info');
+    return;
+  }
+  const next = redoStack.pop();
+  historyStack.push(next);
+  restoreState(next);
+}
+
+// ============ 批量应用 ============
+function applyToAll() {
+  if (elements.length === 0) {
+    showToast('当前图没有可复制的元素', 'error');
+    return;
+  }
+  saveHistory();
+  const currentEls = JSON.parse(JSON.stringify(elements.map(e => ({
+    ...e,
+    data: { ...e.data, image: undefined }
+  }))));
+  
+  for (let i = 0; i < images.length; i++) {
+    if (i === currentIndex) continue;
+    const elsCopy = JSON.parse(JSON.stringify(currentEls));
+    // 重新分配ID
+    elsCopy.forEach(e => { e.id = ++elementIdCounter; });
+    
+    // 如果有logo，需要复制image引用
+    elsCopy.forEach((e, idx) => {
+      const orig = elements[idx];
+      if (orig?.data?.image) {
+        e.data.image = orig.data.image;
+      }
+    });
+    
+    images[i]._elements = elsCopy;
+  }
+  showToast('已应用到全部图片', 'success');
+  redoStack = [];
+}
+
+// ============ 下载 ============
+function downloadAll() {
+  showToast(`开始下载 ${images.length} 张图片...`, 'info');
+  images.forEach((img, i) => {
+    setTimeout(() => {
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = img.width;
+      tempCanvas.height = img.height;
+      const tctx = tempCanvas.getContext('2d');
+      
+      // 先画底图
+      const imgEls = img._elements || [];
+      tctx.drawImage(img, 0, 0);
+      
+      // 画元素（复用render逻辑的简化版）
+      imgEls.forEach(el => {
+        tctx.save();
+        tctx.translate(el.x + el.width / 2, el.y + el.height / 2);
+        tctx.rotate((el.rotation || 0) * Math.PI / 180);
+        tctx.translate(-el.width / 2, -el.height / 2);
+        
+        if (el.type === 'sticker') {
+          // 用render中的drawSticker，临时替换ctx
+          const origCtx = ctx;
+          // 简单重绘
+          const gradient = tctx.createLinearGradient(0, 0, el.width, el.height);
+          const colors = getStickerColors(el.data.style);
+          gradient.addColorStop(0, colors[0]);
+          gradient.addColorStop(1, colors[1]);
+          tctx.fillStyle = gradient;
+          const r = el.height / 2;
+          tctx.beginPath();
+          tctx.roundRect ? tctx.roundRect(0, 0, el.width, el.height, r) : rectWithRadius(tctx, 0, 0, el.width, el.height, r);
+          tctx.fill();
+          tctx.fillStyle = '#fff';
+          tctx.font = `bold ${Math.max(12, el.height * 0.35)}px sans-serif`;
+          tctx.textAlign = 'center';
+          tctx.textBaseline = 'middle';
+          tctx.fillText(el.data.text, el.width / 2, el.height / 2);
+        } else if (el.type === 'text') {
+          tctx.globalAlpha = el.data.opacity || 1;
+          tctx.font = `${el.data.bold ? 'bold ' : ''}${el.data.fontSize}px sans-serif`;
+          tctx.fillStyle = el.data.color;
+          if (el.data.shadow) {
+            tctx.shadowColor = 'rgba(0,0,0,0.5)';
+            tctx.shadowBlur = 4;
+          }
+          tctx.textBaseline = 'top';
+          tctx.fillText(el.data.text, 0, 0);
+          tctx.shadowBlur = 0;
+        } else if (el.type === 'logo' && el.data.image) {
+          tctx.globalAlpha = el.data.opacity || 1;
+          tctx.drawImage(el.data.image, 0, 0, el.width, el.height);
+        }
+        tctx.restore();
+      });
+      
+      const link = document.createElement('a');
+      link.download = `电商套图-${i+1}.png`;
+      link.href = tempCanvas.toDataURL('image/png');
+      link.click();
+    }, i * 300);
+  });
+}
+
+function rectWithRadius(c, x, y, w, h, r) {
+  c.beginPath();
+  c.moveTo(x + r, y);
+  c.lineTo(x + w - r, y);
+  c.quadraticCurveTo(x + w, y, x + w, y + r);
+  c.lineTo(x + w, y + h - r);
+  c.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  c.lineTo(x + r, y + h);
+  c.quadraticCurveTo(x, y + h, x, y + h - r);
+  c.lineTo(x, y + r);
+  c.quadraticCurveTo(x, y, x + r, y);
+  c.closePath();
+}
+
+// ============ 通用 API 请求（带登录态） ============
+function getToken() {
+  return localStorage.getItem('token') || '';
+}
+
+async function apiFetch(url, options = {}) {
+  const token = getToken();
+  const headers = Object.assign({}, options.headers || {});
+  if (token) headers['Authorization'] = 'Bearer ' + token;
+  if (options.body && !(options.body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+  }
+  const res = await fetch(url, Object.assign({}, options, { headers }));
+  return await res.json();
+}
+
+// ============ AI换场景（侧边栏内联）============
+let imageModels = [];
+
+async function loadModels() {
+  try {
+    const data = await apiFetch('/api/models?type=image');
+    if (data.code === 0) {
+      imageModels = data.data;
+      // 填充换场景模型下拉
+      const resceneSel = document.getElementById('resceneModel');
+      if (resceneSel) {
+        resceneSel.innerHTML = data.data.map(m => `<option value="${m.id}">${m.name} (${m.price_per_call}积分/张)</option>`).join('');
+        updateResceneCost();
+        resceneSel.addEventListener('change', updateResceneCost);
+      }
+      // 填充去水印模型下拉
+      const dwmSel = document.getElementById('dewatermarkModel');
+      if (dwmSel) {
+        dwmSel.innerHTML = data.data.map(m => `<option value="${m.id}">${m.name} (${m.price_per_call}积分/张)</option>`).join('');
+        updateDewatermarkCost();
+        dwmSel.addEventListener('change', updateDewatermarkCost);
+      }
+    }
+  } catch (e) { console.error(e); }
+}
+
+function updateResceneCost() {
+  const sel = document.getElementById('resceneModel');
+  if (!sel) return;
+  const opt = sel.options[sel.selectedIndex];
+  if (opt) {
+    const match = opt.textContent.match(/(\d+)积分/);
+    if (match) document.getElementById('resceneCost').textContent = match[1] + ' 积分';
+  }
+}
+
+function updateDewatermarkCost() {
+  const sel = document.getElementById('dewatermarkModel');
+  if (!sel) return;
+  const opt = sel.options[sel.selectedIndex];
+  if (opt) {
+    const match = opt.textContent.match(/(\d+)积分/);
+    if (match) document.getElementById('dewatermarkCost').textContent = match[1] + ' 积分';
+  }
+}
+
+async function doRescene() {
+  const modelId = document.getElementById('resceneModel').value;
+  const prompt = document.getElementById('rescenePrompt').value.trim();
+  if (!prompt) {
+    showToast('请填写场景描述', 'error');
+    return;
+  }
+  if (!getToken()) {
+    if (confirm('需要登录后才能使用AI换场景功能，是否前往登录？')) {
+      window.location.href = '/login.html?redirect=' + encodeURIComponent(window.location.pathname + window.location.search);
+    }
+    return;
+  }
+  
+  showLoading('AI生成中，请稍候...');
+  
+  try {
+    // 先把当前canvas导出为base64作为ref_image（用jpeg压缩减小请求体积）
+    const refDataUrl = canvas.toDataURL('image/jpeg', 0.9);
+    
+    const data = await apiFetch('/api/generate/image', {
+      method: 'POST',
+      body: JSON.stringify({
+        model_id: parseInt(modelId),
+        prompt: prompt,
+        size: '1:1',
+        count: 1,
+        ref_image: refDataUrl,
+      })
+    });
+    
+    if (data.code !== 0) {
+      if (data.code === 401) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        if (confirm('登录已过期，是否重新登录？')) {
+          window.location.href = '/login.html?redirect=' + encodeURIComponent(window.location.pathname + window.location.search);
+        }
+        return;
+      }
+      throw new Error(data.msg || '生成失败');
+    }
+    
+    const taskId = data.data.task_id;
+    // 轮询结果
+    await pollTask(taskId);
+    
+  } catch (err) {
+    hideLoading();
+    showToast('生成失败：' + err.message, 'error');
+  }
+}
+
+async function pollTask(taskId) {
+  return new Promise((resolve, reject) => {
+    let pollCount = 0;
+    const maxPolls = 60; // 最多等2分钟 (60*2s)
+    const timer = setInterval(async () => {
+      pollCount++;
+      if (pollCount > maxPolls) {
+        clearInterval(timer);
+        reject(new Error('生成超时（已等待2分钟），可稍后在历史记录查看结果'));
+        return;
+      }
+      try {
+        const data = await apiFetch(`/api/generation/${taskId}`);
+        if (data.code !== 0) {
+          clearInterval(timer);
+          reject(new Error(data.msg));
+          return;
+        }
+        if (data.data.status === 'success') {
+          clearInterval(timer);
+          const result = data.data.result;
+          if (result.images && result.images.length > 0) {
+            const imgUrl = result.images[0];
+            const newImg = new Image();
+            newImg.crossOrigin = 'anonymous';
+            let imgTimedOut = false;
+            const imgTimer = setTimeout(() => {
+              imgTimedOut = true;
+              hideLoading();
+              showToast('图片加载较慢，已关闭弹窗，稍后可重试或查看历史记录', 'info');
+              resolve(); // 不让reject弹错误，优雅结束
+            }, 15000);
+            newImg.onload = () => {
+              if (imgTimedOut) return;
+              clearTimeout(imgTimer);
+              saveHistory();
+              images[currentIndex] = newImg;
+              newImg._elements = [];
+              newImg._history = [];
+              baseImage = null;
+              switchImage(currentIndex);
+              initThumbs();
+              hideLoading();
+              showToast('换场景成功！', 'success');
+              resolve();
+            };
+            newImg.onerror = () => {
+              if (imgTimedOut) return;
+              clearTimeout(imgTimer);
+              hideLoading();
+              showToast('换场景成功，但图片加载失败（可能是跨域），请刷新后重试', 'error');
+              resolve();
+            };
+            newImg.src = imgUrl;
+          } else {
+            hideLoading();
+            reject(new Error('返回结果异常'));
+          }
+        } else if (data.data.status === 'failed') {
+          clearInterval(timer);
+          hideLoading();
+          reject(new Error(data.data.error_msg || '生成失败'));
+        }
+      } catch (e) {
+        clearInterval(timer);
+        reject(e);
+      }
+    }, 2000);
+  });
+}
+
+// ============ Loading ============
+let loadingCancelled = false;
+
+function showLoading(text) {
+  loadingCancelled = false;
+  document.getElementById('loadingText').textContent = text || '处理中...';
+  document.getElementById('loadingModal').classList.add('show');
+}
+function hideLoading() {
+  document.getElementById('loadingModal').classList.remove('show');
+}
+function cancelLoading() {
+  loadingCancelled = true;
+  hideLoading();
+  showToast('已关闭弹窗，稍后可在作品中心查看结果', 'info');
+}
+
+// ============ Toast ============
+function showToast(msg, type) {
+  const toast = document.createElement('div');
+  toast.style.cssText = `
+    position:fixed;top:20px;left:50%;transform:translateX(-50%);
+    padding:10px 20px;border-radius:10px;font-size:13px;z-index:9999;
+    background:${type === 'error' ? '#FFEBEE' : type === 'success' ? '#E8F5E9' : '#FFF3E0'};
+    color:${type === 'error' ? '#E53935' : type === 'success' ? '#43A047' : '#F57C00'};
+    box-shadow:0 4px 12px rgba(0,0,0,0.1);
+    animation:slideDown 0.3s ease;
+  `;
+  toast.textContent = msg;
+  document.body.appendChild(toast);
+  setTimeout(() => {
+    toast.style.animation = 'slideUp 0.3s ease';
+    setTimeout(() => toast.remove(), 300);
+  }, 2000);
+}
+
+// 初始默认选择工具
+selectTool('select');
+</script>
+</body>
+</html>

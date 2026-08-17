@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PPT生成工作室 · AI工作室</title>
+  <link rel="stylesheet" href="css/style.css?v=17">
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="navbar-inner">
+      <div class="logo">
+        <div class="logo-icon">🎨</div>
+        <span class="logo-text">AI工作室</span>
+      </div>
+      <div class="nav-links">
+        <a href="index.html" class="nav-link">工作室</a>
+        <a href="#" class="nav-link active">PPT生成</a>
+        <a href="developer.html" class="nav-link">开发者平台</a>
+        <a href="#" class="nav-link">我的作品</a>
+      </div>
+      <div class="nav-right">
+        <div class="credit-badge" id="creditBadge">
+          <span class="credit-icon">💎</span>
+          <b id="creditNum">--</b> 积分
+        </div>
+        <a href="/profile" class="avatar" id="userAvatar">U</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Studio Page -->
+  <div class="studio-page">
+    <!-- Left Panel -->
+    <div class="studio-panel">
+      <div class="panel-header">
+        <a href="index.html" class="back-btn" title="返回工作室广场">←</a>
+        <div class="studio-icon-sm">📊</div>
+        <h2>PPT生成工作室</h2>
+        <button class="action-btn" id="loadTplBtn" style="margin-left:auto;font-size:12px;padding:4px 10px;">📂 模板</button>
+      </div>
+
+      <div class="panel-body">
+        <!-- 基础信息区 -->
+        <div class="form-section">
+          <div class="form-section-header">
+            <div class="form-section-title">
+              <span class="sec-icon">📋</span>基础信息
+            </div>
+            <span class="form-section-toggle">▼</span>
+          </div>
+          <div class="form-fields">
+            <div class="form-group">
+              <label class="form-label">PPT类型</label>
+              <select class="form-select" id="pptType">
+                <option>工作汇报</option>
+                <option>商业计划书</option>
+                <option>产品介绍</option>
+                <option>培训课件</option>
+                <option>学术答辩</option>
+                <option>数据分析</option>
+                <option>项目方案</option>
+                <option>其他</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">PPT主题 <span class="required">*</span></label>
+              <input type="text" class="form-input" id="pptTheme" placeholder="例如：2024年Q3销售工作汇报">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">目标受众</label>
+              <div class="tag-input-wrapper" id="audienceTags">
+                <span class="tag-item">职场新人<span class="tag-close">×</span></span>
+                <span class="tag-item">高管<span class="tag-close">×</span></span>
+                <input type="text" class="tag-input" placeholder="输入受众标签，回车添加">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">演讲时长</label>
+              <select class="form-select" id="duration">
+                <option>5分钟</option>
+                <option>10分钟</option>
+                <option selected>20分钟</option>
+                <option>30分钟</option>
+                <option>1小时+</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- 内容要求区 -->
+        <div class="form-section">
+          <div class="form-section-header">
+            <div class="form-section-title">
+              <span class="sec-icon">📝</span>内容要求
+            </div>
+            <span class="form-section-toggle">▼</span>
+          </div>
+          <div class="form-fields">
+            <div class="form-group">
+              <label class="form-label">核心要点 <span class="required">*</span></label>
+              <textarea class="form-textarea" id="corePoints" placeholder="列出想涵盖的要点，每行一个，例如：
+1. Q3销售业绩总结
+2. 重点项目进展
+3. 存在的问题与挑战
+4. Q4工作计划"></textarea>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">页数</label>
+              <div class="slider-container">
+                <input type="range" class="slider" id="pageCount" min="5" max="30" step="1" value="12" data-suffix="页">
+                <span class="slider-value">12页</span>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">生成版本数</label>
+              <div class="number-stepper">
+                <button class="stepper-btn minus">−</button>
+                <input type="number" class="stepper-input" id="pptCount" value="2" min="1" max="5">
+                <button class="stepper-btn plus">+</button>
+              </div>
+              <span class="text-xs text-muted" style="margin-left: 12px;">最多 5 个版本</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 风格与版式区 -->
+        <div class="form-section collapsed">
+          <div class="form-section-header">
+            <div class="form-section-title">
+              <span class="sec-icon">🎨</span>风格与版式
+            </div>
+            <span class="form-section-toggle">▼</span>
+          </div>
+          <div class="form-fields">
+            <div class="form-group">
+              <label class="form-label">风格</label>
+              <div class="option-group cols-3">
+                <div class="option-item active">商务简约</div>
+                <div class="option-item">科技现代</div>
+                <div class="option-item">扁平化</div>
+                <div class="option-item">手绘风</div>
+                <div class="option-item">中国风</div>
+                <div class="option-item">极简主义</div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">主色调</label>
+              <div class="color-palette">
+                <div class="color-option active">
+                  <div class="color-swatch" style="background: linear-gradient(135deg, #4361ee, #4cc9f0);"></div>
+                  <span class="color-label">蓝色系</span>
+                </div>
+                <div class="color-option">
+                  <div class="color-swatch" style="background: linear-gradient(135deg, #ff6b6b, #ee5a6f);"></div>
+                  <span class="color-label">红色系</span>
+                </div>
+                <div class="color-option">
+                  <div class="color-swatch" style="background: linear-gradient(135deg, #21d07a, #52b788);"></div>
+                  <span class="color-label">绿色系</span>
+                </div>
+                <div class="color-option">
+                  <div class="color-swatch" style="background: linear-gradient(135deg, #ff9a56, #f77f00);"></div>
+                  <span class="color-label">橙色系</span>
+                </div>
+                <div class="color-option">
+                  <div class="color-swatch" style="background: linear-gradient(135deg, #7c5cff, #9d4edd);"></div>
+                  <span class="color-label">紫色系</span>
+                </div>
+                <div class="color-option">
+                  <div class="color-swatch" style="background: linear-gradient(135deg, #6c757d, #adb5bd);"></div>
+                  <span class="color-label">灰色系</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">排版密度</label>
+              <div class="option-group cols-3">
+                <div class="option-item">信息密集</div>
+                <div class="option-item active">适中</div>
+                <div class="option-item">留白宽松</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 进阶设置 -->
+        <div class="form-section collapsed">
+          <div class="form-section-header">
+            <div class="form-section-title">
+              <span class="sec-icon">🔬</span>进阶设置
+            </div>
+            <span class="form-section-toggle">▼</span>
+          </div>
+          <div class="form-fields">
+            <div class="form-group">
+              <label class="form-label">LLM 模型选择</label>
+              <select class="form-select" id="llmModel">
+                <option value="">加载中...</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">创意程度</label>
+              <div class="slider-container">
+                <input type="range" class="slider" min="0" max="100" value="50" data-suffix="%">
+                <span class="slider-value">50%</span>
+              </div>
+              <div class="flex justify-between text-xs text-muted mt-8">
+                <span>保守严谨</span>
+                <span>创意发散</span>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">特殊要求 / 补充说明</label>
+              <textarea class="form-textarea" placeholder="其他特殊要求，例如：需要包含数据图表、加入动画效果说明、每页备注演讲提示..."></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-footer">
+        <div class="cost-info">
+          <span class="cost-label">预计消耗</span>
+          <span class="cost-value" id="costDisplay">💎 -- 积分</span>
+        </div>
+        <button class="generate-btn" id="generateBtn">
+          <span class="btn-icon">✨</span>生成PPT大纲
+        </button>
+      </div>
+    </div>
+
+    <!-- Right Preview -->
+    <div class="preview-area">
+      <div class="preview-header">
+        <div class="preview-title">
+          <span>📄 预览区域</span>
+        </div>
+        <div class="preview-actions">
+          <button class="action-btn" onclick="showToast('已复制全部内容','success')">📋 复制全部</button>
+          <button class="action-btn primary" onclick="showToast('已导出为 Markdown 文件','success')">📥 导出</button>
+        </div>
+      </div>
+
+      <div class="preview-content" id="previewContent">
+        <div class="preview-empty">
+          <div class="empty-icon">📊</div>
+          <h3>生成专业PPT大纲</h3>
+          <p>填写PPT主题和核心要点，选择风格与版式，点击「生成PPT大纲」，AI 将为你创作完整的PPT结构和内容。</p>
+          <div style="margin-top: 24px; display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;">
+            <div style="text-align: center;">
+              <div style="font-size: 28px; margin-bottom: 4px;">⚡</div>
+              <div class="text-xs text-muted">1分钟出稿</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 28px; margin-bottom: 4px;">🎯</div>
+              <div class="text-xs text-muted">多版本可选</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 28px; margin-bottom: 4px;">💡</div>
+              <div class="text-xs text-muted">结构清晰</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/common.js?v=17"></script>
+  <script src="js/app.js?v=17"></script>
+  <script>
+    // 登录检查
+    if (!isLoggedIn()) {
+      showToast('请先登录', 'error');
+      setTimeout(() => window.location.href = '/login', 800);
+    }
+
+    initCommonComponents();
+
+    // 动态加载文本模型
+    async function loadModels() {
+      const data = await apiRequest('/api/models?type=text');
+      if (data.code === 0) {
+        const select = document.getElementById('llmModel');
+        if (select && data.data.length > 0) {
+          select.innerHTML = data.data.map(m => 
+            `<option value="${m.id}">${m.name} (${m.model_identifier}) - ${m.price_per_call}积分/版本${m.is_default ? ' · 默认' : ''}</option>`
+          ).join('');
+          updateCost();
+        }
+      }
+    }
+
+    function updateCost() {
+      const count = parseInt(document.getElementById('pptCount').value) || 1;
+      const modelId = document.getElementById('llmModel')?.value;
+      if (!modelId || isNaN(modelId)) {
+        // 默认显示价格区间
+        document.getElementById('costDisplay').textContent = '💎 5-15 积分/份';
+        return;
+      }
+      
+      apiRequest('/api/calculate-cost', {
+        method: 'POST',
+        body: JSON.stringify({ model_id: parseInt(modelId), count })
+      }).then(data => {
+        if (data.code === 0) {
+          document.getElementById('costDisplay').textContent = '💎 ' + data.data.cost + ' 积分';
+        }
+      });
+    }
+
+    // 获取选中的选项文本
+    function getActiveOptionText(selector) {
+      const active = document.querySelector(selector);
+      return active ? active.textContent.trim() : '';
+    }
+
+    // 收集表单数据
+    function getFormData() {
+      const count = parseInt(document.getElementById('pptCount').value) || 2;
+      const theme = document.getElementById('pptTheme').value.trim();
+      const corePoints = document.getElementById('corePoints').value.trim();
+      
+      return {
+        model_id: parseInt(document.getElementById('llmModel').value),
+        ppt_type: document.getElementById('pptType').value,
+        topic: theme,
+        audience: Array.from(document.querySelectorAll('#audienceTags .tag-item')).map(t => t.textContent.replace('×','').trim()),
+        duration: document.getElementById('duration').value,
+        core_points: corePoints,
+        page_count: parseInt(document.getElementById('pageCount').value) || 12,
+        count: count,
+        style: getActiveOptionText('.form-section:nth-of-type(3) .option-item.active') || '商务简约',
+        color: document.querySelector('.form-section:nth-of-type(3) .color-option.active .color-label')?.textContent || '蓝色系',
+        density: getActiveOptionText('.form-section:nth-of-type(3) .form-group:nth-of-type(3) .option-item.active') || '适中',
+        creativity: document.querySelector('.form-section:nth-of-type(4) .slider')?.value || 50,
+      };
+    }
+
+    // 保存模板
+    function __saveTpl() {
+      const params = getFormData();
+      showSaveTemplateDialog('ppt', params, () => {
+        showToast('模板保存成功，下次可直接套用', 'success');
+      });
+    }
+
+    // 加载模板弹窗
+    document.getElementById('loadTplBtn').addEventListener('click', async function() {
+      const templates = await loadTemplates('ppt');
+      if (!templates || templates.length === 0) {
+        showToast('暂无保存的模板', 'info');
+        return;
+      }
+      const modal = document.createElement('div');
+      modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+      modal.innerHTML = `
+        <div style="background:#fff;border-radius:16px;padding:24px;width:420px;max-width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.2);">
+          <h3 style="font-size:17px;font-weight:600;margin-bottom:16px;color:var(--text);">📂 选择模板</h3>
+          <div id="tplList" style="margin-bottom:16px;"></div>
+          <div style="display:flex;justify-content:flex-end;">
+            <button class="action-btn" id="tplClose">关闭</button>
+          </div>
+        </div>
+      `;
+      const tplList = modal.querySelector('#tplList');
+      tplList.innerHTML = templates.map(t => `
+        <div data-id="${t.id}" style="padding:12px 14px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--brand)'" onmouseout="this.style.borderColor='var(--border)'">
+          <div style="font-size:14px;font-weight:500;color:var(--text);">${t.name}</div>
+          <div style="font-size:11.5px;color:var(--text-3);margin-top:3px;">${new Date(t.created_at).toLocaleString()}</div>
+        </div>
+      `).join('');
+      tplList.querySelectorAll('[data-id]').forEach(item => {
+        item.onclick = function() {
+          const tpl = templates.find(t => t.id == this.dataset.id);
+          if (tpl && tpl.params) applyTemplate(tpl.params);
+          modal.remove();
+          showToast('模板已加载', 'success');
+        };
+      });
+      modal.querySelector('#tplClose').onclick = () => modal.remove();
+      modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+      document.body.appendChild(modal);
+    });
+
+    // 应用模板到表单
+    function applyTemplate(params) {
+      if (params.ppt_type) document.getElementById('pptType').value = params.ppt_type;
+      if (params.theme) document.getElementById('pptTheme').value = params.theme;
+      if (params.duration) document.getElementById('duration').value = params.duration;
+      if (params.core_points) document.getElementById('corePoints').value = params.core_points;
+      if (params.page_count) {
+        document.getElementById('pageCount').value = params.page_count;
+        document.querySelector('#pageCount + .slider-value').textContent = params.page_count + '页';
+      }
+      if (params.count) document.getElementById('pptCount').value = params.count;
+      updateCost();
+    }
+
+    // 生成函数
+    async function doGenerate() {
+      const btn = document.getElementById('generateBtn');
+      const theme = document.getElementById('pptTheme').value.trim();
+      const corePoints = document.getElementById('corePoints').value.trim();
+      
+      if (!theme) {
+        showToast('请填写PPT主题', 'error');
+        return;
+      }
+      if (!corePoints) {
+        showToast('请填写核心要点', 'error');
+        return;
+      }
+      
+      btn.classList.add('loading');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="btn-icon">⏳</span>生成中...';
+      
+      const formData = getFormData();
+      
+      try {
+        const data = await apiRequest('/api/generate/ppt', {
+          method: 'POST',
+          body: JSON.stringify(formData)
+        });
+        
+        if (data.code === 402 || data.code === 401) {
+          showToast(data.msg, 'error');
+          btn.classList.remove('loading');
+          btn.disabled = false;
+          btn.innerHTML = '<span class="btn-icon">✨</span>生成PPT大纲';
+          if (data.code === 401) {
+            setTimeout(() => window.location.href = '/login', 1000);
+          }
+          return;
+        }
+        if (data.code !== 0) {
+          showToast(data.msg, 'error');
+          btn.classList.remove('loading');
+          btn.disabled = false;
+          btn.innerHTML = '<span class="btn-icon">✨</span>生成PPT大纲';
+          return;
+        }
+        
+        // 更新积分
+        if (data.data.new_balance != null) {
+          const user = getUser();
+          user.credits = data.data.new_balance;
+          localStorage.setItem('user', JSON.stringify(user));
+          updateNavAuth();
+        }
+        
+        const versions = data.data.result || [];
+        displayTextResults(versions, 'PPT大纲');
+        
+        btn.classList.remove('loading');
+        btn.disabled = false;
+        btn.innerHTML = '<span class="btn-icon">✨</span>重新生成';
+        showToast('生成成功！' + versions.length + ' 个版本的PPT大纲已生成', 'success');
+        refreshUserInfo();
+      } catch (err) {
+        showToast('生成失败：' + err.message, 'error');
+        btn.classList.remove('loading');
+        btn.disabled = false;
+        btn.innerHTML = '<span class="btn-icon">✨</span>生成PPT大纲';
+      }
+    }
+
+    // Generate button
+    document.getElementById('generateBtn').addEventListener('click', doGenerate);
+    
+    // 加载模型列表
+    loadModels();
+    
+    // 监听变化
+    document.getElementById('pptCount')?.addEventListener('input', updateCost);
+    document.getElementById('llmModel')?.addEventListener('change', updateCost);
+  </script>
+</body>
+</html>

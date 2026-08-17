@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>海报工厂 · AI工作室</title>
+  <link rel="stylesheet" href="css/style.css?v=17">
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="navbar-inner">
+      <div class="logo">
+        <div class="logo-icon">🎨</div>
+        <span class="logo-text">AI工作室</span>
+      </div>
+      <div class="nav-links">
+        <a href="index.html" class="nav-link">工作室</a>
+        <a href="#" class="nav-link active">海报工厂</a>
+        <a href="developer.html" class="nav-link">开发者平台</a>
+        <a href="#" class="nav-link">我的作品</a>
+      </div>
+      <div class="nav-right">
+        <div class="credit-badge" id="creditBadge">
+          <span class="credit-icon">💎</span>
+          <b id="creditNum">--</b> 积分
+        </div>
+        <a href="/profile" class="avatar" id="userAvatar">U</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Studio Page -->
+  <div class="studio-page">
+    <!-- Left Panel -->
+    <div class="studio-panel">
+      <div class="panel-header">
+        <a href="index.html" class="back-btn" title="返回工作室广场">←</a>
+        <div class="studio-icon-sm">🎨</div>
+        <h2>海报工厂工作室</h2>
+      </div>
+
+      <div class="panel-body">
+        <!-- 海报类型 -->
+        <div class="form-section">
+          <div class="form-section-header">
+            <div class="form-section-title">
+              <span class="sec-icon">📌</span>海报类型
+            </div>
+            <span class="form-section-toggle">▼</span>
+          </div>
+          <div class="form-fields">
+            <div class="form-group">
+              <label class="form-label">海报类型 <span class="required">*</span></label>
+              <select class="form-select" id="posterType">
+                <option>节日活动海报</option>
+                <option>新品发布海报</option>
+                <option>促销打折海报</option>
+                <option>品牌宣传海报</option>
+                <option>招聘招募海报</option>
+                <option>教育培训海报</option>
+                <option>美食餐饮海报</option>
+                <option>科技数码海报</option>
+                <option>美妆护肤海报</option>
+                <option>房地产海报</option>
+                <option>演唱会/活动海报</option>
+                <option>其他自定义</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">海报主题 <span class="required">*</span></label>
+              <input type="text" class="form-input" id="posterTheme" placeholder="例如：618年中大促、新品上市、双11狂欢...">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">副标题 / 活动信息</label>
+              <input type="text" class="form-input" placeholder="例如：全场5折起、限时特惠、买一送一...">
+            </div>
+          </div>
+        </div>
+
+        <!-- 尺寸设置 -->
+        <div class="form-section">
+          <div class="form-section-header">
+            <div class="form-section-title">
+              <span class="sec-icon">📐</span>尺寸与构图
+            </div>
+            <span class="form-section-toggle">▼</span>
+          </div>
+          <div class="form-fields">
+            <div class="form-group">
+              <label class="form-label">海报尺寸</label>
+              <div class="option-group cols-2">
+                <div class="option-item active" data-size="竖版">竖版 (3:4)</div>
+                <div class="option-item" data-size="横版">横版 (16:9)</div>
+                <div class="option-item" data-size="方图">方图 (1:1)</div>
+                <div class="option-item" data-size="长图">手机长图</div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">构图风格</label>
+              <div class="option-group cols-3">
+                <div class="option-item active">居中对称</div>
+                <div class="option-item">左文右图</div>
+                <div class="option-item">上文下图</div>
+                <div class="option-item">满版构图</div>
+                <div class="option-item">对角线</div>
+                <div class="option-item">留白极简</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 风格配色 -->
+        <div class="form-section">
+          <div class="form-section-header">
+            <div class="form-section-title">
+              <span class="sec-icon">🎨</span>风格与配色
+            </div>
+            <span class="form-section-toggle">▼</span>
+          </div>
+          <div class="form-fields">
+            <div class="form-group">
+              <label class="form-label">设计风格</label>
+              <div class="option-group cols-3">
+                <div class="option-item active">简约现代</div>
+                <div class="option-item">国潮风</div>
+                <div class="option-item">赛博朋克</div>
+                <div class="option-item">插画风</div>
+                <div class="option-item">高端商务</div>
+                <div class="option-item">可爱卡通</div>
+                <div class="option-item">复古怀旧</div>
+                <div class="option-item">科技未来</div>
+                <div class="option-item">ins风</div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">主色调</label>
+              <div class="color-palette">
+                <div class="color-option active">
+                  <div class="color-swatch" style="background: linear-gradient(135deg, #ff6b6b, #ff8e53);"></div>
+                  <span class="color-label">热情红</span>
+                </div>
+                <div class="color-option">
+                  <div class="color-swatch" style="background: linear-gradient(135deg, #7c5cff, #4cc9f0);"></div>
+                  <span class="color-label">科技蓝紫</span>
+                </div>
+                <div class="color-option">
+                  <div class="color-swatch" style="background: linear-gradient(135deg, #21d07a, #52d794);"></div>
+                  <span class="color-label">清新绿</span>
+                </div>
+                <div class="color-option">
+                  <div class="color-swatch" style="background: linear-gradient(135deg, #ffb703, #fb8500);"></div>
+                  <span class="color-label">活力橙</span>
+                </div>
+                <div class="color-option">
+                  <div class="color-swatch" style="background: linear-gradient(135deg, #f72585, #7209b7);"></div>
+                  <span class="color-label">魅惑粉紫</span>
+                </div>
+                <div class="color-option">
+                  <div class="color-swatch" style="background: linear-gradient(135deg, #2d3436, #636e72);"></div>
+                  <span class="color-label">高级黑灰</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">氛围感觉</label>
+              <div class="option-group cols-3">
+                <div class="option-item active">热闹促销</div>
+                <div class="option-item">高端大气</div>
+                <div class="option-item">温馨治愈</div>
+                <div class="option-item">活力四射</div>
+                <div class="option-item">神秘梦幻</div>
+                <div class="option-item">文艺清新</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 文字内容 -->
+        <div class="form-section">
+          <div class="form-section-header">
+            <div class="form-section-title">
+              <span class="sec-icon">🔤</span>文字内容
+            </div>
+            <span class="form-section-toggle">▼</span>
+          </div>
+          <div class="form-fields">
+            <div class="form-group">
+              <label class="form-label">主标题文字</label>
+              <input type="text" class="form-input" placeholder="留空则AI自动生成">
+            </div>
+            <div class="form-group">
+              <label class="form-label">副标题 / 正文</label>
+              <textarea class="form-textarea" style="min-height: 60px;" placeholder="留空则AI自动生成"></textarea>
+            </div>
+            <div class="form-group">
+              <label class="form-label">品牌 / 公司名</label>
+              <input type="text" class="form-input" placeholder="显示在海报底部">
+            </div>
+            <div class="form-group">
+              <label class="form-label">联系方式 / 二维码文案</label>
+              <input type="text" class="form-input" placeholder="例如：扫码了解详情、点击购买">
+            </div>
+          </div>
+        </div>
+
+        <!-- 素材上传 -->
+        <div class="form-section collapsed">
+          <div class="form-section-header">
+            <div class="form-section-title">
+              <span class="sec-icon">📤</span>素材上传
+            </div>
+            <span class="form-section-toggle">▼</span>
+          </div>
+          <div class="form-fields">
+            <div class="form-group">
+              <label class="form-label">产品 / Logo 图</label>
+              <div class="upload-area">
+                <input type="file" accept="image/*" multiple style="display: none;">
+                <div class="upload-icon">📷</div>
+                <div class="upload-text">点击或拖拽上传 <b>产品图 / Logo</b></div>
+                <div class="upload-hint">可选，AI 会将元素融入海报中</div>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">风格参考图</label>
+              <div class="upload-area">
+                <input type="file" accept="image/*" multiple style="display: none;">
+                <div class="upload-icon">🎨</div>
+                <div class="upload-text">点击或拖拽上传 <b>风格参考图</b></div>
+                <div class="upload-hint">可选，用于指定海报整体视觉风格</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 生成设置 -->
+        <div class="form-section">
+          <div class="form-section-header">
+            <div class="form-section-title">
+              <span class="sec-icon">⚙️</span>生成设置
+            </div>
+            <span class="form-section-toggle">▼</span>
+          </div>
+          <div class="form-fields">
+            <div class="form-group">
+              <label class="form-label">生成数量</label>
+              <div class="number-stepper">
+                <button class="stepper-btn minus">−</button>
+                <input type="number" class="stepper-input" id="posterCount" value="4" min="1" max="12">
+                <button class="stepper-btn plus">+</button>
+              </div>
+              <span class="text-xs text-muted" style="margin-left: 12px;">最多 12 张</span>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">画质精度</label>
+              <div class="option-group">
+                <div class="option-item">标准 (1K)</div>
+                <div class="option-item active">高清 (2K)</div>
+                <div class="option-item">超清 (4K)</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 高级设置 -->
+        <div class="form-section collapsed">
+          <div class="form-section-header">
+            <div class="form-section-title">
+              <span class="sec-icon">🔬</span>高级设置
+            </div>
+            <span class="form-section-toggle">▼</span>
+          </div>
+          <div class="form-fields">
+            <div class="form-group">
+              <label class="form-label">生图模型选择</label>
+              <select class="form-select" id="imageModel">
+                <option value="">加载中...</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">创意强度</label>
+              <div class="slider-container">
+                <input type="range" class="slider" min="0" max="100" value="70" data-suffix="%">
+                <span class="slider-value">70%</span>
+              </div>
+              <div class="flex justify-between text-xs text-muted mt-8">
+                <span>保守</span>
+                <span>创意</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-footer">
+        <div class="cost-info">
+          <span class="cost-label">预计消耗</span>
+          <span class="cost-value" id="costDisplay">💎 60 积分</span>
+        </div>
+        <button class="generate-btn" id="generateBtn">
+          <span class="btn-icon">✨</span>生成海报
+        </button>
+      </div>
+    </div>
+
+    <!-- Right Preview -->
+    <div class="preview-area">
+      <div class="preview-header">
+        <div class="preview-title">
+          <span>🖼️ 预览区域</span>
+        </div>
+        <div class="preview-actions">
+          <button class="action-btn" onclick="showToast('已复制当前参数','success')">📋 复制参数</button>
+          <button class="action-btn primary" onclick="showToast('批量下载已开始','success')">📥 批量下载</button>
+        </div>
+      </div>
+
+      <div class="preview-content" id="previewContent">
+        <div class="preview-empty">
+          <div class="empty-icon">🎨</div>
+          <h3>生成专属海报</h3>
+          <p>填写左侧海报类型、主题、风格等参数，点击「生成海报」，AI 将为你设计多款精美海报方案。</p>
+          <div style="margin-top: 24px; display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;">
+            <div style="text-align: center;">
+              <div style="font-size: 28px; margin-bottom: 4px;">🎯</div>
+              <div class="text-xs text-muted">多方案可选</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 28px; margin-bottom: 4px;">🖨️</div>
+              <div class="text-xs text-muted">高清可打印</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 28px; margin-bottom: 4px;">⚡</div>
+              <div class="text-xs text-muted">60秒出图</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/common.js?v=20"></script>
+  <script src="js/app.js?v=17"></script>
+  <script>
+    // 登录检查
+    if (!isLoggedIn()) {
+      showToast('请先登录', 'error');
+      setTimeout(() => window.location.href = '/login', 800);
+    }
+
+    initCommonComponents();
+
+    // 动态加载生图模型
+    async function loadModels() {
+      const data = await apiRequest('/api/models?type=image');
+      if (data.code === 0) {
+        const select = document.getElementById('imageModel');
+        if (select && data.data.length > 0) {
+          select.innerHTML = data.data.map(m => 
+            `<option value="${m.id}">${m.name} (${m.model_identifier}) - ${m.price_per_call}积分/张${m.is_default ? ' · 默认' : ''}</option>`
+          ).join('');
+          updateCost();
+        }
+      }
+    }
+
+    function updateCost() {
+      const count = parseInt(document.getElementById('posterCount').value) || 1;
+      const modelId = document.getElementById('imageModel')?.value;
+      if (!modelId || isNaN(modelId)) return;
+      
+      apiRequest('/api/calculate-cost', {
+        method: 'POST',
+        body: JSON.stringify({ model_id: parseInt(modelId), count })
+      }).then(data => {
+        if (data.code === 0) {
+          document.getElementById('costDisplay').textContent = '💎 ' + data.data.cost + ' 积分';
+        }
+      });
+    }
+
+    // 获取选中的选项文本
+    function getActiveOptionText(selector) {
+      const active = document.querySelector(selector + ' .option-item.active');
+      return active ? active.textContent.trim() : '';
+    }
+    function getActiveColor(selector) {
+      const active = document.querySelector(selector + ' .color-option.active');
+      return active ? active.querySelector('.color-label')?.textContent.trim() : '';
+    }
+
+    // 收集表单数据
+    function getFormData() {
+      const count = parseInt(document.getElementById('posterCount').value) || 4;
+      const theme = document.getElementById('posterTheme').value.trim();
+      return {
+        model_id: parseInt(document.getElementById('imageModel').value),
+        poster_type: document.getElementById('posterType').value,
+        theme: theme,
+        subtitle: '',
+        style: getActiveOptionText('.form-section:nth-of-type(2) .form-group:nth-of-type(1)') || '现代简约',
+        color: getActiveColor('.form-section:nth-of-type(2) .form-group:nth-of-type(2)') || '暖色',
+        count: count
+      };
+    }
+
+    function doRegenerate(params, mode, refImage) {
+      document.getElementById('generateBtn').click();
+    }
+
+    // Generate button
+    document.getElementById('generateBtn').addEventListener('click', function() {
+      const btn = this;
+      const theme = document.getElementById('posterTheme').value.trim();
+      
+      if (!theme) {
+        showToast('请填写海报主题', 'error');
+        return;
+      }
+      
+      btn.classList.add('loading');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="btn-icon">⏳</span>设计中...';
+      
+      // 收集表单数据
+      const formData = getFormData();
+      
+      // 提交生成
+      apiRequest('/api/generate/poster', {
+        method: 'POST',
+        body: JSON.stringify(formData)
+      }).then(data => {
+        if (data.code === 402 || data.code === 401) {
+          showToast(data.msg, 'error');
+          btn.classList.remove('loading');
+          btn.disabled = false;
+          btn.innerHTML = '<span class="btn-icon">✨</span>立即设计';
+          if (data.code === 401) {
+            setTimeout(() => window.location.href = '/login', 1000);
+          }
+          return;
+        }
+        if (data.code !== 0) {
+          showToast(data.msg, 'error');
+          btn.classList.remove('loading');
+          btn.disabled = false;
+          btn.innerHTML = '<span class="btn-icon">✨</span>立即设计';
+          return;
+        }
+        
+        const taskId = data.data.task_id;
+        // 更新顶部积分
+        if (data.data.new_balance != null) {
+          const user = getUser();
+          user.credits = data.data.new_balance;
+          localStorage.setItem('user', JSON.stringify(user));
+          updateNavAuth();
+        }
+        
+        // 显示生成动画
+        startImageGeneration(count, function() {});
+        
+        // 轮询状态
+        let pollCount = 0;
+        const pollInterval = setInterval(async () => {
+          pollCount++;
+          if (pollCount > 60) {
+            clearInterval(pollInterval);
+            showToast('生成超时，请稍后在个人中心查看结果', 'error');
+            btn.classList.remove('loading');
+            btn.disabled = false;
+            btn.innerHTML = '<span class="btn-icon">✨</span>重新设计';
+            return;
+          }
+          
+          const statusData = await apiRequest('/api/generation/' + taskId);
+          if (statusData.code === 0 && statusData.data.status === 'success') {
+            clearInterval(pollInterval);
+            const images = statusData.data.result?.images || [];
+            displayImageResults(images, {
+              studio_type: 'poster',
+              params: getFormData(),
+              regenerate_fn: doRegenerate,
+            });
+            btn.classList.remove('loading');
+            btn.disabled = false;
+            btn.innerHTML = '<span class="btn-icon">✨</span>重新设计';
+            showToast('生成成功！共 ' + images.length + ' 张海报', 'success');
+            refreshUserInfo();
+          } else if (statusData.code === 0 && statusData.data.status === 'failed') {
+            clearInterval(pollInterval);
+            showToast('生成失败：' + (statusData.data.error_msg || '未知错误'), 'error');
+            btn.classList.remove('loading');
+            btn.disabled = false;
+            btn.innerHTML = '<span class="btn-icon">✨</span>重新设计';
+            refreshUserInfo();
+          }
+        }, 3000);
+      });
+    });
+    
+    // 加载模型列表
+    loadModels();
+    
+    // 监听变化
+    document.getElementById('posterCount')?.addEventListener('input', updateCost);
+    document.getElementById('imageModel')?.addEventListener('change', updateCost);
+  </script>
+</body>
+</html>

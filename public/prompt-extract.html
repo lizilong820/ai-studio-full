@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>提示词反推工作室 · AI工作室</title>
+  <link rel="stylesheet" href="css/style.css?v=29">
+  <style>
+    /* 提取类型卡片 */
+    .extract-type-group {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+    .extract-type-card {
+      padding: 14px 10px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-align: center;
+    }
+    .extract-type-card:hover {
+      border-color: var(--brand-light);
+      background: var(--brand-soft);
+    }
+    .extract-type-card.active {
+      border-color: var(--brand);
+      background: var(--brand-soft);
+      color: var(--text);
+      font-weight: 500;
+    }
+    .extract-type-card .type-icon {
+      font-size: 22px;
+      margin-bottom: 6px;
+      display: block;
+    }
+    .extract-type-card .type-name {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+      margin-bottom: 3px;
+    }
+    .extract-type-card .type-desc {
+      font-size: 11px;
+      color: var(--text-3);
+      line-height: 1.4;
+      font-weight: 400;
+    }
+
+    /* 上传区 */
+    .upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius-sm);
+      padding: 36px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      background: var(--bg-soft);
+    }
+    .upload-zone:hover {
+      border-color: var(--brand);
+      background: var(--brand-soft);
+    }
+    .upload-zone .upload-icon { font-size: 40px; margin-bottom: 10px; display: block; opacity: 0.7; }
+    .upload-zone .upload-text { font-size: 14px; color: var(--text-2); margin-bottom: 4px; }
+    .upload-zone .upload-hint { font-size: 12px; color: var(--text-3); }
+    .upload-zone.has-file { padding: 12px; border-style: solid; border-color: var(--brand-light); background: var(--brand-soft); }
+    .upload-preview { max-width: 100%; max-height: 320px; border-radius: var(--radius-sm); display: block; margin: 0 auto; }
+
+    /* 结果区 */
+    .result-card {
+      background: var(--bg-soft);
+      border-radius: var(--radius-sm);
+      padding: 16px;
+    }
+    .result-card .result-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-2);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .result-card .result-content {
+      background: #fff;
+      border-radius: 10px;
+      padding: 14px;
+      font-size: 13.5px;
+      line-height: 1.75;
+      color: var(--text);
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 460px;
+      overflow-y: auto;
+      border: 1px solid var(--border);
+    }
+    .copy-btn {
+      padding: 5px 12px;
+      background: var(--brand);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .copy-btn:hover { background: var(--brand-dark); }
+    .copy-btn.copied { background: #52c41a; }
+
+    /* 加载中 */
+    .extracting-indicator { text-align: center; padding: 50px 20px; }
+    .extracting-indicator .spinner {
+      width: 40px; height: 40px;
+      border: 3px solid var(--brand-soft);
+      border-top-color: var(--brand);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .extracting-indicator p { color: var(--text-2); font-size: 13.5px; margin-bottom: 4px; }
+    .extracting-indicator .sub-text { color: var(--text-3); font-size: 12px; }
+
+    /* 模型选择自定义样式 */
+    .model-select option { padding: 10px; }
+
+    /* 空状态调整 */
+    .preview-empty-upload {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      min-height: 320px;
+    }
+    .preview-empty-upload .empty-icon { font-size: 56px; margin-bottom: 12px; opacity: 0.4; }
+    .preview-empty-upload h3 { font-size: 16px; color: var(--text-2); margin-bottom: 6px; }
+    .preview-empty-upload p { font-size: 13px; color: var(--text-3); text-align: center; max-width: 320px; line-height: 1.6; }
+  </style>
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="navbar-inner">
+      <div class="logo">
+        <div class="logo-icon">🎨</div>
+        <span class="logo-text">AI工作室</span>
+      </div>
+      <div class="nav-links">
+        <a href="index.html" class="nav-link">工作室</a>
+        <a href="#" class="nav-link active">提示词反推</a>
+        <a href="developer.html" class="nav-link">开发者平台</a>
+        <a href="/profile.html" class="nav-link" id="navMyWorks" style="display:none;">我的作品</a>
+      </div>
+      <div class="nav-right">
+        <div class="credit-badge" id="creditBadge" style="display:none;">
+          <span class="credit-icon">💎</span>
+          <b id="creditNum">--</b> 积分
+        </div>
+        <div id="navAuthLinks" style="display:flex;gap:8px;align-items:center;">
+          <a href="/login" class="nav-link" style="padding:6px 14px;">登录</a>
+          <a href="/register" style="padding:8px 18px;background:var(--brand);color:#fff;border-radius:10px;font-size:13px;font-weight:500;">注册</a>
+        </div>
+        <div class="avatar" id="userAvatar" style="display:none;">U</div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Studio Page -->
+  <div class="studio-page">
+    <!-- Left Panel -->
+    <div class="studio-panel">
+      <div class="panel-header">
+        <a href="index.html" class="back-btn" title="返回工作室广场">←</a>
+        <div class="studio-icon-sm">🔍</div>
+        <h2>提示词反推工作室</h2>
+      </div>
+
+      <div class="panel-body">
+        <!-- 提取类型 -->
+        <div class="form-section">
+          <div class="form-section-header">
+            <div class="form-section-title">
+              <span class="sec-icon">✨</span>提取类型
+            </div>
+          </div>
+          <div class="form-fields">
+            <div class="extract-type-group" id="extractTypeGroup">
+              <div class="extract-type-card active" data-type="prompt">
+                <span class="type-icon">🎨</span>
+                <div class="type-name">通用提示词</div>
+                <div class="type-desc">英文生图提示词</div>
+              </div>
+              <div class="extract-type-card" data-type="description">
+                <span class="type-icon">📝</span>
+                <div class="type-name">详细描述</div>
+                <div class="type-desc">中文详细描述内容</div>
+              </div>
+              <div class="extract-type-card" data-type="midjourney">
+                <span class="type-icon">🖼️</span>
+                <div class="type-name">Midjourney</div>
+                <div class="type-desc">MJ专用+参数</div>
+              </div>
+              <div class="extract-type-card" data-type="keywords">
+                <span class="type-icon">🏷️</span>
+                <div class="type-name">关键词</div>
+                <div class="type-desc">核心关键词列表</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 模型选择 -->
+        <div class="form-section">
+          <div class="form-section-header">
+            <div class="form-section-title">
+              <span class="sec-icon">🧠</span>选择模型
+            </div>
+          </div>
+          <div class="form-fields">
+            <div class="form-group">
+              <select class="form-select model-select" id="modelSelect">
+                <option value="">加载中...</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- 上传文件 -->
+        <div class="form-section">
+          <div class="form-section-header">
+            <div class="form-section-title">
+              <span class="sec-icon">📤</span>上传文件
+            </div>
+          </div>
+          <div class="form-fields">
+            <div class="form-group">
+              <div class="upload-zone" id="uploadZone">
+                <input type="file" id="fileInput" accept="image/*,video/*" style="display:none;">
+                <span class="upload-icon">📤</span>
+                <div class="upload-text">点击或拖拽上传图片 / 视频</div>
+                <div class="upload-hint">支持 JPG、PNG、GIF、MP4 等格式</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 生成按钮 -->
+        <div class="generate-section">
+          <div class="cost-info">
+            <span class="cost-label">预计消耗</span>
+            <span class="cost-value" id="costDisplay">💎 -- 积分</span>
+          </div>
+          <button class="generate-btn" id="generateBtn">
+            <span class="btn-icon">✨</span>开始反推
+          </button>
+        </div>
+
+        <div class="credit-hint" id="creditHint">
+          登录后查看积分余额
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Preview -->
+    <div class="preview-area">
+      <div class="preview-header">
+        <div class="preview-title">
+          <span>🔍 反推结果</span>
+        </div>
+      </div>
+
+      <div class="preview-content" id="previewContent">
+        <div class="preview-empty-upload">
+          <div class="empty-icon">🔍</div>
+          <h3>上传图片或视频，一键反推提示词</h3>
+          <p>选择反推类型和模型，上传图片或视频文件，AI 将自动分析内容并生成专业的提示词。支持通用提示词、详细描述、Midjourney 和关键词四种模式。</p>
+        </div>
+      </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/common.js?v=29"></script>
+  <script src="js/app.js?v=29"></script>
+  <script>
+    function $(id) { return document.getElementById(id); }
+
+    // ========== 加载模型 ==========
+    let currentModel = null;
+    let allModels = [];
+    let currentExtractType = 'prompt';
+
+    async function loadModels() {
+      const data = await apiRequest('/api/models?type=text');
+      if (data.code === 0 && data.data) {
+        // 筛选支持视觉的模型（名称包含 gpt/claude/gemini/doubao/seed/sol/vision 等关键词）
+        const vlmKeywords = ['gpt', 'claude', 'gemini', 'doubao', 'seedance', 'seed', 'sol', 'vision', '视觉', 'vlm', 'o1', 'o3', 'qwen'];
+        const vlmModels = data.data.filter(m => {
+          const name = m.name.toLowerCase();
+          return vlmKeywords.some(k => name.includes(k));
+        });
+        const models = vlmModels.length > 0 ? vlmModels : data.data;
+        
+        const select = $('modelSelect');
+        select.innerHTML = '';
+        if (models.length === 0) {
+          select.innerHTML = '<option value="">暂无可用模型</option>';
+          return;
+        }
+        allModels = models;
+        allModels = models;
+        models.forEach(m => {
+          const price = m.price_per_call !== undefined ? m.price_per_call : (m.price || 0);
+          const opt = document.createElement('option');
+          opt.value = m.id;
+          opt.textContent = m.name + '  (' + price + '积分/次)';
+          opt.dataset.price = price;
+          opt.dataset.name = m.name;
+          select.appendChild(opt);
+        });
+        currentModel = { ...models[0], price: models[0].price_per_call !== undefined ? models[0].price_per_call : (models[0].price || 0) };
+        updateCostDisplay();
+        updateCreditHint();
+      } else {
+        $('modelSelect').innerHTML = '<option value="">加载失败</option>';
+      }
+    }
+
+    function updateCostDisplay() {
+      if (currentModel) {
+        $('costDisplay').textContent = '💎 ' + (currentModel.price || 0) + ' 积分';
+      }
+    }
+
+    function updateCreditHint() {
+      const user = getUser();
+      if (user && user.credits != null) {
+        $('creditHint').textContent = '当前余额：' + user.credits + ' 积分';
+      } else {
+        $('creditHint').textContent = '登录后查看积分余额';
+      }
+    }
+
+    // ========== 提取类型切换 ==========
+    $('extractTypeGroup').addEventListener('click', function(e) {
+      const card = e.target.closest('.extract-type-card');
+      if (!card) return;
+      document.querySelectorAll('.extract-type-card').forEach(c => c.classList.remove('active'));
+      card.classList.add('active');
+      currentExtractType = card.dataset.type;
+    });
+
+    // ========== 模型选择 ==========
+    // ========== 模型选择 ==========
+    $('modelSelect').addEventListener('change', function() {
+      const modelId = parseInt(this.value);
+      if (!modelId) { currentModel = null; updateCostDisplay(); return; }
+      const found = allModels.find(m => m.id === modelId);
+      if (found) {
+        currentModel = { ...found, price: found.price_per_call !== undefined ? found.price_per_call : (found.price || 0) };
+        updateCostDisplay();
+      }
+    });
+
+    // ========== 文件上传 ==========
+    let selectedFileData = null; // { base64, type, name, isVideo }
+
+    $('uploadZone').addEventListener('click', () => $('fileInput').click());
+    
+    $('uploadZone').addEventListener('dragover', (e) => {
+      e.preventDefault();
+      $('uploadZone').style.borderColor = 'var(--brand)';
+      $('uploadZone').style.background = 'var(--brand-soft)';
+    });
+    $('uploadZone').addEventListener('dragleave', () => {
+      $('uploadZone').style.borderColor = '';
+      $('uploadZone').style.background = '';
+    });
+    $('uploadZone').addEventListener('drop', (e) => {
+      e.preventDefault();
+      $('uploadZone').style.borderColor = '';
+      $('uploadZone').style.background = '';
+      if (e.dataTransfer.files.length > 0) {
+        handleFileSelect(e.dataTransfer.files[0]);
+      }
+    });
+
+    $('fileInput').addEventListener('change', (e) => {
+      if (e.target.files.length > 0) {
+        handleFileSelect(e.target.files[0]);
+      }
+    });
+
+    function handleFileSelect(file) {
+      if (!file) return;
+      const isImage = file.type.startsWith('image/');
+      const isVideo = file.type.startsWith('video/');
+      if (!isImage && !isVideo) {
+        alert('请上传图片或视频文件');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        selectedFileData = {
+          base64: e.target.result,
+          type: file.type,
+          name: file.name,
+          isVideo: isVideo
+        };
+        const zone = $('uploadZone');
+        zone.classList.add('has-file');
+        if (isImage) {
+          zone.innerHTML = '<img src="' + e.target.result + '" class="upload-preview" alt="预览">';
+        } else {
+          zone.innerHTML = '<video class="upload-preview" src="' + e.target.result + '" controls></video>';
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // ========== 提取提示词 ==========
+    $('generateBtn').addEventListener('click', async function() {
+      if (!isLoggedIn()) {
+        alert('请先登录');
+        window.location.href = '/login';
+        return;
+      }
+      if (!currentModel) {
+        alert('请选择模型');
+        return;
+      }
+      if (!selectedFileData) {
+        alert('请上传图片或视频');
+        return;
+      }
+
+      const btn = $('generateBtn');
+      btn.classList.add('loading');
+      btn.disabled = true;
+
+      $('previewContent').innerHTML = `
+        <div class="extracting-indicator">
+          <div class="spinner"></div>
+          <p>AI正在反推提示词...</p>
+          <div class="sub-text">通常需要 10-30 秒</div>
+        </div>
+      `;
+
+      try {
+        const payload = {
+          model_id: currentModel.id,
+          extract_type: currentExtractType,
+        };
+        if (selectedFileData.isVideo) {
+          payload.video_url = selectedFileData.base64;
+        } else {
+          payload.image_url = selectedFileData.base64;
+        }
+
+        const data = await apiRequest('/api/generate/prompt-extract', {
+          method: 'POST',
+          body: JSON.stringify(payload)
+        });
+
+        if (data.code === 0) {
+          const result = data.data.result || data.data.text || '';
+          $('previewContent').innerHTML = `
+            <div class="result-card">
+              <div class="result-label">
+                <span>✨ 反推结果</span>
+                <button class="copy-btn" id="copyResultBtn">📋 复制</button>
+              </div>
+              <div class="result-content" id="resultContent"></div>
+            </div>
+          `;
+          $('resultContent').textContent = result;
+          
+          $('copyResultBtn').addEventListener('click', function() {
+            navigator.clipboard.writeText(result).then(() => {
+              this.textContent = '✅ 已复制';
+              this.classList.add('copied');
+              setTimeout(() => {
+                this.textContent = '📋 复制';
+                this.classList.remove('copied');
+              }, 2000);
+            });
+          });
+          
+          refreshUserInfo();
+        } else {
+          $('previewContent').innerHTML = `
+            <div class="extracting-indicator">
+              <div style="font-size:48px;margin-bottom:12px;">❌</div>
+              <p>反推失败</p>
+              <div class="sub-text">${data.msg || data.message || '未知错误'}</div>
+            </div>
+          `;
+        }
+      } catch (err) {
+        $('previewContent').innerHTML = `
+          <div class="extracting-indicator">
+            <div style="font-size:48px;margin-bottom:12px;">❌</div>
+            <p>请求失败</p>
+            <div class="sub-text">${err.message || '网络错误'}</div>
+          </div>
+        `;
+      } finally {
+        btn.classList.remove('loading');
+        btn.disabled = false;
+      }
+    });
+
+    // ========== 初始化 ==========
+    loadModels();
+  </script>
+</body>
+</html>

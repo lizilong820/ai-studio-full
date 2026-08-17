@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI头像工作室 · AI工作室</title>
+  <link rel="stylesheet" href="css/style.css?v=17">
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="navbar-inner">
+      <div class="logo">
+        <div class="logo-icon">🎨</div>
+        <span class="logo-text">AI工作室</span>
+      </div>
+      <div class="nav-links">
+        <a href="index.html" class="nav-link">工作室</a>
+        <a href="#" class="nav-link active">AI头像</a>
+        <a href="developer.html" class="nav-link">开发者平台</a>
+        <a href="#" class="nav-link">我的作品</a>
+      </div>
+      <div class="nav-right">
+        <div class="credit-badge" id="creditBadge">
+          <span class="credit-icon">💎</span>
+          <b id="creditNum">--</b> 积分
+        </div>
+        <a href="/profile" class="avatar" id="userAvatar">U</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Studio Page -->
+  <div class="studio-page">
+    <!-- Left Panel -->
+    <div class="studio-panel">
+      <div class="panel-header">
+        <a href="index.html" class="back-btn" title="返回工作室广场">←</a>
+        <div class="studio-icon-sm">👤</div>
+        <h2>AI头像工作室</h2>
+        <button class="action-btn" id="loadTplBtn" style="margin-left:auto;font-size:12px;padding:4px 10px;">📂 模板</button>
+      </div>
+
+      <div class="panel-body">
+        <!-- 基础设置区 -->
+        <div class="form-section">
+          <div class="form-section-header">
+            <div class="form-section-title">
+              <span class="sec-icon">⚙️</span>基础设置
+            </div>
+            <span class="form-section-toggle">▼</span>
+          </div>
+          <div class="form-fields">
+            <div class="form-group">
+              <label class="form-label">头像风格</label>
+              <div class="option-group cols-4">
+                <div class="option-item active" data-style="证件照">📷 证件照</div>
+                <div class="option-item" data-style="职业形象照">💼 职业形象</div>
+                <div class="option-item" data-style="动漫风">🎨 动漫风</div>
+                <div class="option-item" data-style="油画风">🖼️ 油画风</div>
+                <div class="option-item" data-style="复古胶片">📸 复古胶片</div>
+                <div class="option-item" data-style="赛博朋克">🤖 赛博朋克</div>
+                <div class="option-item" data-style="国潮">🏮 国潮</div>
+                <div class="option-item" data-style="ins风">✨ ins风</div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">性别</label>
+              <div class="option-group cols-3">
+                <div class="option-item active">男</div>
+                <div class="option-item">女</div>
+                <div class="option-item">不指定</div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">年龄段</label>
+              <select class="form-select" id="ageRange">
+                <option selected>青年(20-30)</option>
+                <option>轻熟(30-40)</option>
+                <option>中年(40+)</option>
+                <option>学生</option>
+                <option>不限</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">图片数量</label>
+              <div class="number-stepper">
+                <button class="stepper-btn minus">−</button>
+                <input type="number" class="stepper-input" id="avatarCount" value="4" min="1" max="9">
+                <button class="stepper-btn plus">+</button>
+              </div>
+              <span class="text-xs text-muted" style="margin-left: 12px;">最多 9 张</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 形象调整区 -->
+        <div class="form-section">
+          <div class="form-section-header">
+            <div class="form-section-title">
+              <span class="sec-icon">✂️</span>形象调整
+            </div>
+            <span class="form-section-toggle">▼</span>
+          </div>
+          <div class="form-fields">
+            <div class="form-group">
+              <label class="form-label">发型</label>
+              <select class="form-select" id="hairStyle">
+                <option>不限</option>
+                <option>短发</option>
+                <option>长发</option>
+                <option>卷发</option>
+                <option>寸头</option>
+                <option>中分</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">表情</label>
+              <select class="form-select" id="expression">
+                <option>不限</option>
+                <option>微笑</option>
+                <option>严肃</option>
+                <option>自然</option>
+                <option>酷飒</option>
+                <option>可爱</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">服装</label>
+              <select class="form-select" id="clothing">
+                <option>不限</option>
+                <option>正装</option>
+                <option>休闲</option>
+                <option>文艺</option>
+                <option>运动</option>
+                <option>国风</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">背景风格</label>
+              <select class="form-select" id="background">
+                <option>不限</option>
+                <option>纯色渐变</option>
+                <option>简约</option>
+                <option>办公室</option>
+                <option>户外</option>
+                <option>城市夜景</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- 图片规格 -->
+        <div class="form-section collapsed">
+          <div class="form-section-header">
+            <div class="form-section-title">
+              <span class="sec-icon">📐</span>图片规格
+            </div>
+            <span class="form-section-toggle">▼</span>
+          </div>
+          <div class="form-fields">
+            <div class="form-group">
+              <label class="form-label">尺寸</label>
+              <select class="form-select" id="avatarSize">
+                <option>1:1方图</option>
+                <option>3:4竖版</option>
+                <option>证件照标准(413x591)</option>
+                <option>自定义</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">分辨率</label>
+              <div class="option-group cols-3">
+                <div class="option-item">标准</div>
+                <div class="option-item active">高清</div>
+                <div class="option-item">超清</div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">生图模型选择</label>
+              <select class="form-select" id="imageModel">
+                <option value="">加载中...</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- 素材上传 -->
+        <div class="form-section collapsed">
+          <div class="form-section-header">
+            <div class="form-section-title">
+              <span class="sec-icon">📤</span>素材上传
+            </div>
+            <span class="form-section-toggle">▼</span>
+          </div>
+          <div class="form-fields">
+            <div class="form-group">
+              <label class="form-label">上传参考照片</label>
+              <div class="upload-area" id="refUpload">
+                <input type="file" accept="image/*" multiple style="display: none;" id="refPhotoInput">
+                <div class="upload-icon">📷</div>
+                <div class="upload-text">点击或拖拽上传 <b>参考照片</b></div>
+                <div class="upload-hint">可选，上传照片让AI更了解你的特征，建议 1-3 张正面清晰照</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-footer">
+        <div class="cost-info">
+          <span class="cost-label">预计消耗</span>
+          <span class="cost-value" id="costDisplay">💎 10-30 积分/张</span>
+        </div>
+        <button class="generate-btn" id="generateBtn">
+          <span class="btn-icon">✨</span>立即生成
+        </button>
+      </div>
+    </div>
+
+    <!-- Right Preview -->
+    <div class="preview-area">
+      <div class="preview-header">
+        <div class="preview-title">
+          <span>🖼️ 预览区域</span>
+        </div>
+        <div class="preview-actions">
+          <button class="action-btn" onclick="showToast('已复制当前参数','success')">📋 复制参数</button>
+          <button class="action-btn primary" onclick="__saveTpl()">💾 保存模板</button>
+        </div>
+      </div>
+
+      <div class="preview-content" id="previewContent">
+        <div class="preview-empty">
+          <div class="empty-icon">👤</div>
+          <h3>生成你的专属AI头像</h3>
+          <p>选择头像风格，调整形象参数，可上传参考照片，点击「立即生成」，AI 将为你创作精美的专属头像。</p>
+          <div style="margin-top: 24px; display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;">
+            <div style="text-align: center;">
+              <div style="font-size: 28px; margin-bottom: 4px;">⚡</div>
+              <div class="text-xs text-muted">约 60 秒</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 28px; margin-bottom: 4px;">🖼️</div>
+              <div class="text-xs text-muted">高清出图</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 28px; margin-bottom: 4px;">💯</div>
+              <div class="text-xs text-muted">风格多样</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/common.js?v=17"></script>
+  <script src="js/app.js?v=17"></script>
+  <script>
+    // 登录检查
+    if (!isLoggedIn()) {
+      showToast('请先登录', 'error');
+      setTimeout(() => window.location.href = '/login', 800);
+    }
+
+    initCommonComponents();
+
+    // 动态加载生图模型
+    async function loadModels() {
+      const data = await apiRequest('/api/models?type=image');
+      if (data.code === 0) {
+        const select = document.getElementById('imageModel');
+        if (select && data.data.length > 0) {
+          select.innerHTML = data.data.map(m => 
+            `<option value="${m.id}">${m.name} (${m.model_identifier}) - ${m.price_per_call}积分/张${m.is_default ? ' · 默认' : ''}</option>`
+          ).join('');
+          updateCost();
+        }
+      }
+    }
+
+    function updateCost() {
+      const count = parseInt(document.getElementById('avatarCount').value) || 1;
+      const modelId = document.getElementById('imageModel')?.value;
+      if (!modelId || isNaN(modelId)) {
+        document.getElementById('costDisplay').textContent = '💎 10-30 积分/张';
+        return;
+      }
+      
+      apiRequest('/api/calculate-cost', {
+        method: 'POST',
+        body: JSON.stringify({ model_id: parseInt(modelId), count })
+      }).then(data => {
+        if (data.code === 0) {
+          document.getElementById('costDisplay').textContent = '💎 ' + data.data.cost + ' 积分';
+        }
+      });
+    }
+
+    // 获取选中的选项文本
+    function getActiveOptionText(selector) {
+      const active = document.querySelector(selector);
+      return active ? active.textContent.trim() : '';
+    }
+
+    // 收集表单数据
+    function getFormData() {
+      const count = parseInt(document.getElementById('avatarCount').value) || 4;
+      const styleEl = document.querySelector('.form-section:nth-of-type(1) .option-item.active[data-style]');
+      return {
+        model_id: parseInt(document.getElementById('imageModel').value),
+        avatar_style: styleEl?.dataset.style || '证件照',
+        gender: getActiveOptionText('.form-section:nth-of-type(1) .form-group:nth-of-type(2) .option-item.active') || '不指定',
+        age_range: document.getElementById('ageRange').value,
+        image_count: count,
+        hair_style: document.getElementById('hairStyle').value,
+        expression: document.getElementById('expression').value,
+        clothing: document.getElementById('clothing').value,
+        background: document.getElementById('background').value,
+        size: document.getElementById('avatarSize').value,
+        resolution: getActiveOptionText('.form-section:nth-of-type(3) .form-group:nth-of-type(2) .option-item.active') || '高清',
+      };
+    }
+
+    // 保存模板
+    function __saveTpl() {
+      const params = getFormData();
+      showSaveTemplateDialog('avatar', params, () => {
+        showToast('模板保存成功，下次可直接套用', 'success');
+      });
+    }
+
+    // 加载模板弹窗
+    document.getElementById('loadTplBtn').addEventListener('click', async function() {
+      const templates = await loadTemplates('avatar');
+      if (!templates || templates.length === 0) {
+        showToast('暂无保存的模板', 'info');
+        return;
+      }
+      const modal = document.createElement('div');
+      modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+      modal.innerHTML = `
+        <div style="background:#fff;border-radius:16px;padding:24px;width:420px;max-width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.2);">
+          <h3 style="font-size:17px;font-weight:600;margin-bottom:16px;color:var(--text);">📂 选择模板</h3>
+          <div id="tplList" style="margin-bottom:16px;"></div>
+          <div style="display:flex;justify-content:flex-end;">
+            <button class="action-btn" id="tplClose">关闭</button>
+          </div>
+        </div>
+      `;
+      const tplList = modal.querySelector('#tplList');
+      tplList.innerHTML = templates.map(t => `
+        <div data-id="${t.id}" style="padding:12px 14px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--brand)'" onmouseout="this.style.borderColor='var(--border)'">
+          <div style="font-size:14px;font-weight:500;color:var(--text);">${t.name}</div>
+          <div style="font-size:11.5px;color:var(--text-3);margin-top:3px;">${new Date(t.created_at).toLocaleString()}</div>
+        </div>
+      `).join('');
+      tplList.querySelectorAll('[data-id]').forEach(item => {
+        item.onclick = function() {
+          const tpl = templates.find(t => t.id == this.dataset.id);
+          if (tpl && tpl.params) applyTemplate(tpl.params);
+          modal.remove();
+          showToast('模板已加载', 'success');
+        };
+      });
+      modal.querySelector('#tplClose').onclick = () => modal.remove();
+      modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+      document.body.appendChild(modal);
+    });
+
+    // 应用模板到表单
+    function applyTemplate(params) {
+      if (params.style) {
+        document.querySelectorAll('.form-section:nth-of-type(1) [data-style]').forEach(el => {
+          el.classList.toggle('active', el.dataset.style === params.style);
+        });
+      }
+      if (params.age_range) document.getElementById('ageRange').value = params.age_range;
+      if (params.image_count) document.getElementById('avatarCount').value = params.image_count;
+      if (params.hair_style) document.getElementById('hairStyle').value = params.hair_style;
+      if (params.expression) document.getElementById('expression').value = params.expression;
+      if (params.clothing) document.getElementById('clothing').value = params.clothing;
+      if (params.background) document.getElementById('background').value = params.background;
+      if (params.size) document.getElementById('avatarSize').value = params.size;
+      updateCost();
+    }
+
+    // 重新生成
+    function doRegenerate(params, mode, refImage) {
+      document.getElementById('generateBtn').click();
+    }
+
+    // 生成函数
+    function doGenerate() {
+      const btn = document.getElementById('generateBtn');
+      const count = parseInt(document.getElementById('avatarCount').value) || 4;
+      
+      btn.classList.add('loading');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="btn-icon">⏳</span>生成中...';
+      
+      const formData = getFormData();
+      
+      // 提交生成
+      apiRequest('/api/generate/avatar', {
+        method: 'POST',
+        body: JSON.stringify(formData)
+      }).then(data => {
+        if (data.code === 402 || data.code === 401) {
+          showToast(data.msg, 'error');
+          btn.classList.remove('loading');
+          btn.disabled = false;
+          btn.innerHTML = '<span class="btn-icon">✨</span>立即生成';
+          if (data.code === 401) {
+            setTimeout(() => window.location.href = '/login', 1000);
+          }
+          return;
+        }
+        if (data.code !== 0) {
+          showToast(data.msg, 'error');
+          btn.classList.remove('loading');
+          btn.disabled = false;
+          btn.innerHTML = '<span class="btn-icon">✨</span>立即生成';
+          return;
+        }
+        
+        const taskId = data.data.task_id;
+        // 更新顶部积分
+        if (data.data.new_balance != null) {
+          const user = getUser();
+          user.credits = data.data.new_balance;
+          localStorage.setItem('user', JSON.stringify(user));
+          updateNavAuth();
+        }
+        
+        // 显示生成动画
+        startImageGeneration(count, function() {});
+        
+        // 轮询状态
+        let pollCount = 0;
+        const pollInterval = setInterval(async () => {
+          pollCount++;
+          if (pollCount > 60) {
+            clearInterval(pollInterval);
+            showToast('生成超时，请稍后在个人中心查看结果', 'error');
+            btn.classList.remove('loading');
+            btn.disabled = false;
+            btn.innerHTML = '<span class="btn-icon">✨</span>重新生成';
+            return;
+          }
+          
+          const statusData = await apiRequest('/api/generation/' + taskId);
+          if (statusData.code === 0 && statusData.data.status === 'success') {
+            clearInterval(pollInterval);
+            const images = statusData.data.result?.images || [];
+            displayImageResults(images, {
+              studio_type: 'avatar',
+              params: getFormData(),
+              regenerate_fn: doRegenerate,
+            });
+            btn.classList.remove('loading');
+            btn.disabled = false;
+            btn.innerHTML = '<span class="btn-icon">✨</span>重新生成';
+            showToast('生成成功！共 ' + images.length + ' 张头像', 'success');
+            refreshUserInfo();
+          } else if (statusData.code === 0 && statusData.data.status === 'failed') {
+            clearInterval(pollInterval);
+            showToast('生成失败：' + (statusData.data.error_msg || '未知错误'), 'error');
+            btn.classList.remove('loading');
+            btn.disabled = false;
+            btn.innerHTML = '<span class="btn-icon">✨</span>重新生成';
+            refreshUserInfo();
+          }
+        }, 3000);
+      });
+    }
+
+    // Generate button
+    document.getElementById('generateBtn').addEventListener('click', doGenerate);
+    
+    // 加载模型列表
+    loadModels();
+    
+    // 监听变化
+    document.getElementById('avatarCount')?.addEventListener('input', updateCost);
+    document.getElementById('imageModel')?.addEventListener('change', updateCost);
+  </script>
+</body>
+</html>

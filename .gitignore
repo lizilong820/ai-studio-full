@@ -1,0 +1,51 @@
+# Dependencies
+node_modules/
+
+# Runtime configuration and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Runtime data
+database/*.db
+database/*.db-*
+database/*.db.*
+database/model_caps.json
+public/uploads/
+public/audio/
+tmp/
+*.log
+*.pid
+
+# Generated media and archives
+*.gif
+*.mp4
+*.mov
+*.webm
+*.wav
+*.mp3
+*.zip
+
+# Local backups and one-off maintenance scripts
+*.bak*
++_backup
+*_backup.*
+*_backup_*
+patch_*.js
+fix_*.js
+check_*.js
+find_models.js
+test_*.js
+
+# Obsolete root-level copies; canonical files live under controllers/ and public/
+/aiAdapter.js
+/gif.html
+/video-gen.html
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

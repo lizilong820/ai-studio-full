@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI音频合成工作室 · AI工作室</title>
+  <link rel="stylesheet" href="css/style.css?v=35">
+  <style>
+    /* 快捷语料标签 */
+    .quick-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .quick-tag {
+      padding: 5px 12px;
+      background: var(--brand-soft);
+      color: var(--brand-dark);
+      border-radius: 12px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      user-select: none;
+    }
+    .quick-tag:hover {
+      background: var(--brand-light);
+      color: #fff;
+    }
+
+    /* 格式选择 - 沿用 quality-group 风格 */
+    .format-group {
+      display: flex;
+      gap: 8px;
+    }
+    .format-item {
+      flex: 1;
+      padding: 10px 0;
+      text-align: center;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-2);
+      background: var(--bg-soft);
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 2px solid transparent;
+    }
+    .format-item:hover {
+      color: var(--text);
+      background: #FFF5E6;
+    }
+    .format-item.active {
+      background: #fff;
+      color: var(--brand);
+      border-color: var(--brand);
+      box-shadow: 0 2px 8px rgba(200, 170, 140, 0.15);
+    }
+    .format-item.disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+      text-decoration: line-through;
+    }
+
+    /* 滑块 */
+    .slider-row {
+      margin-bottom: 16px;
+    }
+    .slider-row:last-child {
+      margin-bottom: 0;
+    }
+    .slider-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      color: var(--text-2);
+      margin-bottom: 8px;
+    }
+    .slider-label .slider-value {
+      font-weight: 500;
+      color: var(--brand-dark);
+    }
+    input[type="range"] {
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: var(--bg-soft);
+      outline: none;
+      -webkit-appearance: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--brand);
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(212, 184, 150, 0.4);
+    }
+
+    /* 模型信息卡 */
+    .model-info-card {
+      margin-top: 10px;
+      padding: 12px 14px;
+      background: var(--brand-soft);
+      border-radius: var(--radius-sm);
+      font-size: 12.5px;
+      color: var(--text-2);
+      line-height: 1.6;
+    }
+    .model-info-card strong {
+      color: var(--brand-dark);
+      font-weight: 500;
+    }
+
+    /* 结果音频播放器 */
+    .audio-result-card {
+      background: #fff;
+      border-radius: var(--radius-md);
+      padding: 24px;
+      box-shadow: 0 2px 16px rgba(200, 170, 140, 0.1);
+      width: 100%;
+      max-width: 600px;
+    }
+    .audio-result-card audio {
+      width: 100%;
+      margin-bottom: 16px;
+    }
+    .audio-result-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      color: var(--text-2);
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .audio-result-info .file-name {
+      font-weight: 500;
+      color: var(--text);
+    }
+    .audio-result-actions {
+      display: flex;
+      gap: 10px;
+    }
+    .audio-result-actions button {
+      flex: 1;
+      padding: 10px 16px;
+      border-radius: 10px;
+      font-size: 13.5px;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: none;
+      font-weight: 500;
+    }
+    .btn-primary-sm {
+      background: var(--brand);
+      color: #fff;
+    }
+    .btn-primary-sm:hover {
+      background: var(--brand-dark);
+    }
+    .btn-outline-sm {
+      background: var(--bg-soft);
+      color: var(--text-2);
+      border: 1px solid var(--border) !important;
+    }
+    .btn-outline-sm:hover {
+      background: #fff;
+      color: var(--text);
+    }
+
+    /* 历史记录列表 */
+    .history-list-wrap {
+      width: 100%;
+    }
+    .history-item-card {
+      background: #fff;
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+      box-shadow: 0 1px 4px rgba(200, 170, 140, 0.06);
+    }
+    .history-item-card:hover {
+      border-color: var(--border);
+      box-shadow: 0 2px 10px rgba(200, 170, 140, 0.1);
+    }
+    .history-item-text {
+      font-size: 13.5px;
+      color: var(--text);
+      line-height: 1.6;
+      margin-bottom: 8px;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .history-item-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: var(--text-3);
+    }
+    .status-pill {
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+    .status-pill.success { background: #e8f5e9; color: #4caf50; }
+    .status-pill.failed { background: #ffebee; color: #f44336; }
+    .status-pill.pending { background: #fff3e0; color: #ff9800; }
+
+    /* Tab切换（预览区顶部） */
+    .preview-tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+    .preview-tab {
+      padding: 10px 16px;
+      font-size: 13.5px;
+      color: var(--text-2);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: all 0.2s;
+    }
+    .preview-tab:hover {
+      color: var(--text);
+    }
+    .preview-tab.active {
+      color: var(--brand);
+      border-bottom-color: var(--brand);
+      font-weight: 500;
+    }
+
+    /* 音色克隆上传区 */
+    .clone-upload-area {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius-md);
+      padding: 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      background: var(--bg-soft);
+    }
+    .clone-upload-area:hover {
+      border-color: var(--primary);
+      background: var(--primary-bg);
+    }
+    .btn-link-sm {
+      background: none;
+      border: none;
+      color: var(--primary);
+      font-size: 12.5px;
+      cursor: pointer;
+      padding: 0;
+    }
+    .btn-link-sm:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="navbar-inner">
+      <div class="logo">
+        <div class="logo-icon">🎨</div>
+        <span class="logo-text">AI工作室</span>
+      </div>
+      <div class="nav-links">
+        <a href="index.html" class="nav-link">工作室</a>
+        <a href="#" class="nav-link active">音频合成</a>
+        <a href="developer.html" class="nav-link">开发者平台</a>
+      </div>
+      <div class="nav-right">
+        <div class="credit-badge" id="creditBadge" style="display:none;">
+          <span class="credit-icon">💎</span>
+          <b id="creditNum">--</b> 积分
+        </div>
+        <div class="avatar" id="userAvatar" style="display:none;">U</div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Studio Page -->
+  <div class="studio-page">
+    <!-- Left Panel -->
+    <div class="studio-panel">
+      <div class="panel-header">
+        <a href="index.html" class="back-btn" title="返回工作室广场">←</a>
+        <div class="studio-icon-sm">🎙️</div>
+        <h2>AI音频合成工作室</h2>
+      </div>
+
+      <div class="panel-body">
+        <!-- 基础设置 -->
+        <div class="form-section">
+          <div class="form-section-header">
+            <div class="form-section-title">
+              <span class="sec-icon">🎵</span>基础设置
+            </div>
+          </div>
+          <div class="form-fields">
+            <div class="form-group">
+              <label class="form-label">选择模型 <span class="required">*</span></label>
+              <select class="form-select model-select" id="modelSelect" onchange="onModelChange()">
+                <option value="">加载中...</option>
+              </select>
+              <div class="model-info-card" id="modelInfoCard" style="display:none;"></div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">合成文本 <span class="required">*</span></label>
+              <textarea class="form-textarea" id="inputText" rows="5" placeholder="输入要合成的文字内容，支持中英文...
+例如：深夜十一点，图书馆的灯还亮着。"></textarea>
+              <div class="text-xs text-muted" style="margin-top:6px;text-align:right;">
+                <span id="charCount">0</span> / <span id="charLimit">5000</span> 字
+              </div>
+              <div class="quick-tags">
+                <span class="quick-tag" onclick="fillText('你好，欢迎使用AI语音合成服务。今天天气真好，适合出去走走。')">🌟 问候示例</span>
+                <span class="quick-tag" onclick="fillText('人工智能是计算机科学的一个分支，它企图了解智能的实质。')">📚 科普短文</span>
+                <span class="quick-tag" onclick="fillText('第1章 初见。那是一个阳光明媚的早晨，小镇的街道上飘着淡淡的花香。')">📖 小说片段</span>
+              </div>
+            </div>
+
+            <div class="form-group" id="voiceDescGroup">
+              <label class="form-label">音色描述 <span style="font-weight:400;color:var(--text-3);">(可选)</span></label>
+              <input type="text" class="form-input" id="voiceDesc" placeholder="如：温柔女声、磁性男声、新闻播报...">
+              <div class="quick-tags" style="margin-top: 8px;">
+                <span class="quick-tag" onclick="fillVoice('温柔女声，亲切自然')">👩 温柔女声</span>
+                <span class="quick-tag" onclick="fillVoice('磁性男声，沉稳大气')">👨 磁性男声</span>
+                <span class="quick-tag" onclick="fillVoice('甜美少女，活泼可爱')">🌸 甜美少女</span>
+                <span class="quick-tag" onclick="fillVoice('新闻播报，字正腔圆')">📰 新闻播报</span>
+              </div>
+            </div>
+            <div class="form-group" id="dialectGroup" style="display:none;">
+              <label class="form-label">🗣️ 方言选择 <span style="font-weight:400;color:var(--text-3);">(可选)</span></label>
+              <select class="form-select" id="dialectSelect">
+                <option value="">普通话（默认）</option>
+                <option value="东北话">东北话</option>
+                <option value="河南话">河南话</option>
+                <option value="天津话">天津话</option>
+                <option value="四川话">四川话</option>
+                <option value="粤语">粤语</option>
+                <option value="上海话">上海话</option>
+                <option value="台普">台普</option>
+                <option value="湾湾腔">湾湾腔</option>
+                <option value="京腔">京腔</option>
+              </select>
+            </div>
+            <div class="form-group" id="cloneGroup" style="display:none;">
+              <label class="form-label">🎤 音色克隆 <span style="font-weight:400;color:var(--text-3);">(可选)</span></label>
+              <div class="clone-upload-area" id="cloneUploadArea" onclick="document.getElementById('refAudioFile').click()">
+                <input type="file" id="refAudioFile" accept=".wav,.mp3,.flac,.ogg" style="display:none;" onchange="handleRefAudioSelect(event)">
+                <div class="clone-upload-hint" id="cloneUploadHint">
+                  <div style="font-size:24px;margin-bottom:8px;">🎵</div>
+                  <div style="color:var(--text-2);font-size:13px;">点击上传参考音频</div>
+                  <div style="color:var(--text-3);font-size:11.5px;margin-top:4px;">建议 5-30 秒，干净无底噪的人声</div>
+                </div>
+                <div style="font-size:11.5px;color:#b8967a;margin-top:4px;text-align:center;">支持 wav / mp3 / flac / ogg 格式，建议 3-30 秒干净语音</div>
+                <div class="clone-upload-loaded" id="cloneUploadLoaded" style="display:none;">
+                  <audio id="refAudioPreview" controls style="width:100%;margin-bottom:8px;"></audio>
+                  <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <span id="refAudioName" style="font-size:12.5px;color:var(--text-2);"></span>
+                    <button type="button" class="btn-link-sm" onclick="event.stopPropagation();clearRefAudio()">清除</button>
+                  </div>
+                </div>
+              </div>
+              <div id="refTextWrapper" style="margin-top:10px;">
+                <label id="refTextLabel" style="font-size:12.5px;color:var(--text-2);display:block;margin-bottom:4px;">参考文本（可选，开启极致克隆）</label>
+                <textarea id="refTextInput" class="form-textarea" rows="2" placeholder="参考音频里逐字念的原话，填了克隆效果更精准" style="resize:vertical;"></textarea>
+              </div>
+              <div id="denoiseWrapper" style="margin-top:8px;display:flex;align-items:center;gap:8px;">
+                <label class="toggle-switch" style="width:36px;height:20px;">
+                  <input type="hidden" id="denoiseToggle" value="0">
+                  <span class="toggle-slider" style="border-radius:20px;"></span>
+                </label>
+                <span style="font-size:12.5px;color:var(--text-2);">参考音频降噪</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 音频规格 -->
+        <div class="form-section">
+          <div class="form-section-header">
+            <div class="form-section-title">
+              <span class="sec-icon">📐</span>音频规格
+            </div>
+            <span class="form-section-toggle">▼</span>
+          </div>
+          <div class="form-fields">
+            <div class="form-group">
+              <label class="form-label">输出格式</label>
+              <div class="format-group" id="formatGroup">
+                <div class="format-item active" data-format="wav">WAV</div>
+                <div class="format-item" data-format="mp3">MP3</div>
+                <div class="format-item" data-format="flac">FLAC</div>
+                <div class="format-item" data-format="ogg">OGG</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 高级参数 -->
+        <div class="form-section" id="advancedSection">
+          <div class="form-section-header">
+            <div class="form-section-title">
+              <span class="sec-icon">⚙️</span>高级参数
+            </div>
+            <span class="form-section-toggle">▼</span>
+          </div>
+          <div class="form-fields">
+            <!-- VoxCPM2 -->
+            <div id="voxcpm2Params" style="display:none;">
+              <div class="slider-row">
+                <div class="slider-label">
+                  <span>引导强度 cfg_value</span>
+                  <span class="slider-value" id="cfgValue">2.0</span>
+                </div>
+                <input type="range" id="cfgSlider" min="0.5" max="5" step="0.1" value="2.0" oninput="document.getElementById('cfgValue').textContent = this.value">
+              </div>
+              <div class="slider-row">
+                <div class="slider-label">
+                  <span>推理步数</span>
+                  <span class="slider-value" id="stepsValue">30</span>
+                </div>
+                <input type="range" id="stepsSlider" min="10" max="80" step="1" value="30" oninput="document.getElementById('stepsValue').textContent = this.value">
+              </div>
+              <div class="slider-row">
+                <div class="slider-label">
+                  <span>随机种子 (-1为随机)</span>
+                  <span class="slider-value" id="seedValue">-1</span>
+                </div>
+                <input type="range" id="seedSlider" min="-1" max="9999" step="1" value="-1" oninput="document.getElementById('seedValue').textContent = this.value">
+              </div>
+            </div>
+            <!-- OmniVoice -->
+            <div id="matrixParams" style="display:none;">
+              <div class="slider-row">
+                <div class="slider-label">
+                  <span>语速 speed</span>
+                  <span class="slider-value" id="speedValue">1.0x</span>
+                </div>
+                <input type="range" id="speedSlider" min="0.5" max="2.0" step="0.1" value="1.0" oninput="document.getElementById('speedValue').textContent = this.value + 'x'">
+              </div>
+              <div class="slider-row">
+                <div class="slider-label">
+                  <span>推理步数 num_step</span>
+                  <span class="slider-value" id="numStepValue">16</span>
+                </div>
+                <input type="range" id="numStepSlider" min="8" max="64" step="1" value="16" oninput="document.getElementById('numStepValue').textContent = this.value">
+              </div>
+            </div>
+            <!-- IndexTTS2 -->
+            <div id="indexParams" style="display:none;">
+              <div class="slider-row">
+                <div class="slider-label">
+                  <span>情感强度 emo_alpha</span>
+                  <span class="slider-value" id="emoAlphaValue">1.0</span>
+                </div>
+                <input type="range" id="emoAlphaSlider" min="0" max="1" step="0.1" value="1.0" oninput="document.getElementById('emoAlphaValue').textContent = this.value">
+              </div>
+              <div class="form-group">
+                <label class="form-label">情感描述文本 <span style="font-weight:400;color:var(--text-3);">(可选)</span></label>
+                <input type="text" class="form-input" id="emoText" placeholder="如：悲伤、激动、平静、开心...">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-footer">
+        <div class="cost-info">
+          <span class="cost-label">预计消耗</span>
+          <span class="cost-value" id="costDisplay">💎 -- 积分</span>
+        </div>
+        <button class="generate-btn" id="generateBtn" onclick="doGenerate()">
+          <span class="btn-icon">✨</span>立即合成
+        </button>
+      </div>
+    </div>
+
+    <!-- Right Preview -->
+    <div class="preview-area">
+      <div class="preview-header">
+        <div class="preview-title">
+          <span>🎙️ 合成结果</span>
+        </div>
+        <div class="preview-actions">
+          <button class="action-btn" onclick="copyParams()">📋 复制参数</button>
+        </div>
+      </div>
+
+      <div class="preview-tabs">
+        <div class="preview-tab active" onclick="switchTab('result', this)">当前结果</div>
+        <div class="preview-tab" onclick="switchTab('history', this)">历史记录</div>
+      </div>
+
+      <div class="preview-content" id="previewContent">
+        <!-- 当前结果 -->
+        <div id="resultPanel">
+          <div class="preview-empty">
+            <div class="empty-icon">🎙️</div>
+            <h3>让文字拥有声音</h3>
+            <p>输入文本，选择模型和音色，点击「立即合成」，AI 将为你生成自然流畅的语音。支持多种音频格式和高级参数调节。</p>
+            <div style="margin-top: 24px; display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;">
+              <div style="text-align: center;">
+                <div style="font-size: 28px; margin-bottom: 4px;">🎙️</div>
+                <div class="text-xs text-muted">3种模型</div>
+              </div>
+              <div style="text-align: center;">
+                <div style="font-size: 28px; margin-bottom: 4px;">🎵</div>
+                <div class="text-xs text-muted">4种格式</div>
+              </div>
+              <div style="text-align: center;">
+                <div style="font-size: 28px; margin-bottom: 4px;">⚡</div>
+                <div class="text-xs text-muted">快速生成</div>
+              </div>
+              <div style="text-align: center;">
+                <div style="font-size: 28px; margin-bottom: 4px;">🗣️</div>
+                <div class="text-xs text-muted">音色可调</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 历史记录 -->
+        <div id="historyPanel" style="display:none; width:100%;">
+          <div class="history-list-wrap" id="historyList">
+            <div style="text-align: center; padding: 60px 0; color: var(--text-3);">
+              暂无历史记录
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/common.js?v=35"></script>
+  <script src="js/app.js?v=35"></script>
+  <script>
+    if (!isLoggedIn()) {
+      showToast('请先登录', 'error');
+      setTimeout(() => window.location.href = '/login', 800);
+    }
+
+    initCommonComponents();
+
+    let selectedFormat = 'wav';
+    let currentPollInterval = null;
+    let modelList = [];
+
+    const modelInfo = {
+      'voxcpm2': {
+        name: 'VoxCPM2',
+        desc: '<strong>录音棚音质</strong> · 48kHz · 9种中文方言 · 支持音色克隆 · 上限5000字',
+        charLimit: 5000,
+        formats: ['wav', 'flac', 'ogg']
+      },
+      'matrix-tts-v1': {
+        name: 'OmniVoice',
+        desc: '<strong>600+语种</strong> · 24kHz · 精确时长控制 · 支持变速 · 上限3500字',
+        charLimit: 3500,
+        formats: ['wav', 'mp3', 'flac', 'ogg']
+      },
+      'index-tts-v2': {
+        name: 'IndexTTS2',
+        desc: '<strong>精细情感控制</strong> · 24kHz · 8维情感向量 · 上限3000字',
+        charLimit: 3000,
+        formats: ['wav', 'mp3', 'flac', 'ogg']
+      }
+    };
+
+    // ===== 加载模型 =====
+    async function loadModels() {
+      try {
+        const data = await apiRequest('/api/models?type=audio');
+        if (data.code === 0 && data.data && data.data.length > 0) {
+          modelList = data.data;
+          const optionsHtml = data.data.map(m =>
+            `<option value="${m.id}">${m.name} - ${m.price_per_call || '--'}积分/次${m.is_default ? ' · 默认' : ''}</option>`
+          ).join('');
+          document.getElementById('modelSelect').innerHTML = optionsHtml;
+
+          const defaultModel = data.data.find(m => m.is_default);
+          if (defaultModel) {
+            document.getElementById('modelSelect').value = defaultModel.id;
+          }
+          onModelChange();
+        } else {
+          document.getElementById('modelSelect').innerHTML = '<option value="">暂无可用模型</option>';
+        }
+      } catch (e) {
+        document.getElementById('modelSelect').innerHTML = '<option value="">模型加载失败</option>';
+      }
+    }
+
+    // ===== 模型切换 =====
+    function onModelChange() {
+      const select = document.getElementById('modelSelect');
+      const opt = select.options[select.selectedIndex];
+      if (!opt || !opt.value) return;
+
+      const modelId = parseInt(opt.value);
+      const model = modelList.find(m => m.id === modelId);
+      const identifier = model ? model.model_identifier : '';
+      const info = modelInfo[identifier];
+
+      // 更新模型信息卡
+      const card = document.getElementById('modelInfoCard');
+      if (info) {
+        card.innerHTML = info.desc;
+        card.style.display = 'block';
+        document.getElementById('charLimit').textContent = info.charLimit;
+      } else {
+        card.style.display = 'none';
+      }
+
+      // 更新高级参数面板
+      document.getElementById('voxcpm2Params').style.display = (identifier === 'voxcpm2') ? 'block' : 'none';
+      document.getElementById("cloneGroup").style.display = (identifier === "voxcpm2" || identifier === "index-tts-v2") ? "block" : "none";
+      document.getElementById("refTextWrapper").style.display = (identifier === "voxcpm2") ? "block" : "none";
+      document.getElementById("denoiseWrapper").style.display = (identifier === "voxcpm2") ? "flex" : "none";
+      document.getElementById('matrixParams').style.display = (identifier === 'matrix-tts-v1') ? 'block' : 'none';
+      document.getElementById('indexParams').style.display = (identifier === 'index-tts-v2') ? 'block' : 'none';
+
+      // 音色描述：voxcpm2 支持，index-tts-v2 不支持（传voice会报错）
+      document.getElementById('voiceDescGroup').style.display = (identifier === 'voxcpm2') ? 'block' : 'none';
+      document.getElementById('dialectGroup').style.display = (identifier === 'voxcpm2') ? 'block' : 'none';
+
+      // 高级面板无匹配模型时隐藏整个section
+      const advSection = document.getElementById('advancedSection');
+      advSection.style.display = info ? 'block' : 'none';
+
+      // 更新可用格式
+      const supportedFormats = info?.formats || ['wav'];
+      document.querySelectorAll('#formatGroup .format-item').forEach(item => {
+        const fmt = item.dataset.format;
+        const available = supportedFormats.includes(fmt);
+        item.classList.toggle('disabled', !available);
+        if (!available && item.classList.contains('active')) {
+          item.classList.remove('active');
+        }
+      });
+      // 如果当前选中的格式不可用，切到第一个可用的
+      const activeFormat = document.querySelector('#formatGroup .format-item.active');
+      if (!activeFormat) {
+        const firstAvail = document.querySelector('#formatGroup .format-item:not(.disabled)');
+        if (firstAvail) {
+          firstAvail.classList.add('active');
+          selectedFormat = firstAvail.dataset.format;
+        }
+      }
+
+      updateCost();
+    }
+
+    // ===== 字数统计 =====
+    document.getElementById('inputText').addEventListener('input', function() {
+      const len = this.value.length;
+      document.getElementById('charCount').textContent = len;
+      const limit = parseInt(document.getElementById('charLimit').textContent) || 5000;
+      document.getElementById('charCount').style.color = len > limit ? 'var(--danger)' : '';
+    });
+
+    // ===== 格式选择 =====
+    document.querySelectorAll('#formatGroup .format-item').forEach(item => {
+      item.addEventListener('click', function() {
+        if (this.classList.contains('disabled')) return;
+        document.querySelectorAll('#formatGroup .format-item').forEach(i => i.classList.remove('active'));
+        this.classList.add('active');
+        selectedFormat = this.dataset.format;
+      });
+    });
+
+    // ===== 快捷填充 =====
+    function fillText(text) {
+      document.getElementById('inputText').value = text;
+      document.getElementById('inputText').dispatchEvent(new Event('input'));
+    }
+    function fillVoice(voice) {
+      document.getElementById('voiceDesc').value = voice;
+    }
+
+    // ===== 费用计算 =====
+    function updateCost() {
+      const modelId = document.getElementById('modelSelect')?.value;
+      if (!modelId || isNaN(parseInt(modelId))) {
+        document.getElementById('costDisplay').textContent = '💎 -- 积分';
+        return;
+      }
+
+      apiRequest('/api/calculate-cost', {
+        method: 'POST',
+        body: JSON.stringify({ model_id: parseInt(modelId), count: 1 })
+      }).then(data => {
+        if (data.code === 0) {
+          document.getElementById('costDisplay').textContent = '💎 ' + data.data.cost + ' 积分';
+        } else {
+          const model = modelList.find(m => m.id == modelId);
+          if (model && model.price_per_call) {
+            document.getElementById('costDisplay').textContent = '💎 ' + model.price_per_call + ' 积分';
+          }
+        }
+      }).catch(() => {
+        const model = modelList.find(m => m.id == modelId);
+        if (model && model.price_per_call) {
+          document.getElementById('costDisplay').textContent = '💎 ' + model.price_per_call + ' 积分';
+        }
+      });
+    }
+
+    // ===== 收集参数 =====
+    function getFormData() {
+      const modelId = parseInt(document.getElementById('modelSelect').value);
+      const model = modelList.find(m => m.id === modelId);
+      const identifier = model ? model.model_identifier : '';
+
+      const params = {
+        model_id: modelId,
+        input_text: document.getElementById('inputText').value.trim(),
+        response_format: selectedFormat,
+        model_name: model ? model.name : ''
+      };
+
+      // VoxCPM2：voice 是自然语言音色描述
+      if (identifier === 'voxcpm2') {
+        const voice = document.getElementById('voiceDesc').value.trim();
+        if (voice) params.voice = voice;
+        const dialect = document.getElementById('dialectSelect')?.value;
+        if (dialect) params.dialect = dialect;
+        params.cfg_value = parseFloat(document.getElementById('cfgSlider').value);
+        params.inference_timesteps = parseInt(document.getElementById('stepsSlider').value);
+        const seed = parseInt(document.getElementById('seedSlider').value);
+        if (seed >= 0) params.seed = seed;
+        // 音色克隆参数
+        if (window.__refAudioBase64) {
+          params.ref_audio = window.__refAudioBase64;
+        }
+        const refText = document.getElementById('refTextInput')?.value.trim();
+        if (refText) params.ref_text = refText;
+        params.denoise = document.getElementById('denoiseToggle')?.value === '1';
+      }
+      if (identifier === 'matrix-tts-v1') {
+        params.speed = parseFloat(document.getElementById('speedSlider').value);
+        params.num_step = parseInt(document.getElementById('numStepSlider').value);
+      }
+      // IndexTTS2：情感描述走 instructions，不走 voice
+      if (identifier === 'index-tts-v2') {
+        if (window.__refAudioBase64) params.ref_audio = window.__refAudioBase64;
+        const emoText = document.getElementById('emoText')?.value.trim();
+        if (emoText) {
+          params.instructions = emoText;
+          params.use_emo_text = true;
+        }
+        params.emo_alpha = parseFloat(document.getElementById('emoAlphaSlider')?.value || '1.0');
+      }
+
+      return params;
+    }
+
+    // ===== 复制参数 =====
+    function copyParams() {
+      const params = getFormData();
+      const model = modelList.find(m => m.id === params.model_id);
+      const text = `【AI音频合成参数】
+模型：${model ? model.name : '--'}
+文本：${params.input_text || '无'}
+音色：${params.voice || '默认'}
+格式：${params.response_format}`;
+
+      navigator.clipboard.writeText(text).then(() => {
+        showToast('参数已复制到剪贴板', 'success');
+      }).catch(() => {
+        showToast('复制失败，请手动复制', 'error');
+      });
+    }
+
+    // ===== 生成 =====
+    function doGenerate() {
+      const btn = document.getElementById('generateBtn');
+      const params = getFormData();
+      const model = modelList.find(m => m.id === params.model_id);
+      const info = modelInfo[model?.model_identifier];
+
+      if (!params.model_id || isNaN(params.model_id)) {
+        showToast('请选择音频模型', 'error');
+        return;
+      }
+      if (!params.input_text) {
+        showToast('请输入合成文本', 'error');
+        document.getElementById('inputText').focus();
+        return;
+      }
+      const limit = info?.charLimit || 5000;
+      if (params.input_text.length > limit) {
+        showToast('文本过长，当前模型上限' + limit + '字', 'error');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.innerHTML = '<span class="btn-icon">⏳</span>合成中...';
+
+      // 切换到结果tab并显示加载
+      switchTab('result', document.querySelectorAll('.preview-tab')[0]);
+      document.getElementById('resultPanel').innerHTML = `
+        <div class="preview-empty">
+          <div class="empty-icon" style="animation: pulse 1.5s infinite;">🎙️</div>
+          <h3>正在合成语音...</h3>
+          <p>AI正在努力工作，请稍候片刻</p>
+        </div>
+      `;
+
+      apiRequest('/api/generate/audio', {
+        method: 'POST',
+        body: JSON.stringify(params)
+      }).then(res => {
+        if (res.code === 0) {
+          // 更新积分显示
+          if (res.data.new_balance !== undefined) {
+            const u = getUser(); if (u) { u.credits = res.data.new_balance; localStorage.setItem("user", JSON.stringify(u)); const cn = document.getElementById("creditNum"); if (cn) cn.textContent = res.data.new_balance; }
+          }
+          startPolling(res.data.task_id);
+        } else {
+          throw new Error(res.msg || '生成失败');
+        }
+      }).catch(err => {
+        btn.disabled = false;
+        btn.innerHTML = '<span class="btn-icon">✨</span>立即合成';
+        document.getElementById('resultPanel').innerHTML = `
+          <div class="preview-empty">
+            <div class="empty-icon">❌</div>
+            <h3>生成失败</h3>
+            <p style="color: var(--danger);">${err.message}</p>
+          </div>
+        `;
+      });
+    }
+
+    // ===== 轮询结果 =====
+    function startPolling(taskId) {
+      let attempts = 0;
+      const maxAttempts = 120;
+
+      if (currentPollInterval) clearInterval(currentPollInterval);
+
+      currentPollInterval = setInterval(() => {
+        attempts++;
+        if (attempts > maxAttempts) {
+          clearInterval(currentPollInterval);
+          showTimeout();
+          return;
+        }
+
+        apiRequest('/api/generation/' + taskId).then(res => {
+          if (res.code === 0 && res.data) {
+            if (res.data.status === 'success') {
+              clearInterval(currentPollInterval);
+              showResult(res.data);
+              loadHistory();
+            } else if (res.data.status === 'failed') {
+              clearInterval(currentPollInterval);
+              showFailed(res.data.error_msg);
+              loadHistory();
+              refreshUserInfo();
+            }
+          }
+        }).catch(() => {});
+      }, 2000);
+    }
+
+    function showResult(data) {
+      const btn = document.getElementById('generateBtn');
+      btn.disabled = false;
+      btn.innerHTML = '<span class="btn-icon">✨</span>立即合成';
+
+      let result = data.result || {};
+      if (typeof result === 'string') {
+        try { result = JSON.parse(result); } catch(e) { result = {}; }
+      }
+
+      const audioUrl = result.audio_url;
+      const sizeKb = result.size ? (result.size / 1024).toFixed(1) + ' KB' : '';
+      const fileName = result.file_name || 'audio.wav';
+      const perf = result.perf || {};
+      let perfText = '';
+      if (perf.generate_seconds) perfText += '推理' + parseFloat(perf.generate_seconds).toFixed(1) + 's';
+      if (perf.audio_seconds) perfText += ' · 时长' + parseFloat(perf.audio_seconds).toFixed(1) + 's';
+      if (perf.rtf) perfText += ' · RTF ' + parseFloat(perf.rtf).toFixed(2);
+
+      document.getElementById('resultPanel').innerHTML = `
+        <div class="audio-result-card">
+          <div class="audio-result-info">
+            <span class="file-name">🎵 ${fileName}</span>
+            <span style="color: var(--text-3); font-size: 12.5px;">${sizeKb}${perfText ? ' · ' + perfText : ''}</span>
+          </div>
+          <audio controls src="${audioUrl}"></audio>
+          <div class="audio-result-actions">
+            <button class="btn-primary-sm" onclick="downloadAudio('${audioUrl}', '${fileName}')">⬇️ 下载音频</button>
+            <button class="btn-outline-sm" onclick="copyAudioLink('${audioUrl}')">🔗 复制链接</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function showFailed(errorMsg) {
+      const btn = document.getElementById('generateBtn');
+      btn.disabled = false;
+      btn.innerHTML = '<span class="btn-icon">✨</span>立即合成';
+
+      document.getElementById('resultPanel').innerHTML = `
+        <div class="preview-empty">
+          <div class="empty-icon">❌</div>
+          <h3>生成失败</h3>
+          <p style="color: var(--danger);">${errorMsg || '未知错误'}</p>
+          <p style="font-size: 12.5px; margin-top: 6px;">积分已退还</p>
+        </div>
+      `;
+    }
+
+    function showTimeout() {
+      const btn = document.getElementById('generateBtn');
+      btn.disabled = false;
+      btn.innerHTML = '<span class="btn-icon">✨</span>立即合成';
+
+      document.getElementById('resultPanel').innerHTML = `
+        <div class="preview-empty">
+          <div class="empty-icon">⏰</div>
+          <h3>生成超时</h3>
+          <p>请稍后在历史记录中查看结果</p>
+        </div>
+      `;
+    }
+
+    function downloadAudio(url, fileName) {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+
+    function copyAudioLink(url) {
+      const fullUrl = window.location.origin + url;
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(fullUrl).then(() => {
+          showToast('链接已复制到剪贴板', 'success');
+        }).catch(() => fallbackCopy(fullUrl));
+      } else {
+        fallbackCopy(fullUrl);
+      }
+    }
+
+    function fallbackCopy(text) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand('copy');
+        showToast('链接已复制到剪贴板', 'success');
+      } catch (e) {
+        showToast('复制失败，请手动复制', 'error');
+      }
+      document.body.removeChild(ta);
+    }
+
+    // ===== 音色克隆上传 =====
+    function handleRefAudioSelect(e) {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const allowedExt = ['.wav','.mp3','.flac','.ogg'];
+      const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+      if (!allowedExt.includes(ext)) {
+        showToast('不支持 ' + ext + ' 格式，请转成 wav/mp3/flac/ogg 再上传', 'error');
+        e.target.value = '';
+        return;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        showToast('音频文件不能超过 10MB', 'error');
+        e.target.value = '';
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = function(ev) {
+        const base64 = ev.target.result.split(',')[1];
+        window.__refAudioBase64 = base64;
+        document.getElementById('cloneUploadHint').style.display = 'none';
+        document.getElementById('cloneUploadLoaded').style.display = 'block';
+        document.getElementById('refAudioPreview').src = ev.target.result;
+        document.getElementById('refAudioName').textContent = file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
+        showToast('参考音频已加载', 'success');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function clearRefAudio() {
+      window.__refAudioBase64 = null;
+      document.getElementById('refAudioFile').value = '';
+      document.getElementById('refTextInput').value = '';
+      document.getElementById('cloneUploadHint').style.display = 'block';
+      document.getElementById('cloneUploadLoaded').style.display = 'none';
+      document.getElementById('refAudioPreview').src = '';
+      showToast('已清除参考音频', 'info');
+    }
+
+    // ===== Tab切换 =====
+    function switchTab(tab, el) {
+      document.querySelectorAll('.preview-tab').forEach(t => t.classList.remove('active'));
+      el.classList.add('active');
+      document.getElementById('resultPanel').style.display = (tab === 'result') ? 'block' : 'none';
+      document.getElementById('historyPanel').style.display = (tab === 'history') ? 'block' : 'none';
+    }
+
+    // ===== 历史记录 =====
+    function loadHistory() {
+      apiRequest('/api/user/generations?studio=audio&page=1&pageSize=20').then(function(res) {
+        var list = document.getElementById('historyList');
+        if (res.code === 0 && res.data && res.data.list && res.data.list.length > 0) {
+          list.innerHTML = res.data.list.map(function(item) {
+            var statusText = { success: '成功', failed: '失败', pending: '生成中' }[item.status] || item.status;
+            var title = '音频作品 #' + item.id;
+            var audioUrl = '';
+            var result = item.result || {};
+            if (result.audio_url) {
+              audioUrl = result.audio_url;
+              title = result.file_name || title;
+            }
+            var sizeText = result.size ? (result.size / 1024).toFixed(1) + ' KB' : '';
+            var html = '<div class="history-item-card" onclick="loadHistoryItem(' + item.id + ')">';
+            html += '<div class="history-item-text">' + title + '</div>';
+            html += '<div class="history-item-meta">';
+            html += '<span>' + item.created_at + ' · ' + item.credits_used + '积分' + (sizeText ? ' · ' + sizeText : '') + '</span>';
+            html += '<span class="status-pill ' + item.status + '">' + statusText + '</span>';
+            html += '</div>';
+            if (audioUrl) {
+              html += '<audio controls style="width:100%;margin-top:8px;height:32px;" src="' + audioUrl + '" onclick="event.stopPropagation()"></audio>';
+            }
+            html += '</div>';
+            return html;
+          }).join('');
+        } else {
+          list.innerHTML = '<div style="text-align: center; padding: 60px 0; color: var(--text-3);">暂无历史记录</div>';
+        }
+      }).catch(function() {});
+    }
+
+    function loadHistoryItem(id) {
+      apiRequest('/api/generation/' + id).then(res => {
+        if (res.code === 0 && res.data) {
+          switchTab('result', document.querySelectorAll('.preview-tab')[0]);
+          if (res.data.status === 'success') {
+            showResult(res.data);
+          } else if (res.data.status === 'failed') {
+            showFailed(res.data.error_msg);
+          } else {
+            document.getElementById('resultPanel').innerHTML = `
+              <div class="preview-empty">
+                <div class="empty-icon">⏳</div>
+                <h3>生成中...</h3>
+                <p>请稍候</p>
+              </div>
+            `;
+          }
+        }
+      }).catch(() => {});
+    }
+
+    // ===== 初始化 =====
+    loadModels();
+    loadHistory();
+
+    // 监听模型变化
+    document.getElementById('modelSelect').addEventListener('change', updateCost);
+  </script>
+</body>
+</html>

@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>注册 · AI工作室</title>
+  <link rel="stylesheet" href="css/style.css?v=17">
+  <style>
+    .auth-page {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+      background: linear-gradient(135deg, #FFF9F0 0%, #FDF0E0 100%);
+      position: relative;
+    }
+    .auth-page::before {
+      content: "";
+      position: absolute;
+      bottom: -200px;
+      left: -100px;
+      width: 500px;
+      height: 500px;
+      background: radial-gradient(circle, rgba(232, 196, 160, 0.15) 0%, transparent 70%);
+      border-radius: 50%;
+    }
+    .auth-card {
+      width: 100%;
+      max-width: 420px;
+      background: #fff;
+      border-radius: 24px;
+      padding: 36px;
+      box-shadow: 0 10px 40px rgba(200, 170, 140, 0.15);
+      border: 1px solid var(--border);
+      position: relative;
+      z-index: 1;
+    }
+    .auth-logo {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+    .auth-logo-icon {
+      width: 64px;
+      height: 64px;
+      border-radius: 18px;
+      background: var(--brand-light);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 30px;
+      margin: 0 auto 14px;
+    }
+    .auth-logo h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+    .auth-logo p {
+      font-size: 13px;
+      color: var(--text-2);
+    }
+    .bonus-tip {
+      background: var(--warn-bg);
+      color: #C49B5B;
+      padding: 10px 16px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .auth-form .form-group {
+      margin-bottom: 16px;
+    }
+    .auth-form .form-input {
+      padding: 12px 16px;
+      font-size: 14px;
+    }
+    .auth-btn {
+      width: 100%;
+      padding: 13px;
+      background: var(--brand);
+      border: none;
+      border-radius: var(--radius-sm);
+      color: #fff;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-top: 8px;
+    }
+    .auth-btn:hover {
+      background: var(--brand-hover);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(212, 184, 150, 0.35);
+    }
+    .auth-footer {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 13px;
+      color: var(--text-2);
+    }
+    .auth-footer a {
+      color: var(--brand);
+      font-weight: 500;
+    }
+    .back-home {
+      text-align: center;
+      margin-top: 16px;
+    }
+    .back-home a {
+      font-size: 12px;
+      color: var(--text-3);
+    }
+  </style>
+</head>
+<body>
+  <div class="auth-page">
+    <div class="auth-card">
+      <div class="auth-logo">
+        <div class="auth-logo-icon">✨</div>
+        <h1>创建账号</h1>
+        <p>开启你的 AI 创意之旅</p>
+      </div>
+      
+      <div class="bonus-tip" id="bonusTip">🎁 注册即送 100 积分，立即体验全部功能</div>
+      
+      <form class="auth-form" id="registerForm">
+        <div class="form-group">
+          <label class="form-label">用户名 <span style="color:var(--danger);font-size:11px;">3-20位</span></label>
+          <input type="text" class="form-input" id="username" placeholder="请设置用户名" required minlength="3" maxlength="20">
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">邮箱（选填）</label>
+          <input type="email" class="form-input" id="email" placeholder="用于找回密码">
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">密码 <span style="color:var(--danger);font-size:11px;">至少6位</span></label>
+          <input type="password" class="form-input" id="password" placeholder="请设置密码" required minlength="6">
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">确认密码</label>
+          <input type="password" class="form-input" id="confirmPassword" placeholder="请再次输入密码" required>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">邀请码 <span style="color:var(--text-3);font-size:11px;font-weight:400;">（选填，填了双方都有奖励）</span></label>
+          <input type="text" class="form-input" id="inviteCode" placeholder="填写邀请码，双方各得50积分">
+        </div>
+        
+        <button type="submit" class="auth-btn" id="submitBtn">注 册</button>
+      </form>
+      
+      <div class="auth-footer">
+        已有账号？ <a href="/login">立即登录</a>
+      </div>
+      
+      <div class="back-home">
+        <a href="/">← 返回首页</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/common.js?v=17"></script>
+  <script>
+    // 获取URL参数中的邀请码
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlInvite = urlParams.get('invite');
+    if (urlInvite) {
+      document.getElementById('inviteCode').value = urlInvite;
+    }
+
+    // 获取注册赠送积分
+    fetch('/api/config').then(r => r.json()).then(d => {
+      if (d.code === 0 && d.data.register_bonus) {
+        const bonus = d.data.register_bonus;
+        let tip = `🎁 注册即送 ${bonus} 积分，立即体验全部功能`;
+        if (urlInvite) tip += ' · 填写邀请码再加50积分';
+        document.getElementById('bonusTip').textContent = tip;
+      }
+    });
+
+    document.getElementById('registerForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const btn = document.getElementById('submitBtn');
+      const username = document.getElementById('username').value.trim();
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const confirmPassword = document.getElementById('confirmPassword').value;
+      const inviteCode = document.getElementById('inviteCode').value.trim();
+      
+      if (password !== confirmPassword) {
+        showToast('两次输入的密码不一致', 'error');
+        return;
+      }
+      
+      btn.disabled = true;
+      btn.textContent = '注册中...';
+      
+      try {
+        const res = await fetch('/api/user/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password, email, invite_code: inviteCode })
+        });
+        const data = await res.json();
+        
+        if (data.code === 0) {
+          localStorage.setItem('token', data.data.token);
+          localStorage.setItem('user', JSON.stringify(data.data.user));
+          showToast('注册成功', 'success');
+          setTimeout(() => window.location.href = '/', 1000);
+        } else {
+          showToast(data.msg, 'error');
+          btn.disabled = false;
+          btn.textContent = '注 册';
+        }
+      } catch (err) {
+        showToast('网络错误，请重试', 'error');
+        btn.disabled = false;
+        btn.textContent = '注 册';
+      }
+    });
+  </script>
+</body>
+</html>

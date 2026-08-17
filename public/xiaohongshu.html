@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>小红书爆款笔记工作室 · AI工作室</title>
+  <link rel="stylesheet" href="css/style.css?v=17">
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="navbar-inner">
+      <div class="logo">
+        <div class="logo-icon">🎨</div>
+        <span class="logo-text">AI工作室</span>
+      </div>
+      <div class="nav-links">
+        <a href="index.html" class="nav-link">工作室</a>
+        <a href="#" class="nav-link active">小红书笔记</a>
+        <a href="developer.html" class="nav-link">开发者平台</a>
+        <a href="#" class="nav-link">我的作品</a>
+      </div>
+      <div class="nav-right">
+        <div class="credit-badge" id="creditBadge">
+          <span class="credit-icon">💎</span>
+          <b id="creditNum">--</b> 积分
+        </div>
+        <a href="/profile" class="avatar" id="userAvatar">U</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Studio Page -->
+  <div class="studio-page">
+    <!-- Left Panel -->
+    <div class="studio-panel">
+      <div class="panel-header">
+        <a href="index.html" class="back-btn" title="返回工作室广场">←</a>
+        <div class="studio-icon-sm">📕</div>
+        <h2>小红书爆款笔记工作室</h2>
+      </div>
+
+      <div class="panel-body">
+        <!-- 基础设置 -->
+        <div class="form-section">
+          <div class="form-section-header">
+            <div class="form-section-title">
+              <span class="sec-icon">📝</span>笔记主题
+            </div>
+            <span class="form-section-toggle">▼</span>
+          </div>
+          <div class="form-fields">
+            <div class="form-group">
+              <label class="form-label">笔记类型 <span class="required">*</span></label>
+              <select class="form-select" id="noteType">
+                <option>好物分享</option>
+                <option>穿搭分享</option>
+                <option>美妆护肤</option>
+                <option>美食探店</option>
+                <option>旅行攻略</option>
+                <option>家居生活</option>
+                <option>干货科普</option>
+                <option>职场成长</option>
+                <option>Vlog 日常</option>
+                <option>健身减肥</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">主题 / 关键词 <span class="required">*</span></label>
+              <input type="text" class="form-input" id="noteTopic" placeholder="例如：夏季护肤、通勤穿搭、平价口红推荐...">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">目标人群</label>
+              <div class="tag-input-wrapper">
+                <span class="tag-item">学生党<span class="tag-close">×</span></span>
+                <span class="tag-item">上班族<span class="tag-close">×</span></span>
+                <input type="text" class="tag-input" placeholder="输入目标人群标签，回车添加">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">核心卖点 / 亮点</label>
+              <textarea class="form-textarea" id="noteHighlights" placeholder="描述产品或内容的核心亮点，例如：性价比高、颜值在线、成分安全、效果显著..."></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- 封面设置 -->
+        <div class="form-section">
+          <div class="form-section-header">
+            <div class="form-section-title">
+              <span class="sec-icon">🖼️</span>封面设置
+            </div>
+            <span class="form-section-toggle">▼</span>
+          </div>
+          <div class="form-fields">
+            <div class="form-group">
+              <label class="form-label">封面风格</label>
+              <div class="option-group cols-3">
+                <div class="option-item active">ins风</div>
+                <div class="option-item">可爱手绘</div>
+                <div class="option-item">高级感</div>
+                <div class="option-item">大字报</div>
+                <div class="option-item">拼贴风</div>
+                <div class="option-item">极简</div>
+                <div class="option-item">复古</div>
+                <div class="option-item">日系</div>
+                <div class="option-item">ins风</div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">封面比例</label>
+              <div class="option-group">
+                <div class="option-item active">3:4 竖版</div>
+                <div class="option-item">1:1 方图</div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">生成封面图</label>
+              <div class="toggle-row">
+                <span class="toggle-label">使用 AI 生成笔记封面</span>
+                <div class="toggle-switch active">
+                  <input type="hidden" value="1">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 文案设置 -->
+        <div class="form-section">
+          <div class="form-section-header">
+            <div class="form-section-title">
+              <span class="sec-icon">✍️</span>文案设置
+            </div>
+            <span class="form-section-toggle">▼</span>
+          </div>
+          <div class="form-fields">
+            <div class="form-group">
+              <label class="form-label">标题风格 <span class="text-muted text-sm">（可多选）</span></label>
+              <div class="option-group cols-2">
+                <div class="option-item active">emoji 风</div>
+                <div class="option-item active">数字型</div>
+                <div class="option-item">疑问句</div>
+                <div class="option-item">痛点型</div>
+                <div class="option-item">种草型</div>
+                <div class="option-item">反差型</div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">笔记调性</label>
+              <div class="option-group cols-3">
+                <div class="option-item active">真诚安利</div>
+                <div class="option-item">干货科普</div>
+                <div class="option-item">幽默搞笑</div>
+                <div class="option-item">温柔治愈</div>
+                <div class="option-item">酷飒拽姐</div>
+                <div class="option-item">学霸风</div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">字数要求</label>
+              <div class="slider-container">
+                <input type="range" class="slider" id="noteLength" min="200" max="2000" step="100" value="600" data-suffix="字">
+                <span class="slider-value">600字</span>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">生成数量</label>
+              <div class="number-stepper">
+                <button class="stepper-btn minus">−</button>
+                <input type="number" class="stepper-input" id="noteCount" value="3" min="1" max="10">
+                <button class="stepper-btn plus">+</button>
+              </div>
+              <span class="text-xs text-muted" style="margin-left: 12px;">最多 10 篇</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 标签设置 -->
+        <div class="form-section">
+          <div class="form-section-header">
+            <div class="form-section-title">
+              <span class="sec-icon">🏷️</span>标签设置
+            </div>
+            <span class="form-section-toggle">▼</span>
+          </div>
+          <div class="form-fields">
+            <div class="toggle-row">
+              <span class="toggle-label">自动生成热门标签</span>
+              <div class="toggle-switch active">
+                <input type="hidden" value="1">
+              </div>
+            </div>
+            <div class="form-group mt-12">
+              <label class="form-label">自定义标签</label>
+              <div class="tag-input-wrapper">
+                <input type="text" class="tag-input" placeholder="输入自定义标签，回车添加">
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">标签数量</label>
+              <div class="option-group cols-3">
+                <div class="option-item">3-5 个</div>
+                <div class="option-item active">6-10 个</div>
+                <div class="option-item">10-15 个</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 高级设置 -->
+        <div class="form-section collapsed">
+          <div class="form-section-header">
+            <div class="form-section-title">
+              <span class="sec-icon">🔬</span>高级设置
+            </div>
+            <span class="form-section-toggle">▼</span>
+          </div>
+          <div class="form-fields">
+            <div class="form-group">
+              <label class="form-label">LLM 模型选择</label>
+              <select class="form-select" id="llmModel">
+                <option value="">加载中...</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">特殊要求</label>
+              <textarea class="form-textarea" placeholder="其他特殊要求，例如：加入某品牌名、突出某功能点、模仿某博主风格..."></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-footer">
+        <div class="cost-info">
+          <span class="cost-label">预计消耗</span>
+          <span class="cost-value" id="costDisplay">💎 15 积分</span>
+        </div>
+        <button class="generate-btn" id="generateBtn">
+          <span class="btn-icon">✨</span>生成爆款笔记
+        </button>
+      </div>
+    </div>
+
+    <!-- Right Preview -->
+    <div class="preview-area">
+      <div class="preview-header">
+        <div class="preview-title">
+          <span>📝 预览区域</span>
+        </div>
+        <div class="preview-actions">
+          <button class="action-btn" onclick="showToast('已复制全部文案','success')">📋 复制全部</button>
+          <button class="action-btn" onclick="showToast('参数模板已保存','success')">💾 保存模板</button>
+        </div>
+      </div>
+
+      <div class="preview-content" id="previewContent">
+        <div class="preview-empty">
+          <div class="empty-icon">📕</div>
+          <h3>生成爆款小红书笔记</h3>
+          <p>填写左侧的笔记主题、风格等参数，点击「生成爆款笔记」，AI 将为您生成高点击率的封面 + 种草文案 + 热门标签。</p>
+          <div style="margin-top: 24px; display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;">
+            <div style="text-align: center;">
+              <div style="font-size: 28px; margin-bottom: 4px;">🚀</div>
+              <div class="text-xs text-muted">30 秒出稿</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 28px; margin-bottom: 4px;">💎</div>
+              <div class="text-xs text-muted">爆款标题</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 28px; margin-bottom: 4px;">🏷️</div>
+              <div class="text-xs text-muted">热门标签</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/common.js?v=17"></script>
+  <script src="js/app.js?v=17"></script>
+  <script>
+    // 登录检查
+    if (!isLoggedIn()) {
+      showToast('请先登录', 'error');
+      setTimeout(() => window.location.href = '/login', 800);
+    }
+
+    initCommonComponents();
+
+    // 动态加载文本模型
+    async function loadModels() {
+      const data = await apiRequest('/api/models?type=text');
+      if (data.code === 0) {
+        const select = document.getElementById('llmModel');
+        if (select && data.data.length > 0) {
+          select.innerHTML = data.data.map(m => 
+            `<option value="${m.id}">${m.name} (${m.model_identifier}) - ${m.price_per_call}积分/次${m.is_default ? ' · 默认' : ''}</option>`
+          ).join('');
+          updateCost();
+        }
+      }
+    }
+
+    function updateCost() {
+      const count = parseInt(document.getElementById('noteCount').value) || 1;
+      const modelId = document.getElementById('llmModel')?.value;
+      if (!modelId || isNaN(modelId)) return;
+      
+      apiRequest('/api/calculate-cost', {
+        method: 'POST',
+        body: JSON.stringify({ model_id: parseInt(modelId), count })
+      }).then(data => {
+        if (data.code === 0) {
+          document.getElementById('costDisplay').textContent = '💎 ' + data.data.cost + ' 积分';
+        }
+      });
+    }
+
+    // 获取选中的目标人群
+    function getActiveOptionText(selector) {
+      const active = document.querySelector(selector + ' .option-item.active');
+      return active ? active.textContent.trim() : '';
+    }
+
+    // Generate button
+    document.getElementById('generateBtn').addEventListener('click', async function() {
+      const btn = this;
+      const topic = document.getElementById('noteTopic').value.trim();
+      
+      if (!topic) {
+        showToast('请填写笔记主题/关键词', 'error');
+        return;
+      }
+      
+      const count = parseInt(document.getElementById('noteCount').value) || 3;
+      
+      btn.classList.add('loading');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="btn-icon">⏳</span>创作中...';
+      
+      // 收集表单数据
+      const formData = {
+        model_id: parseInt(document.getElementById('llmModel').value),
+        note_type: document.getElementById('noteType').value,
+        topic: topic,
+        target_audience: getActiveOptionText('.form-section:nth-of-type(2) .form-group:nth-of-type(1)') || '年轻女性',
+        cover_style: getActiveOptionText('.form-section:nth-of-type(3) .form-group:nth-of-type(1)') || '简约风',
+        title_style: getActiveOptionText('.form-section:nth-of-type(3) .form-group:nth-of-type(2)') || 'emoji风',
+        tone: getActiveOptionText('.form-section:nth-of-type(3) .form-group:nth-of-type(3)') || '真诚安利',
+        word_count: parseInt(document.getElementById('noteLength').value) || 600,
+        count: count,
+        tag_count: 5
+      };
+      
+      try {
+        const data = await apiRequest('/api/generate/xiaohongshu', {
+          method: 'POST',
+          body: JSON.stringify(formData)
+        });
+        
+        if (data.code === 402 || data.code === 401) {
+          showToast(data.msg, 'error');
+          btn.classList.remove('loading');
+          btn.disabled = false;
+          btn.innerHTML = '<span class="btn-icon">✨</span>生成爆款笔记';
+          if (data.code === 401) {
+            setTimeout(() => window.location.href = '/login', 1000);
+          }
+          return;
+        }
+        if (data.code !== 0) {
+          showToast(data.msg, 'error');
+          btn.classList.remove('loading');
+          btn.disabled = false;
+          btn.innerHTML = '<span class="btn-icon">✨</span>生成爆款笔记';
+          return;
+        }
+        
+        // 更新积分
+        if (data.data.new_balance != null) {
+          const user = getUser();
+          user.credits = data.data.new_balance;
+          localStorage.setItem('user', JSON.stringify(user));
+          updateNavAuth();
+        }
+        
+        const versions = data.data.result || [];
+        displayTextResults(versions, '小红书笔记');
+        
+        btn.classList.remove('loading');
+        btn.disabled = false;
+        btn.innerHTML = '<span class="btn-icon">✨</span>重新生成';
+        showToast('生成成功！' + versions.length + ' 篇爆款笔记已生成', 'success');
+        refreshUserInfo();
+      } catch (err) {
+        showToast('生成失败：' + err.message, 'error');
+        btn.classList.remove('loading');
+        btn.disabled = false;
+        btn.innerHTML = '<span class="btn-icon">✨</span>生成爆款笔记';
+      }
+    });
+    
+    // 加载模型列表
+    loadModels();
+    
+    // 监听数量变化更新价格
+    document.getElementById('noteCount')?.addEventListener('input', updateCost);
+    document.getElementById('llmModel')?.addEventListener('change', updateCost);
+  </script>
+</body>
+</html>

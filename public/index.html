@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI工作室 · 一站式AI创意生产平台</title>
+  <link rel="stylesheet" href="css/style.css?v=27">
+  <style>
+    /* Cream style inline overrides for hero & sections */
+    .hero h1 {
+      background: none;
+      -webkit-text-fill-color: initial;
+      color: var(--text);
+    }
+    /* 搜索框 */
+    .hero-search {
+      max-width: 540px;
+      margin: 0 auto 32px;
+      position: relative;
+    }
+    .hero-search-input {
+      width: 100%;
+      padding: 16px 20px 16px 48px;
+      background: #fff;
+      border: 2px solid var(--border);
+      border-radius: 999px;
+      font-size: 15px;
+      color: var(--text);
+      outline: none;
+      transition: all 0.25s;
+      box-shadow: var(--shadow-sm);
+    }
+    .hero-search-input:focus {
+      border-color: var(--brand);
+      box-shadow: 0 0 0 6px rgba(212, 184, 150, 0.15);
+    }
+    .hero-search-icon {
+      position: absolute;
+      left: 18px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 18px;
+      color: var(--text-3);
+    }
+    .search-dropdown {
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 0;
+      right: 0;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-lg);
+      max-height: 360px;
+      overflow-y: auto;
+      z-index: 100;
+      display: none;
+    }
+    .search-dropdown.show { display: block; }
+    .search-section-title {
+      padding: 10px 16px 6px;
+      font-size: 11.5px;
+      color: var(--text-3);
+      font-weight: 500;
+      letter-spacing: 0.05em;
+    }
+    .search-item {
+      padding: 10px 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      transition: background 0.15s;
+    }
+    .search-item:hover { background: var(--brand-soft); }
+    .search-item-icon { font-size: 20px; }
+    .search-item-info { flex: 1; }
+    .search-item-name { font-size: 13.5px; font-weight: 500; color: var(--text); }
+    .search-item-desc { font-size: 11.5px; color: var(--text-3); margin-top: 1px; }
+    .search-hot-tags {
+      padding: 10px 16px 14px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .search-hot-tag {
+      padding: 4px 12px;
+      background: var(--brand-soft);
+      color: var(--text-2);
+      border-radius: 999px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .search-hot-tag:hover { background: var(--brand); color: #fff; }
+    .search-empty {
+      padding: 24px;
+      text-align: center;
+      color: var(--text-3);
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="navbar-inner">
+      <div class="logo">
+        <div class="logo-icon">🎨</div>
+        <span class="logo-text">AI工作室</span>
+      </div>
+      <div class="nav-links">
+        <a href="#studios" class="nav-link active">工作室</a>
+        <a href="developer.html" class="nav-link">开发者平台</a>
+        <a href="/profile.html" class="nav-link" id="navMyWorks" style="display:none;">我的作品</a>
+      </div>
+      <div class="nav-right">
+        <div class="credit-badge" id="creditBadge" style="display:none;">
+          <span class="credit-icon">💎</span>
+          <b id="creditNum">--</b> 积分
+        </div>
+        <div id="navAuthLinks" style="display:flex;gap:8px;align-items:center;">
+          <a href="/login" class="nav-link" style="padding:6px 14px;">登录</a>
+          <a href="/register" style="padding:8px 18px;background:var(--brand);color:#fff;border-radius:10px;font-size:13px;font-weight:500;">注册</a>
+        </div>
+        <div class="avatar" id="userAvatar" style="display:none;">U</div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-inner">
+      <div class="badge"><span class="dot"></span>一站式 AI 创意生产平台</div>
+      <h1>场景化 AI 工作室<br>让创意生产像点外卖一样简单</h1>
+      <p class="sub">精选多个垂直场景的 AI 工作室，电商套图、爆款笔记、海报设计、文案撰写、PPT生成、短视频脚本、简历优化、AI头像……点选即用，无需技术背景，一键生成专业级创意产物。</p>
+      <div class="hero-search">
+        <span class="hero-search-icon">🔍</span>
+        <input type="text" class="hero-search-input" id="heroSearch" placeholder="搜索工作室，如：电商、海报、PPT、头像..." autocomplete="off">
+        <div class="search-dropdown" id="searchDropdown">
+          <div class="search-section-title">热门搜索</div>
+          <div class="search-hot-tags" id="hotSearchTags"></div>
+          <div id="searchResults"></div>
+        </div>
+      </div>
+      <button class="generate-btn" style="max-width: 240px; margin: 0 auto; display: block;" onclick="document.getElementById('studios').scrollIntoView({behavior:'smooth'})">
+        <span class="btn-icon">🚀</span>立即开始创作
+      </button>
+      <div class="hero-stats">
+        <div class="hero-stat">
+          <div class="num">9+</div>
+          <div class="label">工作室品类</div>
+        </div>
+        <div class="hero-stat">
+          <div class="num">99%</div>
+          <div class="label">生成成功率</div>
+        </div>
+        <div class="hero-stat">
+          <div class="num">60s</div>
+          <div class="label">平均出图速度</div>
+        </div>
+        <div class="hero-stat">
+          <div class="num">10万+</div>
+          <div class="label">用户信赖</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Studios Grid -->
+  <section class="studios-section" id="studios">
+    <div class="section-header">
+      <div>
+        <div class="section-title">
+          工作室广场
+          <span class="section-sub">选择一个工作室，开始创作</span>
+        </div>
+      </div>
+      <div class="category-tabs">
+        <div class="category-tab active">全部</div>
+        <div class="category-tab">电商</div>
+        <div class="category-tab">社媒</div>
+        <div class="category-tab">设计</div>
+        <div class="category-tab">文案</div>
+        <div class="category-tab">办公</div>
+        <div class="category-tab">工具</div>
+      </div>
+    </div>
+
+    <div class="studio-grid">
+      <!-- AI图片生成工作室 -->
+      <a href="image.html?v=223" class="studio-card" data-category="设计">
+        <div class="arrow">→</div>
+        <div class="studio-icon">🖼️</div>
+        <h3>AI图片生成工作室</h3>
+        <p>文生图+图生图，多模型多风格自由创作，用文字画出你的无限想象。</p>
+        <div class="studio-meta">
+          <div class="studio-tags">
+            <span class="studio-tag hot">🔥 热门</span>
+            <span class="studio-tag">设计</span>
+          </div>
+          <div class="studio-credit">约 <b>5-20</b> 积分/张</div>
+        </div>
+      </a>
+
+      <!-- AI视频生成工作室 -->
+      <a href="video-gen.html" class="studio-card" data-category="社媒">
+        <div class="arrow">→</div>
+        <div class="studio-icon">🎬</div>
+        <h3>AI视频生成工作室</h3>
+        <p>文生视频+图生视频，AI一键生成高质量视频内容，创意秒变大片！</p>
+        <div class="studio-meta">
+          <div class="studio-tags">
+            <span class="studio-tag hot">🔥 新品</span>
+            <span class="studio-tag">社媒</span>
+          </div>
+          <div class="studio-credit">按秒计费</div>
+        </div>
+      </a>
+
+      <!-- GIF表情包工作室 -->
+      <a href="gif.html" class="studio-card" data-category="社媒">
+        <div class="arrow">→</div>
+        <div class="studio-icon">🎞️</div>
+        <h3>GIF表情包工作室</h3>
+        <p>文生GIF+图生GIF，AI生成专属动态表情包，聊天斗图再也不怕输！</p>
+        <div class="studio-meta">
+          <div class="studio-tags">
+            <span class="studio-tag hot">🔥 新品</span>
+            <span class="studio-tag">社媒</span>
+          </div>
+          <div class="studio-credit">约 <b>30-100</b> 积分/张</div>
+        </div>
+      </a>
+
+      <!-- 音频合成工作室 -->
+      <a href="audio.html" class="studio-card" data-category="工具">
+        <div class="arrow">→</div>
+        <div class="studio-icon">🎙️</div>
+        <h3>音频合成工作室</h3>
+        <p>文字转语音TTS，AI生成自然流畅人声，支持多种音频格式导出。</p>
+        <div class="studio-meta">
+          <div class="studio-tags">
+            <span class="studio-tag new">✨ 新品</span>
+            <span class="studio-tag">工具</span>
+          </div>
+          <div class="studio-credit">按次计费</div>
+        </div>
+      </a>
+
+      <!-- 提示词反推工作室 -->
+      <a href="prompt-extract.html" class="studio-card" data-category="工具">
+        <div class="arrow">→</div>
+        <div class="studio-icon">🔍</div>
+        <h3>提示词反推工作室</h3>
+        <p>上传图片/视频，AI自动反推提示词，支持通用、Midjourney、关键词等多种格式。</p>
+        <div class="studio-meta">
+          <div class="studio-tags">
+            <span class="studio-tag hot">🔥 新上线</span>
+            <span class="studio-tag">工具</span>
+          </div>
+          <div class="studio-credit">约 <b>5-20</b> 积分/次</div>
+        </div>
+      </a>
+
+      <!-- 图片编辑器工作室 -->
+      <a href="editor.html" class="studio-card" data-category="设计">
+        <div class="arrow">→</div>
+        <div class="studio-icon">✏️</div>
+        <h3>图片编辑工作室</h3>
+        <p>批量贴纸、水印、文字、改尺寸、AI换场景、抠图，电商出图一站式编辑。</p>
+        <div class="studio-meta">
+          <div class="studio-tags">
+            <span class="studio-tag">设计</span>
+            <span class="studio-tag">效率</span>
+          </div>
+          <div class="studio-credit">基础免费用</div>
+        </div>
+      </a>
+
+      <!-- 电商套图工作室 -->
+      <a href="ecommerce.html" class="studio-card" data-category="电商">
+        <div class="arrow">→</div>
+        <div class="studio-icon">🏪</div>
+        <h3>电商套图工作室</h3>
+        <p>一键生成商品主图、场景图、推广图，支持多平台尺寸规范，批量产出高质量电商图片。</p>
+        <div class="studio-meta">
+          <div class="studio-tags">
+            <span class="studio-tag hot">🔥 热门</span>
+            <span class="studio-tag">图片</span>
+          </div>
+          <div class="studio-credit">约 <b>10-30</b> 积分/张</div>
+        </div>
+      </a>
+
+      <!-- 小红书爆款笔记工作室 -->
+      <a href="xiaohongshu.html" class="studio-card" data-category="社媒">
+        <div class="arrow">→</div>
+        <div class="studio-icon">📕</div>
+        <h3>小红书爆款笔记工作室</h3>
+        <p>爆款封面 + 种草文案 + 热门标签，一键生成高点击率小红书笔记全套内容。</p>
+        <div class="studio-meta">
+          <div class="studio-tags">
+            <span class="studio-tag hot">🔥 热门</span>
+            <span class="studio-tag">文案</span>
+          </div>
+          <div class="studio-credit">约 <b>5-15</b> 积分/套</div>
+        </div>
+      </a>
+
+      <!-- AI头像工作室 -->
+      <a href="avatar.html" class="studio-card" data-category="设计">
+        <div class="arrow">→</div>
+        <div class="studio-icon">👤</div>
+        <h3>AI头像工作室</h3>
+        <p>证件照、职业形象照、动漫风、油画风……多种风格，一键生成你的专属 AI 头像。</p>
+        <div class="studio-meta">
+          <div class="studio-tags">
+            <span class="studio-tag">图片</span>
+            <span class="studio-tag">头像</span>
+          </div>
+          <div class="studio-credit">约 <b>10-30</b> 积分/张</div>
+        </div>
+      </a>
+
+      <!-- 海报工厂工作室 -->
+      <a href="poster.html" class="studio-card" data-category="设计">
+        <div class="arrow">→</div>
+        <div class="studio-icon">🎨</div>
+        <h3>海报工厂工作室</h3>
+        <p>活动海报、节日海报、产品海报，多种风格模板，输入主题一键生成专业海报。</p>
+        <div class="studio-meta">
+          <div class="studio-tags">
+            <span class="studio-tag">设计</span>
+            <span class="studio-tag">图片</span>
+          </div>
+          <div class="studio-credit">约 <b>8-20</b> 积分/张</div>
+        </div>
+      </a>
+
+      <!-- PPT生成工作室 -->
+      <a href="ppt.html" class="studio-card" data-category="办公">
+        <div class="arrow">→</div>
+        <div class="studio-icon">📊</div>
+        <h3>PPT生成工作室</h3>
+        <p>输入主题和大纲，AI 自动生成精美 PPT 大纲，多种模板风格，结构清晰专业。</p>
+        <div class="studio-meta">
+          <div class="studio-tags">
+            <span class="studio-tag hot">🔥 热门</span>
+            <span class="studio-tag">办公</span>
+          </div>
+          <div class="studio-credit">约 <b>5-15</b> 积分/份</div>
+        </div>
+      </a>
+
+      <!-- AI文案工作室 -->
+      <a href="copywriting.html" class="studio-card" data-category="文案">
+        <div class="arrow">→</div>
+        <div class="studio-icon">✍️</div>
+        <h3>AI文案工作室</h3>
+        <p>产品文案、品牌文案、广告语、朋友圈文案……多种文案类型，风格任选，快速出稿。</p>
+        <div class="studio-meta">
+          <div class="studio-tags">
+            <span class="studio-tag">文案</span>
+            <span class="studio-tag">高效</span>
+          </div>
+          <div class="studio-credit">约 <b>2-8</b> 积分/篇</div>
+        </div>
+      </a>
+
+      <!-- 短视频脚本工作室 -->
+      <a href="video.html" class="studio-card" data-category="社媒">
+        <div class="arrow">→</div>
+        <div class="studio-icon">🎬</div>
+        <h3>短视频脚本工作室</h3>
+        <p>AI 生成短视频分镜脚本、口播文案和热门标签，适用于抖音、小红书、视频号等平台。</p>
+        <div class="studio-meta">
+          <div class="studio-tags">
+            <span class="studio-tag">社媒</span>
+            <span class="studio-tag">脚本</span>
+          </div>
+          <div class="studio-credit">约 <b>8-20</b> 积分/份</div>
+        </div>
+      </a>
+
+      <!-- 简历优化工作室 -->
+      <a href="resume.html" class="studio-card" data-category="办公">
+        <div class="arrow">→</div>
+        <div class="studio-icon">📄</div>
+        <h3>简历优化工作室</h3>
+        <p>STAR 法则重写工作经历，数据量化成果，多版本优化，助力求职面试脱颖而出。</p>
+        <div class="studio-meta">
+          <div class="studio-tags">
+            <span class="studio-tag">办公</span>
+            <span class="studio-tag">求职</span>
+          </div>
+          <div class="studio-credit">约 <b>10-25</b> 积分/份</div>
+        </div>
+      </a>
+
+      <!-- AI证件照工作室 -->
+      <a href="idphoto.html" class="studio-card" data-category="工具">
+        <div class="arrow">→</div>
+        <div class="studio-icon">📷</div>
+        <h3>AI证件照工作室</h3>
+        <p>上传自拍一键生成专业证件照，多种尺寸+背景色+正装模板，支持排版打印</p>
+        <div class="studio-meta">
+          <div class="studio-tags">
+            <span class="studio-tag hot">🔥 新上线</span>
+            <span class="studio-tag">工具</span>
+          </div>
+          <div class="studio-credit">约 <b>10-50</b> 积分/张</div>
+        </div>
+      </a>
+
+      <!-- 视频换人工作室 -->
+      <a href="video-face-swap.html" class="studio-card" data-category="社媒">
+        <div class="arrow">→</div>
+        <div class="studio-icon">🎭</div>
+        <h3>视频换人工作室</h3>
+        <p>上传参考视频+角色图，AI一键将视频中的人物替换为指定角色，创意视频轻松制作。</p>
+        <div class="studio-meta">
+          <div class="studio-tags">
+            <span class="studio-tag hot">🔥 新上线</span>
+            <span class="studio-tag">社媒</span>
+          </div>
+          <div class="studio-credit">按秒计费</div>
+        </div>
+      </a>
+    </div>
+  </section>
+
+
+
+  <!-- Footer -->
+  <footer class="footer">
+    AI工作室 · 让创意生产更简单 · © 2026
+  </footer>
+
+  <script src="js/common.js?v=17"></script>
+  <script src="js/app.js?v=17"></script>
+  <script>
+    // Category filter
+    document.querySelectorAll('.category-tab').forEach(tab => {
+      tab.addEventListener('click', function() {
+        document.querySelectorAll('.category-tab').forEach(t => t.classList.remove('active'));
+        this.classList.add('active');
+        
+        const category = this.textContent.trim();
+        const cards = document.querySelectorAll('.studio-card');
+        cards.forEach(card => {
+          if (category === '全部' || card.dataset.category === category) {
+            card.style.display = '';
+          } else {
+            card.style.display = 'none';
+          }
+        });
+      });
+    });
+    
+    // 点击工作室卡片检查登录
+    document.querySelectorAll('.studio-card[data-category]').forEach(card => {
+      card.addEventListener('click', function(e) {
+        if (!isLoggedIn()) {
+          e.preventDefault();
+          showToast('请先登录后使用', 'error');
+          setTimeout(() => window.location.href = '/login', 800);
+        }
+      });
+    });
+
+    // ===== 首页搜索 =====
+    const searchInput = document.getElementById('heroSearch');
+    const searchDropdown = document.getElementById('searchDropdown');
+    const searchResults = document.getElementById('searchResults');
+    const hotTagsEl = document.getElementById('hotSearchTags');
+
+    const hotKeywords = ['电商套图', '小红书笔记', '海报设计', 'PPT生成', '短视频脚本', '简历优化', 'AI头像', 'AI图片生成', '产品文案', '种草文案'];
+    hotTagsEl.innerHTML = hotKeywords.map(k => `<span class="search-hot-tag" onclick="doSearch('${k}')">${k}</span>`).join('');
+
+    let searchTimer = null;
+    searchInput.addEventListener('input', function() {
+      const val = this.value.trim();
+      clearTimeout(searchTimer);
+      if (!val) {
+        searchResults.innerHTML = '';
+        searchDropdown.classList.add('show');
+        hotTagsEl.parentElement.style.display = '';
+        return;
+      }
+      searchTimer = setTimeout(() => fetchSearch(val), 200);
+    });
+
+    searchInput.addEventListener('focus', function() {
+      searchDropdown.classList.add('show');
+    });
+
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('.hero-search')) {
+        searchDropdown.classList.remove('show');
+      }
+    });
+
+    async function fetchSearch(keyword) {
+      try {
+        const res = await fetch('/api/search/all?keyword=' + encodeURIComponent(keyword));
+        const data = await res.json();
+        if (data.code !== 0) return;
+
+        hotTagsEl.parentElement.style.display = 'none';
+
+        if (data.data.studios.length === 0) {
+          searchResults.innerHTML = `
+            <div class="search-section-title">搜索结果</div>
+            <div class="search-empty">未找到相关工作室，换个关键词试试~</div>
+          `;
+          return;
+        }
+
+        searchResults.innerHTML = `
+          <div class="search-section-title">工作室</div>
+          ${data.data.studios.map(s => `
+            <div class="search-item" onclick="gotoStudio('${s.type}')">
+              <span class="search-item-icon">${s.icon}</span>
+              <div class="search-item-info">
+                <div class="search-item-name">${s.name}</div>
+                <div class="search-item-desc">${s.desc}</div>
+              </div>
+              <span style="color:var(--text-3);font-size:12px;">进入 →</span>
+            </div>
+          `).join('')}
+        `;
+        searchDropdown.classList.add('show');
+      } catch (e) {}
+    }
+
+    window.doSearch = function(kw) {
+      searchInput.value = kw;
+      fetchSearch(kw);
+    };
+
+    window.gotoStudio = function(type) {
+      const map = { 
+        ecommerce: 'ecommerce.html', 
+        xiaohongshu: 'xiaohongshu.html', 
+        poster: 'poster.html', 
+        copywriting: 'copywriting.html',
+        ppt: 'ppt.html',
+        video: 'video.html',
+        resume: 'resume.html',
+        avatar: 'avatar.html',
+        image: 'image.html?v=223'
+      };
+      const url = map[type];
+      if (url) {
+        if (isLoggedIn()) window.location.href = url;
+        else { showToast('请先登录后使用', 'error'); setTimeout(() => window.location.href = '/login', 800); }
+      }
+    };
+  </script>
+</body>
+</html>

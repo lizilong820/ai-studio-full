@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>视频换人工作室 · AI工作室</title>
+  <link rel="stylesheet" href="css/style.css?v=29">
+  <style>
+    /* 上传双栏 */
+    .upload-pair {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .upload-box {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius-sm);
+      padding: 24px 12px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      background: var(--bg-soft);
+      min-height: 140px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .upload-box:hover {
+      border-color: var(--brand);
+      background: var(--brand-soft);
+    }
+    .upload-box .upload-icon { font-size: 28px; margin-bottom: 8px; opacity: 0.7; }
+    .upload-box .upload-title { font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 4px; }
+    .upload-box .upload-desc { font-size: 11px; color: var(--text-3); line-height: 1.4; }
+    .upload-box.has-file { padding: 8px; border-style: solid; border-color: var(--brand-light); background: var(--brand-soft); }
+    .upload-box video, .upload-box img {
+      max-width: 100%;
+      max-height: 160px;
+      border-radius: var(--radius-sm);
+      object-fit: contain;
+    }
+
+    /* 结果视频 */
+    .result-video-wrap {
+      width: 100%;
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      background: #000;
+    }
+    .result-video-wrap video {
+      width: 100%;
+      display: block;
+    }
+
+    /* 进度条 */
+    .progress-bar-container {
+      width: 100%;
+      height: 6px;
+      background: var(--bg-soft);
+      border-radius: 3px;
+      overflow: hidden;
+      margin: 14px 0 10px;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--brand), var(--brand-light));
+      border-radius: 3px;
+      transition: width 0.3s ease;
+    }
+
+    /* 生成状态 */
+    .generating-status {
+      text-align: center;
+      padding: 40px 20px;
+    }
+    .generating-status .spinner {
+      width: 42px; height: 42px;
+      border: 3px solid var(--brand-soft);
+      border-top-color: var(--brand);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .generating-status p { color: var(--text-2); font-size: 13.5px; margin-bottom: 4px; }
+    .generating-status .progress-text { color: var(--brand); font-weight: 500; font-size: 13px; }
+
+    /* 下载按钮 */
+    .download-btn {
+      display: inline-block;
+      padding: 8px 18px;
+      background: var(--brand);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      margin-top: 14px;
+      text-decoration: none;
+      transition: all 0.2s ease;
+    }
+    .download-btn:hover { background: var(--brand-dark); }
+
+    /* 提示框 */
+    .tip-box {
+      background: var(--brand-soft);
+      border-left: 3px solid var(--brand);
+      padding: 10px 12px;
+      border-radius: 0 8px 8px 0;
+      font-size: 12px;
+      color: var(--text-2);
+      line-height: 1.6;
+      margin-top: 12px;
+    }
+
+    /* 空状态 */
+    .preview-empty-video {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      min-height: 320px;
+    }
+    .preview-empty-video .empty-icon { font-size: 56px; margin-bottom: 12px; opacity: 0.4; }
+    .preview-empty-video h3 { font-size: 16px; color: var(--text-2); margin-bottom: 6px; }
+    .preview-empty-video p { font-size: 13px; color: var(--text-3); text-align: center; max-width: 340px; line-height: 1.6; }
+    .preview-empty-video .feat-row {
+      display: flex;
+      gap: 24px;
+      margin-top: 24px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .preview-empty-video .feat-item { text-align: center; }
+    .preview-empty-video .feat-item .feat-icon { font-size: 26px; margin-bottom: 4px; }
+    .preview-empty-video .feat-item .feat-text { font-size: 12px; color: var(--text-3); }
+
+    .result-card {
+      width: 100%;
+    }
+    .result-card .result-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-2);
+      margin-bottom: 10px;
+    }
+
+    /* 模型选择 */
+    .model-select option { padding: 10px; }
+  </style>
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="navbar-inner">
+      <div class="logo">
+        <div class="logo-icon">🎨</div>
+        <span class="logo-text">AI工作室</span>
+      </div>
+      <div class="nav-links">
+        <a href="index.html" class="nav-link">工作室</a>
+        <a href="#" class="nav-link active">视频换人</a>
+        <a href="developer.html" class="nav-link">开发者平台</a>
+        <a href="/profile.html" class="nav-link" id="navMyWorks" style="display:none;">我的作品</a>
+      </div>
+      <div class="nav-right">
+        <div class="credit-badge" id="creditBadge" style="display:none;">
+          <span class="credit-icon">💎</span>
+          <b id="creditNum">--</b> 积分
+        </div>
+        <div id="navAuthLinks" style="display:flex;gap:8px;align-items:center;">
+          <a href="/login" class="nav-link" style="padding:6px 14px;">登录</a>
+          <a href="/register" style="padding:8px 18px;background:var(--brand);color:#fff;border-radius:10px;font-size:13px;font-weight:500;">注册</a>
+        </div>
+        <div class="avatar" id="userAvatar" style="display:none;">U</div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Studio Page -->
+  <div class="studio-page">
+    <!-- Left Panel -->
+    <div class="studio-panel">
+      <div class="panel-header">
+        <a href="index.html" class="back-btn" title="返回工作室广场">←</a>
+        <div class="studio-icon-sm">🔄</div>
+        <h2>视频换人工作室</h2>
+      </div>
+
+      <div class="panel-body">
+        <!-- 模型选择 -->
+        <div class="form-section">
+          <div class="form-section-header">
+            <div class="form-section-title">
+              <span class="sec-icon">🧠</span>选择模型
+            </div>
+          </div>
+          <div class="form-fields">
+            <div class="form-group">
+              <select class="form-select model-select" id="modelSelect">
+                <option value="">加载中...</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- 上传文件 -->
+        <div class="form-section">
+          <div class="form-section-header">
+            <div class="form-section-title">
+              <span class="sec-icon">📤</span>上传素材
+            </div>
+          </div>
+          <div class="form-fields">
+            <div class="upload-pair">
+              <div class="upload-box" id="videoUploadBox">
+                <input type="file" id="videoInput" accept="video/*" style="display:none;">
+                <span class="upload-icon">🎬</span>
+                <div class="upload-title">参考视频</div>
+                <div class="upload-desc">点击上传 MP4 等视频</div>
+              </div>
+              <div class="upload-box" id="faceUploadBox">
+                <input type="file" id="faceInput" accept="image/*" style="display:none;">
+                <span class="upload-icon">🖼️</span>
+                <div class="upload-title">角色参考图</div>
+                <div class="upload-desc">点击上传人物照片</div>
+              </div>
+            </div>
+            <div class="tip-box">
+              💡 建议：参考视频选择正面清晰、光线均匀的素材；角色参考图选择五官清晰的正脸照片，效果更佳。
+            </div>
+          </div>
+        </div>
+
+        <!-- 提示词（可选） -->
+        <div class="form-section">
+          <div class="form-section-header">
+            <div class="form-section-title">
+              <span class="sec-icon">✍️</span>补充描述
+              <span style="font-weight:400;color:var(--text-3);font-size:12px;">(可选)</span>
+            </div>
+          </div>
+          <div class="form-fields">
+            <div class="form-group">
+              <textarea class="form-textarea" id="promptInput" rows="3" placeholder="对替换后的人物或场景的补充描述，如：保持原视频动作，服装风格不变"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- 生成按钮 -->
+        <div class="generate-section">
+          <div class="cost-info">
+            <span class="cost-label">预计消耗</span>
+            <span class="cost-value" id="costDisplay">💎 -- 积分</span>
+          </div>
+          <button class="generate-btn" id="generateBtn">
+            <span class="btn-icon">✨</span>开始换脸
+          </button>
+        </div>
+
+        <div class="credit-hint" id="creditHint">
+          登录后查看积分余额
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Preview -->
+    <div class="preview-area">
+      <div class="preview-header">
+        <div class="preview-title">
+          <span>🔄 生成结果</span>
+        </div>
+      </div>
+
+      <div class="preview-content" id="previewContent">
+        <div class="preview-empty-video">
+          <div class="empty-icon">🔄</div>
+          <h3>上传视频和角色图，一键换人</h3>
+          <p>选择视频换人模型，上传参考视频和角色参考图，AI 将自动把视频中的人物替换为参考图中的角色，保留原视频的动作和场景。</p>
+          <div class="feat-row">
+            <div class="feat-item">
+              <div class="feat-icon">🎬</div>
+              <div class="feat-text">保留动作</div>
+            </div>
+            <div class="feat-item">
+              <div class="feat-icon">🖼️</div>
+              <div class="feat-text">高清还原</div>
+            </div>
+            <div class="feat-item">
+              <div class="feat-icon">⚡</div>
+              <div class="feat-text">快速生成</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/common.js?v=29"></script>
+  <script src="js/app.js?v=29"></script>
+  <script>
+    function $(id) { return document.getElementById(id); }
+
+    // ========== 加载模型 ==========
+    let currentModel = null;
+    let allModels = [];
+    let videoFileData = null; // { base64, duration, name }
+    let faceFileData = null;  // { base64, name }
+
+    async function loadModels() {
+      const data = await apiRequest('/api/models?type=video');
+      if (data.code === 0 && data.data) {
+        // 筛选支持换脸/参考图的模型（seedance 等）
+        const swapKeywords = ['seedance', 'swap', 'face', '换脸', '换人', 'dance'];
+        const swapModels = data.data.filter(m => {
+          const name = m.name.toLowerCase();
+          return swapKeywords.some(k => name.includes(k));
+        });
+        const models = swapModels.length > 0 ? swapModels : data.data;
+        
+        const select = $('modelSelect');
+        select.innerHTML = '';
+        if (models.length === 0) {
+          select.innerHTML = '<option value="">暂无可用模型</option>';
+          return;
+        }
+        allModels = models;
+        models.forEach(m => {
+          const basePrice = m.price_per_call !== undefined ? m.price_per_call : (m.price || 0);
+          const price = Math.round(basePrice * 1.5);
+          const opt = document.createElement('option');
+          opt.value = m.id;
+          opt.textContent = m.name + '  (' + price + '积分/秒，1.5x)';
+          opt.dataset.price = basePrice;
+          opt.dataset.name = m.name;
+          select.appendChild(opt);
+        });
+        currentModel = { ...models[0], price: models[0].price_per_call !== undefined ? models[0].price_per_call : (models[0].price || 0) };
+        updateCostDisplay();
+        updateCreditHint();
+      } else {
+        $('modelSelect').innerHTML = '<option value="">加载失败</option>';
+      }
+    }
+
+    function updateCreditHint() {
+      const user = getUser();
+      if (user && user.credits != null) {
+        $('creditHint').textContent = '当前余额：' + user.credits + ' 积分';
+      } else {
+        $('creditHint').textContent = '登录后查看积分余额';
+      }
+    }
+
+    function updateCostDisplay() {
+      if (currentModel && videoFileData) {
+        // 预估价格 = 单价 * 时长 * 1.5
+        const duration = videoFileData.duration || 5;
+        const price = Math.round((currentModel.price || 0) * 1.5 * duration);
+        $('costDisplay').textContent = '💎 约 ' + price + ' 积分';
+      } else if (currentModel) {
+        const price = Math.round((currentModel.price || 0) * 1.5);
+        $('costDisplay').textContent = '💎 ' + price + ' 积分/秒';
+      }
+    }
+
+    // ========== 模型选择 ==========
+    $('modelSelect').addEventListener('change', function() {
+      const modelId = parseInt(this.value);
+      if (!modelId) { currentModel = null; updateCostDisplay(); return; }
+      const found = allModels.find(m => m.id === modelId);
+      if (found) {
+        currentModel = { ...found, price: found.price_per_call !== undefined ? found.price_per_call : (found.price || 0) };
+        updateCostDisplay();
+      }
+    });
+
+    // ========== 文件上传 ==========
+    $('videoUploadBox').addEventListener('click', () => $('videoInput').click());
+    $('faceUploadBox').addEventListener('click', () => $('faceInput').click());
+
+    $('videoInput').addEventListener('change', (e) => {
+      if (e.target.files.length > 0) handleVideoSelect(e.target.files[0]);
+    });
+    $('faceInput').addEventListener('change', (e) => {
+      if (e.target.files.length > 0) handleFaceSelect(e.target.files[0]);
+    });
+
+    function handleVideoSelect(file) {
+      if (!file.type.startsWith('video/')) {
+        alert('请上传视频文件');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const base64 = e.target.result;
+        videoFileData = { base64, name: file.name, duration: 0 };
+        const box = $('videoUploadBox');
+        box.classList.add('has-file');
+        box.innerHTML = '<video src="' + base64 + '" controls style="width:100%;max-height:160px;border-radius:8px;object-fit:contain;"></video>';
+        // 等视频加载完更新预估价格
+        const video = box.querySelector('video');
+        video.addEventListener('loadedmetadata', () => {
+          videoFileData.duration = video.duration;
+          updateCostDisplay();
+        });
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function handleFaceSelect(file) {
+      if (!file.type.startsWith('image/')) {
+        alert('请上传图片文件');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        faceFileData = { base64: e.target.result, name: file.name };
+        const box = $('faceUploadBox');
+        box.classList.add('has-file');
+        box.innerHTML = '<img src="' + e.target.result + '" style="max-width:100%;max-height:160px;border-radius:8px;object-fit:contain;" alt="角色图">';
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // ========== 提交换人任务 ==========
+    let pollTimer = null;
+
+    $('generateBtn').addEventListener('click', async function() {
+      if (!isLoggedIn()) {
+        alert('请先登录');
+        window.location.href = '/login';
+        return;
+      }
+      if (!currentModel) {
+        alert('请选择模型');
+        return;
+      }
+      if (!videoFileData) {
+        alert('请上传参考视频');
+        return;
+      }
+      if (!faceFileData) {
+        alert('请上传角色参考图');
+        return;
+      }
+
+      const btn = $('generateBtn');
+      btn.classList.add('loading');
+      btn.disabled = true;
+
+      $('previewContent').innerHTML = `
+        <div class="generating-status">
+          <div class="spinner"></div>
+          <p>正在提交任务...</p>
+          <div class="progress-text">请稍候</div>
+        </div>
+      `;
+
+      try {
+        const payload = {
+          model_id: currentModel.id,
+          prompt: $('promptInput').value || '',
+          video_url: videoFileData.base64,
+          image_url: faceFileData.base64,
+          duration: Math.round(videoFileData.duration) || 5,
+        };
+
+        const data = await apiRequest('/api/generate/face-swap', {
+          method: 'POST',
+          body: JSON.stringify(payload)
+        });
+
+        if (data.code === 0) {
+          const taskId = data.data.task_id;
+          startPolling(taskId);
+        } else {
+          $('previewContent').innerHTML = `
+            <div class="generating-status">
+              <div style="font-size:48px;margin-bottom:12px;">❌</div>
+              <p>提交失败</p>
+              <div class="progress-text">${data.msg || data.message || '未知错误'}</div>
+            </div>
+          `;
+          btn.classList.remove('loading');
+          btn.disabled = false;
+        }
+      } catch (err) {
+        $('previewContent').innerHTML = `
+          <div class="generating-status">
+            <div style="font-size:48px;margin-bottom:12px;">❌</div>
+            <p>请求失败</p>
+            <div class="progress-text">${err.message || '网络错误'}</div>
+          </div>
+        `;
+        btn.classList.remove('loading');
+        btn.disabled = false;
+      }
+    });
+
+    function startPolling(taskId) {
+      $('previewContent').innerHTML = `
+        <div class="generating-status">
+          <div class="spinner"></div>
+          <p>AI正在生成中...</p>
+          <div class="progress-text" id="progressText">排队中 0%</div>
+          <div class="progress-bar-container">
+            <div class="progress-bar-fill" id="progressBar" style="width: 5%;"></div>
+          </div>
+          <div style="font-size:12px;color:var(--text-3);margin-top:8px;">视频生成通常需要 1-5 分钟，请耐心等待</div>
+        </div>
+      `;
+
+      let progress = 5;
+      pollTimer = setInterval(async () => {
+        try {
+          const data = await apiRequest('/api/generate/face-swap/' + taskId);
+
+          if (data.code === 0) {
+            const task = data.data;
+            const statusText = task.status === 'pending' ? '排队中' : 
+                              task.status === 'processing' ? '生成中' :
+                              task.status === 'completed' ? '已完成' : '失败';
+            
+            if (task.status === 'pending') {
+              progress = Math.min(progress + 1, 20);
+            } else if (task.status === 'processing') {
+              progress = Math.min(progress + 3, 90);
+            }
+
+            $('progressBar').style.width = progress + '%';
+            $('progressText').textContent = statusText + ' ' + progress + '%';
+
+            if (task.status === 'completed') {
+              clearInterval(pollTimer);
+              showResult(task);
+            } else if (task.status === 'failed') {
+              clearInterval(pollTimer);
+              showError(task.error_msg || '生成失败');
+            }
+          }
+        } catch (err) {
+          // 忽略轮询错误
+        }
+      }, 3000);
+    }
+
+    function showResult(task) {
+      const btn = $('generateBtn');
+      btn.classList.remove('loading');
+      btn.disabled = false;
+
+      const videoUrl = task.video_url || task.output_url || '';
+      $('previewContent').innerHTML = `
+        <div class="result-card">
+          <div class="result-label">🎉 生成完成</div>
+          <div class="result-video-wrap">
+            <video src="${videoUrl}" controls autoplay loop playsinline></video>
+          </div>
+          <div style="margin-top:12px;display:flex;justify-content:center;">
+            <a href="${videoUrl}" class="download-btn" download target="_blank">⬇️ 下载视频</a>
+          </div>
+        </div>
+      `;
+      refreshUserInfo();
+    }
+
+    function showError(msg) {
+      const btn = $('generateBtn');
+      btn.classList.remove('loading');
+      btn.disabled = false;
+
+      $('previewContent').innerHTML = `
+        <div class="generating-status">
+          <div style="font-size:48px;margin-bottom:12px;">❌</div>
+          <p>生成失败</p>
+          <div class="progress-text">${msg || '未知错误'}</div>
+          <div style="font-size:12px;color:var(--text-3);margin-top:10px;">积分已自动退还</div>
+        </div>
+      `;
+      refreshUserInfo();
+    }
+
+    // ========== 初始化 ==========
+    loadModels();
+  </script>
+</body>
+</html>

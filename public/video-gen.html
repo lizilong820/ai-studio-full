@@ -1,0 +1,1175 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI视频生成工作室 · AI工作室</title>
+  <link rel="stylesheet" href="css/style.css?v=36">
+  <style>
+    /* 生成模式Tab */
+    .mode-tabs {
+      display: flex;
+      background: var(--bg-soft);
+      border-radius: var(--radius-sm);
+      padding: 4px;
+      gap: 4px;
+      margin-bottom: 18px;
+    }
+    .mode-tab {
+      flex: 1;
+      padding: 10px;
+      text-align: center;
+      border-radius: 10px;
+      font-size: 13.5px;
+      color: var(--text-2);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-weight: 450;
+    }
+    .mode-tab:hover {
+      color: var(--text);
+    }
+    .mode-tab.active {
+      background: #fff;
+      color: var(--text);
+      font-weight: 500;
+      box-shadow: 0 2px 6px rgba(200, 170, 140, 0.1);
+    }
+    .mode-tab .tab-icon {
+      margin-right: 6px;
+    }
+
+    /* 参考图多图网格 */
+    .ref-images-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .ref-image-item {
+      position: relative;
+      width: 90px;
+      height: 90px;
+      border-radius: 12px;
+      overflow: hidden;
+      background: var(--bg-soft);
+      border: 2px solid var(--border);
+    }
+    .ref-image-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .ref-image-remove {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.6);
+      color: #fff;
+      font-size: 16px;
+      line-height: 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .ref-image-remove:hover {
+      background: rgba(220,60,60,0.9);
+    }
+    .ref-image-add {
+      width: 90px;
+      height: 90px;
+      border-radius: 12px;
+      border: 2px dashed var(--border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: var(--bg-soft);
+      color: var(--text-muted);
+    }
+    .ref-image-add:hover {
+      border-color: var(--brand);
+      color: var(--brand);
+      background: var(--brand-light);
+    }
+    .ref-image-add-icon {
+      font-size: 28px;
+      font-weight: 300;
+      line-height: 1;
+    }
+    .ref-image-add-text {
+      font-size: 11px;
+      margin-top: 4px;
+    }
+
+    /* 时长选择 */
+    .duration-group {
+      display: flex;
+      gap: 8px;
+    }
+    .duration-item {
+      flex: 1;
+      padding: 12px 4px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      color: var(--text-2);
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .duration-item:hover {
+      border-color: var(--brand-light);
+      background: var(--brand-soft);
+    }
+    .duration-item.active {
+      background: var(--brand-soft);
+      border-color: var(--brand);
+      color: var(--text);
+      font-weight: 500;
+    }
+    .duration-item .dur-icon {
+      display: block;
+      font-size: 16px;
+      margin-bottom: 3px;
+    }
+
+    /* 比例选择 */
+    .ratio-group {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    .ratio-item {
+      padding: 12px 4px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      color: var(--text-2);
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .ratio-item:hover {
+      border-color: var(--brand-light);
+      color: var(--text);
+      background: var(--brand-soft);
+    }
+    .ratio-item.active {
+      background: var(--brand-soft);
+      border-color: var(--brand);
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    /* 上传区 */
+    .upload-area {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius-md);
+      padding: 30px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      background: var(--bg-input);
+    }
+    .upload-area:hover {
+      border-color: var(--brand);
+      background: var(--brand-soft);
+    }
+    .upload-area .upload-icon {
+      font-size: 36px;
+      margin-bottom: 8px;
+    }
+    .upload-area .upload-text {
+      font-size: 13px;
+      color: var(--text-2);
+    }
+    .upload-area .upload-hint {
+      font-size: 11px;
+      color: var(--text-3);
+      margin-top: 4px;
+    }
+    .upload-preview {
+      position: relative;
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+    .upload-preview img {
+      width: 100%;
+      display: block;
+    }
+    .upload-remove {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.5);
+      color: #fff;
+      text-align: center;
+      line-height: 24px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    /* 进度条 */
+    .progress-section {
+      margin-bottom: 20px;
+    }
+    .progress-bar {
+      height: 8px;
+      background: var(--bg-input);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--brand-light), var(--brand));
+      border-radius: 4px;
+      transition: width 0.5s ease;
+      width: 0%;
+    }
+    .progress-text {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--text-2);
+    }
+
+    /* 视频预览 */
+    .gif-preview-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+    .video-result {
+      max-width: 100%;
+      max-height: 400px;
+      border-radius: var(--radius-md);
+      box-shadow: 0 8px 24px rgba(200, 170, 140, 0.2);
+    }
+    .gif-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .gif-action-btn {
+      padding: 10px 20px;
+      border: 1px solid var(--border);
+      background: #fff;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .gif-action-btn:hover {
+      border-color: var(--brand);
+      color: var(--brand);
+    }
+    .gif-action-btn.primary {
+      background: var(--brand);
+      border-color: var(--brand);
+      color: #fff;
+    }
+    .gif-action-btn.primary:hover {
+      background: var(--brand-dark);
+      color: #fff;
+    }
+
+    /* 空状态 */
+    .preview-empty {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-3);
+    }
+    .preview-empty .empty-icon {
+      font-size: 64px;
+      margin-bottom: 16px;
+      opacity: 0.6;
+    }
+    .preview-empty h3 {
+      font-size: 18px;
+      color: var(--text-2);
+      margin-bottom: 8px;
+    }
+    .preview-empty p {
+      font-size: 13px;
+      color: var(--text-3);
+      max-width: 400px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+
+    /* 生成中动画 */
+    .generating-state {
+      text-align: center;
+      padding: 40px 20px;
+    }
+    .generating-icon {
+      font-size: 48px;
+      animation: bounce 1s ease-in-out infinite;
+      margin-bottom: 16px;
+    }
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+    .generating-text {
+      font-size: 15px;
+      color: var(--text-2);
+      margin-bottom: 6px;
+    }
+    .generating-hint {
+      font-size: 12px;
+      color: var(--text-3);
+    }
+
+    /* tip-box 提示框 */
+    .tip-box {
+      background: var(--brand-soft);
+      border-left: 3px solid var(--brand);
+      padding: 10px 12px;
+      border-radius: 0 8px 8px 0;
+      font-size: 12px;
+      color: var(--text-2);
+      line-height: 1.6;
+      margin-top: 8px;
+    }
+
+    /* 3个tab适配 */
+    .mode-tabs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    .mode-tab {
+      font-size: 12px;
+      padding: 10px 6px;
+      text-align: center;
+    }
+    .mode-tab.disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="navbar-inner">
+      <div class="logo">
+        <div class="logo-icon">🎨</div>
+        <span class="logo-text">AI工作室</span>
+      </div>
+      <div class="nav-links">
+        <a href="index.html" class="nav-link">工作室</a>
+        <a href="#" class="nav-link active">AI视频</a>
+        <a href="developer.html" class="nav-link">开发者平台</a>
+        <a href="/profile.html" class="nav-link" id="navMyWorks" style="display:none;">我的作品</a>
+      </div>
+      <div class="nav-right">
+        <div class="credit-badge" id="creditBadge" style="display:none;">
+          <span class="credit-icon">💎</span>
+          <b id="creditNum">--</b> 积分
+        </div>
+        <div id="navAuthLinks" style="display:flex;gap:8px;align-items:center;">
+          <a href="/login" class="nav-link" style="padding:6px 14px;">登录</a>
+          <a href="/register" style="padding:8px 18px;background:var(--brand);color:#fff;border-radius:10px;font-size:13px;font-weight:500;">注册</a>
+        </div>
+        <div class="avatar" id="userAvatar" style="display:none;">U</div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Studio Page -->
+  <div class="studio-page">
+    <!-- Left Panel -->
+    <div class="studio-panel">
+      <div class="panel-header">
+        <a href="index.html" class="back-btn" title="返回工作室广场">←</a>
+        <div class="studio-icon-sm">🎞️</div>
+        <h2>AI视频生成工作室</h2>
+      </div>
+
+      <div class="panel-body">
+        <!-- 生成模式 -->
+        <div class="form-section">
+          <div class="form-section-header">
+            <div class="form-section-title">
+              <span class="sec-icon">🎨</span>生成模式
+            </div>
+          </div>
+          <div class="form-fields">
+            <div class="mode-tabs" id="modeTabs">
+              <div class="mode-tab active" data-mode="text">
+                <span class="tab-icon">✍️</span>文生视频
+              </div>
+              <div class="mode-tab" data-mode="image_firstframe">
+                <span class="tab-icon">🎬</span>首帧图生视频
+              </div>
+              <div class="mode-tab" data-mode="image_reference">
+                <span class="tab-icon">🖼️</span>参考图生视频
+              </div>
+            </div>
+
+            <!-- 模型选择 -->
+            <div class="form-group">
+              <label class="form-label">选择模型 <span class="required">*</span></label>
+              <select class="form-select model-select" id="modelSelect">
+                <option value="">加载中...</option>
+              </select>
+            </div>
+
+            <!-- 文生视频 -->
+            <div id="textModeContent">
+              <div class="form-group">
+                <label class="form-label">视频描述 <span class="required">*</span></label>
+                <textarea class="form-textarea" id="promptInput" rows="4" placeholder="描述你想要的AI视频，越详细越好&#10;例如：一只可爱的柴犬摇头晃脑，表情呆萌，背景纯色"></textarea>
+                <div class="text-xs text-muted" style="margin-top:6px;text-align:right;">
+                  <span id="promptCount">0</span> / 500 字
+                </div>
+              </div>
+            </div>
+
+            <!-- 首帧图生视频 -->
+            <div id="firstframeModeContent" style="display:none;">
+              <div class="form-group">
+                <label class="form-label">上传首帧图片 <span class="required">*</span></label>
+                <div class="upload-area" data-upload-target="firstframe">
+                  <div class="upload-icon">🎞️</div>
+                  <div class="upload-text">点击或拖拽上传首帧图</div>
+                  <div class="upload-hint">这张图将作为视频的第一帧，AI 让画面动起来<br>支持 JPG / PNG</div>
+                </div>
+                <div class="upload-preview upload-preview-firstframe" style="display:none; margin-top:10px;">
+                  <img class="preview-img" src="" alt="预览">
+                  <div class="upload-remove remove-firstframe">×</div>
+                </div>
+                <input type="file" class="file-input file-input-firstframe" accept="image/*" style="display:none;">
+              </div>
+              <div class="form-group">
+                <label class="form-label">动态描述 <span class="required">*</span></label>
+                <input type="text" class="form-input" id="firstframePromptInput" placeholder="描述画面如何动起来，比如：镜头缓缓推进、人物微笑眨眼...">
+              </div>
+              <div class="tip-box">
+                💡 首帧模式：以上传图片为视频起始帧，AI 基于描述生成连贯的动态画面。
+              </div>
+            </div>
+
+            <!-- 参考图生视频 -->
+            <div id="referenceModeContent" style="display:none;">
+              <div class="form-group">
+                <label class="form-label">上传参考图 <span class="required">*</span></label>
+                <div class="ref-images-grid" id="refImagesGrid">
+                  <!-- 已上传图片会动态插入到这里 -->
+                  <div class="ref-image-add" id="refImageAddBtn" title="添加参考图">
+                    <div class="ref-image-add-icon">+</div>
+                    <div class="ref-image-add-text">添加参考图</div>
+                  </div>
+                </div>
+                <div class="text-xs text-muted" style="margin-top:8px;">
+                  💡 支持上传多张参考图（最多9张），AI会综合参考图中人物特征生成视频
+                </div>
+                <input type="file" class="file-input file-input-reference" accept="image/*" style="display:none;" multiple>
+              </div>
+              <div class="form-group">
+                <label class="form-label">视频描述 <span class="required">*</span></label>
+                <input type="text" class="form-input" id="referencePromptInput" placeholder="描述视频内容和动作，比如：角色跳舞、人物走动...">
+              </div>
+              <div class="tip-box">
+                💡 参考图模式：AI 参考图片中的人物外貌或风格生成视频，视频画面不一定从这张图开始。
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 参数设置 -->
+        <div class="form-section">
+          <div class="form-section-header">
+            <div class="form-section-title">
+              <span class="sec-icon">⚙️</span>参数设置
+            </div>
+          </div>
+          <div class="form-fields">
+            <div class="form-group">
+              <label class="form-label">时长</label>
+              <div class="duration-group">
+                <div class="duration-item active" data-duration="4">
+                  <span class="dur-icon">⏱️</span>4秒
+                </div>
+                <div class="duration-item" data-duration="8">
+                  <span class="dur-icon">⏱️</span>8秒
+                </div>
+                <div class="duration-item" data-duration="10">
+                  <span class="dur-icon">⏱️</span>10秒
+                </div>
+                <div class="duration-item" data-duration="12">
+                  <span class="dur-icon">⏱️</span>12秒
+                </div>
+                <div class="duration-item" data-duration="15">
+                  <span class="dur-icon">⏱️</span>15秒
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">比例</label>
+              <div class="ratio-group">
+                <div class="ratio-item active" data-ratio="16:9">16:9 横屏</div>
+                <div class="ratio-item" data-ratio="9:16">9:16 竖屏</div>
+                <div class="ratio-item" data-ratio="1:1">1:1 方形</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-footer">
+        <div class="cost-info">
+          <span class="cost-label">预计消耗</span>
+          <span class="cost-value" id="costDisplay">💎 -- 积分</span>
+        </div>
+        <button class="generate-btn" id="generateBtn">
+          <span class="btn-icon">✨</span>生成视频
+        </button>
+      </div>
+    </div>
+
+    <!-- Right Preview -->
+    <div class="preview-area">
+      <div class="preview-header">
+        <div class="preview-title">
+          <span>🎞️ 预览区域</span>
+        </div>
+        <div class="preview-actions">
+          <button class="action-btn" id="historyBtn">📋 历史记录</button>
+        </div>
+      </div>
+
+      <div class="preview-content" id="previewContent">
+        <!-- 空状态 -->
+        <div class="preview-empty" id="emptyState">
+          <div class="empty-icon">🎞️</div>
+          <h3>让创意动起来</h3>
+          <p>输入文字描述或上传一张图片，AI 将为你生成专属视频短片。支持文生视频、首帧图生视频、参考图生视频三种模式，快速生成高质量AI视频内容！</p>
+          <div style="margin-top: 24px; display: flex; gap: 24px; justify-content: center; flex-wrap: wrap;">
+            <div style="text-align: center;">
+              <div style="font-size: 28px; margin-bottom: 4px;">✍️</div>
+              <div class="text-xs text-muted">文生视频</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 28px; margin-bottom: 4px;">🖼️</div>
+              <div class="text-xs text-muted">图生视频</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 28px; margin-bottom: 4px;">⚡</div>
+              <div class="text-xs text-muted">一键生成</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 28px; margin-bottom: 4px;">📥</div>
+              <div class="text-xs text-muted">直接下载</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 生成中 -->
+        <div class="generating-state" id="generatingState" style="display:none;">
+          <div class="generating-icon">🎬</div>
+          <div class="generating-text" id="genStatusText">正在生成中...</div>
+          <div class="generating-hint" id="genProgressText">预计等待 30-60 秒</div>
+          <div class="progress-section" style="max-width: 300px; margin: 20px auto 0;">
+            <div class="progress-bar">
+              <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="progress-text">
+              <span id="progressPercent">0%</span>
+              <span id="progressStatus">提交中</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 生成结果 -->
+        <div class="gif-preview-wrap" id="resultState" style="display:none;">
+          <video id="resultVideo" class="video-result" src="" controls playsinline></video>
+          <div class="gif-actions">
+            <button class="gif-action-btn primary" id="downloadBtn">📥 下载视频</button>
+            <button class="gif-action-btn" id="saveWorkBtn">💾 保存到作品</button>
+            <button class="gif-action-btn" id="retryBtn">🔄 重新生成</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/common.js?v=36"></script>
+  <script src="js/app.js?v=36"></script>
+  <script>
+    // 登录检查
+    if (!isLoggedIn()) {
+      showToast('请先登录', 'error');
+      setTimeout(() => window.location.href = '/login', 800);
+    }
+
+    // 当前状态
+    let currentMode = 'text'; // text / image
+    let currentDuration = 4;
+    let currentRatio = '16:9';
+    let uploadedImageBase64 = '';
+    let currentTaskId = '';
+    let pollTimer = null;
+    let lastGifUrl = '';
+
+    // 初始化模型列表
+    async function loadModels() {
+      try {
+        const data = await apiRequest('/api/models?type=video');
+        const select = document.getElementById('modelSelect');
+        if (data.code === 0 && data.data && data.data.length > 0) {
+          select.innerHTML = '';
+          data.data.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m.id;
+            opt.textContent = m.name + ' (' + m.price_per_call + '积分/次)';
+            if (m.is_default) opt.selected = true;
+            select.appendChild(opt);
+          });
+          updateCost();
+          updateModeAvailability();
+          updateDurationAvailability();
+        } else {
+          select.innerHTML = '<option value="">暂无可用视频模型</option>';
+        }
+      } catch (e) {
+        document.getElementById('modelSelect').innerHTML = '<option value="">模型加载失败</option>';
+      }
+    }
+
+    // 更新价格
+    async function updateCost() {
+      const modelId = document.getElementById('modelSelect').value;
+      if (!modelId) {
+        document.getElementById('costDisplay').textContent = '💎 -- 积分';
+        return;
+      }
+      try {
+        const data = await apiRequest('/api/calculate-cost', {
+          method: 'POST',
+          body: JSON.stringify({ model_id: modelId, count: 1, duration: currentDuration })
+        });
+        if (data.code === 0) {
+          document.getElementById('costDisplay').textContent = '💎 ' + data.data.cost + ' 积分';
+        }
+      } catch (e) {}
+    }
+
+    // 模式切换
+    function switchMode(mode) {
+      var tabs = document.querySelectorAll('.mode-tab');
+      tabs.forEach(function(t) { t.classList.remove('active'); });
+      var targetTab = document.querySelector('.mode-tab[data-mode="' + mode + '"]');
+      if (targetTab) targetTab.classList.add('active');
+      currentMode = mode;
+
+      document.getElementById('textModeContent').style.display = 'none';
+      document.getElementById('firstframeModeContent').style.display = 'none';
+      document.getElementById('referenceModeContent').style.display = 'none';
+
+      if (mode === 'text') {
+        document.getElementById('textModeContent').style.display = '';
+      } else if (mode === 'image_firstframe') {
+        document.getElementById('firstframeModeContent').style.display = '';
+      } else if (mode === 'image_reference') {
+        document.getElementById('referenceModeContent').style.display = '';
+        if (typeof renderRefImages === 'function') renderRefImages();
+      }
+    }
+
+    document.querySelectorAll('.mode-tab').forEach(function(tab) {
+      tab.addEventListener('click', function() {
+        var mode = tab.dataset.mode;
+        if (tab.classList.contains('disabled')) {
+          showToast('当前模型不支持此模式', 'error');
+          return;
+        }
+        switchMode(mode);
+      });
+    });
+
+    // 根据模型能力更新模式可用性
+    function updateModeAvailability() {
+      var select = document.getElementById('modelSelect');
+      if (!select || select.selectedIndex < 0) return;
+      var modelName = select.options[select.selectedIndex].text || '';
+      var tabs = document.querySelectorAll('.mode-tab');
+
+      var supportsText = true;
+      var supportsFirstFrame = true;
+      var supportsReference = true;
+
+      var lowerName = modelName.toLowerCase();
+      // Veo 系列：支持首帧图生视频，不支持参考图角色一致性
+      if (lowerName.indexOf('veo') !== -1) {
+        supportsReference = false;
+      }
+      // Seedance / 跳舞类模型：支持角色参考图，不支持首帧模式
+      if (lowerName.indexOf('seedance') !== -1 || lowerName.indexOf('dance') !== -1) {
+        supportsFirstFrame = false;
+      }
+      // MiniMax H3 Ref2VA 全能参考模型：支持参考图模式，不支持首帧和文本模式
+      if (lowerName.indexOf("minimax") !== -1 && lowerName.indexOf("ref") !== -1) {
+        supportsFirstFrame = false;
+        supportsText = false;
+      }
+      // MiniMax H3 FL2VA 首尾帧模型：支持首帧模式，不支持参考图模式
+      if (lowerName.indexOf("minimax") !== -1 && lowerName.indexOf("fl") !== -1) {
+        supportsReference = false;
+      }
+
+      tabs.forEach(function(tab) {
+        var mode = tab.dataset.mode;
+        var enabled = true;
+        if (mode === 'text') enabled = supportsText;
+        else if (mode === 'image_firstframe') enabled = supportsFirstFrame;
+        else if (mode === 'image_reference') enabled = supportsReference;
+
+        if (enabled) {
+          tab.classList.remove('disabled');
+          tab.style.opacity = '1';
+          tab.style.pointerEvents = '';
+        } else {
+          tab.classList.add('disabled');
+          tab.style.opacity = '0.4';
+          tab.style.pointerEvents = 'none';
+        }
+      });
+
+      // 当前模式被禁用时自动切换
+      var activeTab = document.querySelector('.mode-tab.active');
+      if (activeTab && activeTab.classList.contains('disabled')) {
+        var firstEnabled = document.querySelector('.mode-tab:not(.disabled)');
+        if (firstEnabled) {
+          switchMode(firstEnabled.dataset.mode);
+        }
+      }
+    }
+
+    // 根据模型更新时长选项可用性
+    function updateDurationAvailability() {
+      var select = document.getElementById('modelSelect');
+      if (!select || select.selectedIndex < 0) return;
+      var modelName = select.options[select.selectedIndex].text || '';
+      var lowerName = modelName.toLowerCase();
+
+      // Seedance / paipu 模型只支持 10 秒和 15 秒
+      var supportsOnly10_15 = lowerName.indexOf('seedance') !== -1 || lowerName.indexOf('dance') !== -1;
+      var isMinimax = lowerName.indexOf("minimax") !== -1 || lowerName.indexOf("h3") !== -1;
+
+      var durations = document.querySelectorAll('.duration-item');
+      var hasActiveValid = false;
+      durations.forEach(function(item) {
+        var dur = parseInt(item.dataset.duration);
+        var enabled = true;
+        if (supportsOnly10_15) {
+          enabled = (dur === 10 || dur === 15);
+        } else if (isMinimax) {
+          enabled = (dur >= 4 && dur <= 15);
+        }
+        if (enabled) {
+          item.style.opacity = '1';
+          item.style.pointerEvents = '';
+          if (item.classList.contains('active')) hasActiveValid = true;
+        } else {
+          item.style.opacity = '0.3';
+          item.style.pointerEvents = 'none';
+          if (item.classList.contains('active')) item.classList.remove('active');
+        }
+      });
+
+      // 如果当前选中的时长不可用，自动切到第一个可用的
+      if (!hasActiveValid) {
+        var firstValid = document.querySelector('.duration-item[style*="opacity: 1"], .duration-item:not([style*="opacity: 0.3"])');
+        // 用更可靠的方式找第一个可用的
+        var items = document.querySelectorAll('.duration-item');
+        for (var i = 0; i < items.length; i++) {
+          if (items[i].style.pointerEvents !== 'none') {
+            items[i].classList.add('active');
+            currentDuration = parseInt(items[i].dataset.duration);
+            updateCost();
+            break;
+          }
+        }
+      }
+    }
+
+    // 时长选择
+    document.querySelectorAll('.duration-item').forEach(item => {
+      item.addEventListener('click', () => {
+        document.querySelectorAll('.duration-item').forEach(i => i.classList.remove('active'));
+        item.classList.add('active');
+        currentDuration = parseInt(item.dataset.duration);
+        updateCost();
+      });
+    });
+
+    // 比例选择
+    document.querySelectorAll('.ratio-item').forEach(item => {
+      item.addEventListener('click', () => {
+        document.querySelectorAll('.ratio-item').forEach(i => i.classList.remove('active'));
+        item.classList.add('active');
+        currentRatio = item.dataset.ratio;
+      });
+    });
+
+    // 模型切换
+    document.getElementById('modelSelect').addEventListener('change', function() { updateCost(); updateModeAvailability();
+          updateDurationAvailability(); });
+
+    // 描述字数统计
+    const promptInput = document.getElementById('promptInput');
+    promptInput.addEventListener('input', () => {
+      document.getElementById('promptCount').textContent = promptInput.value.length;
+    });
+
+    // 上传图片（首帧 + 参考图 两个上传区）
+    var uploadedFirstFrameBase64 = '';
+    var uploadedReferenceBase64List = []; // 参考图多图数组
+    const MAX_REF_IMAGES = 9;
+
+    function setupUpload(target) {
+      var uploadArea = document.querySelector('.upload-area[data-upload-target="' + target + '"]');
+      var fileInput = document.querySelector('.file-input-' + target);
+      var uploadPreview = document.querySelector('.upload-preview-' + target);
+      var previewImg = uploadPreview.querySelector('.preview-img');
+      var removeBtn = uploadPreview.querySelector('.upload-remove');
+
+      uploadArea.addEventListener('click', function() { fileInput.click(); });
+      uploadArea.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        uploadArea.style.borderColor = 'var(--brand)';
+      });
+      uploadArea.addEventListener('dragleave', function() {
+        uploadArea.style.borderColor = '';
+      });
+      uploadArea.addEventListener('drop', function(e) {
+        e.preventDefault();
+        uploadArea.style.borderColor = '';
+        if (e.dataTransfer.files[0]) handleUploadFile(e.dataTransfer.files[0], target);
+      });
+
+      fileInput.addEventListener('change', function(e) {
+        if (e.target.files[0]) handleUploadFile(e.target.files[0], target);
+      });
+
+      removeBtn.addEventListener('click', function() {
+        if (target === 'firstframe') uploadedFirstFrameBase64 = '';
+        else uploadedReferenceBase64 = '';
+        previewImg.src = '';
+        uploadArea.style.display = '';
+        uploadPreview.style.display = 'none';
+        fileInput.value = '';
+      });
+    }
+
+    function handleUploadFile(file, target) {
+      if (!file.type.startsWith('image/')) {
+        showToast('请上传图片文件', 'error');
+        return;
+      }
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        var base64 = e.target.result;
+        if (target === 'firstframe') uploadedFirstFrameBase64 = base64;
+        else uploadedReferenceBase64 = base64;
+
+        var uploadPreview = document.querySelector('.upload-preview-' + target);
+        var previewImg = uploadPreview.querySelector('.preview-img');
+        var uploadArea = document.querySelector('.upload-area[data-upload-target="' + target + '"]');
+
+        previewImg.src = base64;
+        uploadArea.style.display = 'none';
+        uploadPreview.style.display = '';
+      };
+      reader.readAsDataURL(file);
+    }
+
+    setupUpload('firstframe');
+
+    // ===== 参考图多图上传逻辑 =====
+    var refGrid = document.getElementById('refImagesGrid');
+    var refAddBtn = document.getElementById('refImageAddBtn');
+    var refFileInput = document.querySelector('.file-input-reference');
+
+    function renderRefImages() {
+      // 清除旧的图片项（保留 add 按钮）
+      var oldItems = refGrid.querySelectorAll('.ref-image-item');
+      oldItems.forEach(function(el) { el.remove(); });
+
+      uploadedReferenceBase64List.forEach(function(base64, idx) {
+        var item = document.createElement('div');
+        item.className = 'ref-image-item';
+        item.innerHTML = '<img src="' + base64 + '" alt="参考图' + (idx+1) + '"><div class="ref-image-remove" data-idx="' + idx + '">×</div>';
+        refGrid.insertBefore(item, refAddBtn);
+      });
+
+      // 绑定删除事件
+      refGrid.querySelectorAll('.ref-image-remove').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          var idx = parseInt(btn.dataset.idx);
+          uploadedReferenceBase64List.splice(idx, 1);
+          renderRefImages();
+        });
+      });
+
+      // 超过最大数量时隐藏添加按钮
+      refAddBtn.style.display = (uploadedReferenceBase64List.length >= MAX_REF_IMAGES) ? 'none' : 'flex';
+    }
+
+    refAddBtn.addEventListener('click', function() { refFileInput.click(); });
+    refFileInput.addEventListener('change', function(e) {
+      var files = Array.from(e.target.files);
+      files.forEach(function(file) {
+        if (!file.type.startsWith('image/')) return;
+        if (uploadedReferenceBase64List.length >= MAX_REF_IMAGES) return;
+        var reader = new FileReader();
+        reader.onload = function(ev) {
+          uploadedReferenceBase64List.push(ev.target.result);
+          renderRefImages();
+        };
+        reader.readAsDataURL(file);
+      });
+      refFileInput.value = '';
+    });
+
+    // 拖拽支持
+    refAddBtn.addEventListener('dragover', function(e) { e.preventDefault(); refAddBtn.style.borderColor = 'var(--brand)'; });
+    refAddBtn.addEventListener('dragleave', function() { refAddBtn.style.borderColor = ''; });
+    refAddBtn.addEventListener('drop', function(e) {
+      e.preventDefault();
+      refAddBtn.style.borderColor = '';
+      var files = Array.from(e.dataTransfer.files);
+      files.forEach(function(file) {
+        if (!file.type.startsWith('image/')) return;
+        if (uploadedReferenceBase64List.length >= MAX_REF_IMAGES) return;
+        var reader = new FileReader();
+        reader.onload = function(ev) {
+          uploadedReferenceBase64List.push(ev.target.result);
+          renderRefImages();
+        };
+        reader.readAsDataURL(file);
+      });
+    });
+
+    // 生成按钮
+    document.getElementById('generateBtn').addEventListener('click', doGenerate);
+
+    async function doGenerate() {
+      if (!isLoggedIn()) {
+        showToast('请先登录', 'error');
+        return;
+      }
+
+      const modelId = document.getElementById('modelSelect').value;
+      if (!modelId) {
+        showToast('请选择模型', 'error');
+        return;
+      }
+
+      let prompt = '';
+      let refImage = '';
+
+      if (currentMode === 'text') {
+        prompt = document.getElementById('promptInput').value.trim();
+        if (!prompt) {
+          showToast('请输入视频描述', 'error');
+          return;
+        }
+      } else if (currentMode === 'image_firstframe') {
+        if (!uploadedFirstFrameBase64) {
+          showToast('请上传首帧图片', 'error');
+          return;
+        }
+        prompt = document.getElementById('firstframePromptInput').value.trim();
+        if (!prompt) {
+          showToast('请输入动态描述', 'error');
+          return;
+        }
+        refImage = uploadedFirstFrameBase64;
+      } else if (currentMode === 'image_reference') {
+        if (uploadedReferenceBase64List.length === 0) {
+          showToast('请上传至少一张参考图', 'error');
+          return;
+        }
+        prompt = document.getElementById('referencePromptInput').value.trim();
+        if (!prompt) {
+          showToast('请输入视频描述', 'error');
+          return;
+        }
+        // 多图模式：传数组
+        refImage = uploadedReferenceBase64List;
+      }
+
+      const btn = document.getElementById('generateBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="btn-icon">⏳</span>生成中...';
+
+      // 切换到生成状态
+      document.getElementById('emptyState').style.display = 'none';
+      document.getElementById('resultState').style.display = 'none';
+      document.getElementById('generatingState').style.display = '';
+      document.getElementById('progressFill').style.width = '5%';
+      document.getElementById('progressPercent').textContent = '5%';
+      document.getElementById('progressStatus').textContent = '提交中';
+      document.getElementById('genStatusText').textContent = '正在提交生成任务...';
+
+      try {
+        const res = await apiRequest('/api/generate/video-gen', {
+          method: 'POST',
+          body: JSON.stringify({
+            model_id: modelId,
+            prompt: prompt,
+            mode: currentMode,
+            ref_image: refImage,
+            duration: currentDuration,
+            ratio: currentRatio,
+          })
+        });
+
+        if (res.code !== 0) {
+          throw new Error(res.msg || '生成失败');
+        }
+
+        currentTaskId = res.data.task_id;
+        if (res.data.new_balance != null) {
+          const user = getUser();
+          user.credits = res.data.new_balance;
+          localStorage.setItem('user', JSON.stringify(user));
+          updateNavAuth();
+        }
+
+        // 开始轮询
+        startPolling();
+
+      } catch (err) {
+        showToast(err.message || '生成失败', 'error');
+        resetBtn();
+        document.getElementById('emptyState').style.display = '';
+        document.getElementById('generatingState').style.display = 'none';
+      }
+    }
+
+    function startPolling() {
+      if (pollTimer) clearInterval(pollTimer);
+      let elapsed = 0;
+      const maxWait = 120 * 60 * 1000; // 最多等120分钟
+
+      pollTimer = setInterval(async () => {
+        elapsed += 3000;
+        if (elapsed > maxWait) {
+          clearInterval(pollTimer);
+          pollTimer = null;
+          showToast('生成超时，请稍后在个人中心查看', 'error');
+          resetBtn();
+          return;
+        }
+
+        try {
+          const res = await apiRequest('/api/generate/video-gen/' + currentTaskId);
+          if (res.code !== 0) {
+            throw new Error(res.msg || '查询失败');
+          }
+
+          const data = res.data;
+          const progress = data.progress || 0;
+          document.getElementById('progressFill').style.width = progress + '%';
+          document.getElementById('progressPercent').textContent = progress + '%';
+
+          if (data.status === 'submitting') {
+            document.getElementById('progressStatus').textContent = '提交中';
+            document.getElementById('genStatusText').textContent = '正在提交生成任务...';
+          } else if (data.status === 'generating') {
+            document.getElementById('progressStatus').textContent = '生成中';
+            document.getElementById('genStatusText').textContent = 'AI正在生成视频...';
+          } else if (data.status === 'converting') {
+            document.getElementById('progressStatus').textContent = '处理中';
+            document.getElementById('genStatusText').textContent = '正在处理视频...';
+          } else if (data.status === 'success') {
+            clearInterval(pollTimer);
+            pollTimer = null;
+            showResult(data.video_url);
+          } else if (data.status === 'failed') {
+            clearInterval(pollTimer);
+            pollTimer = null;
+            showToast('生成失败：' + (data.error_msg || '未知错误'), 'error');
+            resetBtn();
+            document.getElementById('emptyState').style.display = '';
+            document.getElementById('generatingState').style.display = 'none';
+          }
+        } catch (e) {
+          // 查询失败不中断，继续等
+        }
+      }, 3000);
+    }
+
+    function showResult(gifUrl) {
+      lastGifUrl = gifUrl;
+      document.getElementById('generatingState').style.display = 'none';
+      document.getElementById('resultState').style.display = 'flex';
+      document.getElementById('resultVideo').src = gifUrl;
+      resetBtn();
+      showToast('生成成功！', 'success');
+      // 刷新用户信息
+      refreshUserInfo();
+    }
+
+    function resetBtn() {
+      const btn = document.getElementById('generateBtn');
+      btn.disabled = false;
+      btn.innerHTML = '<span class="btn-icon">✨</span>生成视频';
+    }
+
+    // 下载视频
+    document.getElementById('downloadBtn').addEventListener('click', () => {
+      if (!lastGifUrl) return;
+      const a = document.createElement('a');
+      a.href = lastGifUrl;
+      a.download = 'ai_video_' + Date.now() + '.mp4';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    });
+
+    // 重新生成
+    document.getElementById('retryBtn').addEventListener('click', () => {
+      document.getElementById('resultState').style.display = 'none';
+      doGenerate();
+    });
+
+    // 保存到作品
+    document.getElementById('saveWorkBtn').addEventListener('click', () => {
+      showToast('已保存在"我的作品"中', 'success');
+    });
+
+    // 历史记录
+    document.getElementById('historyBtn').addEventListener('click', () => {
+      window.location.href = '/profile';
+    });
+
+    // 初始化
+    loadModels();
+  </script>
+</body>
+</html>

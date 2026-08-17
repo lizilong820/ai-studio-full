@@ -1,0 +1,3855 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API开放平台 · AI工作室开发者中心</title>
+  <link rel="stylesheet" href="css/style.css?v=21">
+  <style>
+    /* ============================================
+       Developer Center - API开放平台
+       奶油风独立页面样式
+       ============================================ */
+    .dev-page {
+      display: flex;
+      min-height: calc(100vh - 70px);
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 24px 28px 48px;
+      gap: 24px;
+    }
+
+    /* 侧边栏 */
+    .dev-sidebar {
+      width: 240px;
+      flex-shrink: 0;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 20px 14px;
+      position: sticky;
+      top: 90px;
+      height: fit-content;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .dev-sidebar-header {
+      padding: 6px 14px 18px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 10px;
+    }
+
+    .dev-sidebar-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .dev-sidebar-title .dev-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--brand-light), var(--brand));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      color: #fff;
+    }
+
+    .dev-sidebar-sub {
+      font-size: 12px;
+      color: var(--text-3);
+      margin-top: 4px;
+      margin-left: 46px;
+    }
+
+    .dev-menu {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      margin-top: 6px;
+    }
+
+    .dev-menu-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 11px 14px;
+      border-radius: 12px;
+      font-size: 14px;
+      color: var(--text-2);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-weight: 450;
+    }
+
+    .dev-menu-item:hover {
+      background: var(--brand-soft);
+      color: var(--text);
+    }
+
+    .dev-menu-item.active {
+      background: linear-gradient(135deg, var(--brand-soft), var(--brand-light));
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .dev-menu-item .menu-icon {
+      font-size: 17px;
+      width: 22px;
+      text-align: center;
+    }
+
+    .dev-sidebar-footer {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+
+    .dev-api-status {
+      padding: 10px 14px;
+      background: var(--success-bg);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 12.5px;
+      color: #6B8F62;
+    }
+
+    .dev-api-status .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 0 4px rgba(168, 200, 160, 0.25);
+      animation: statusPulse 2s ease-in-out infinite;
+    }
+
+    @keyframes statusPulse {
+      0%, 100% { box-shadow: 0 0 0 4px rgba(168, 200, 160, 0.25); }
+      50% { box-shadow: 0 0 0 8px rgba(168, 200, 160, 0.1); }
+    }
+
+    /* 主内容区 */
+    .dev-main {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .dev-section {
+      display: none;
+      animation: fadeIn 0.35s ease-out;
+    }
+
+    .dev-section.active {
+      display: block;
+    }
+
+    .dev-page-title {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .dev-page-desc {
+      font-size: 14px;
+      color: var(--text-2);
+      margin-bottom: 24px;
+    }
+
+    /* ===== Dashboard 概览 ===== */
+    .welcome-card {
+      background: linear-gradient(135deg, var(--brand-light) 0%, var(--brand) 100%);
+      border-radius: var(--radius-lg);
+      padding: 32px 36px;
+      color: #fff;
+      margin-bottom: 24px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 8px 30px rgba(212, 184, 150, 0.35);
+    }
+
+    .welcome-card::before {
+      content: "";
+      position: absolute;
+      top: -50px;
+      right: -50px;
+      width: 200px;
+      height: 200px;
+      background: radial-gradient(circle, rgba(255,255,255,0.25), transparent 70%);
+      border-radius: 50%;
+    }
+
+    .welcome-card h2 {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      position: relative;
+    }
+
+    .welcome-card p {
+      font-size: 14px;
+      opacity: 0.9;
+      position: relative;
+      margin-bottom: 18px;
+    }
+
+    .welcome-stats {
+      display: flex;
+      gap: 40px;
+      position: relative;
+    }
+
+    .welcome-stat-item .num {
+      font-size: 28px;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    .welcome-stat-item .label {
+      font-size: 12.5px;
+      opacity: 0.85;
+      margin-top: 2px;
+    }
+
+    /* 数据卡片网格 */
+    .stat-cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+      margin-bottom: 24px;
+    }
+
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px 24px;
+      box-shadow: var(--shadow-sm);
+      transition: all 0.25s ease;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+      border-color: var(--brand-light);
+    }
+
+    .stat-card-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      margin-bottom: 14px;
+    }
+
+    .stat-card-icon.today { background: var(--info-bg); }
+    .stat-card-icon.total { background: var(--brand-soft); }
+    .stat-card-icon.credit { background: var(--warn-bg); }
+
+    .stat-card-num {
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.2;
+    }
+
+    .stat-card-label {
+      font-size: 13px;
+      color: var(--text-2);
+      margin-top: 4px;
+    }
+
+    .stat-card-trend {
+      font-size: 12px;
+      margin-top: 8px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 999px;
+    }
+
+    .stat-card-trend.up { background: var(--success-bg); color: #6B8F62; }
+    .stat-card-trend.down { background: var(--danger-bg); color: #C48B82; }
+
+    /* 快速开始卡片 */
+    .quickstart-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 28px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .quickstart-card h3 {
+      font-size: 17px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .quickstart-card .qs-desc {
+      font-size: 13.5px;
+      color: var(--text-2);
+      margin-bottom: 18px;
+    }
+
+    .code-block {
+      background: #2D2A26;
+      border-radius: 12px;
+      padding: 18px 22px;
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+      font-size: 12.5px;
+      color: #F5E6D3;
+      line-height: 1.7;
+      position: relative;
+      overflow-x: auto;
+    }
+
+    .code-block .copy-code-btn {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      padding: 5px 12px;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: #F5E6D3;
+      border-radius: 8px;
+      font-size: 11.5px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.2s;
+    }
+
+    .code-block .copy-code-btn:hover {
+      background: rgba(255,255,255,0.18);
+    }
+
+    .code-keyword { color: #E8C07D; }
+    .code-string { color: #A8C8A0; }
+    .code-comment { color: #8B7968; }
+    .code-method { color: #E8A8A0; }
+
+    /* ===== API Keys 密钥管理 ===== */
+    .keys-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .keys-count {
+      font-size: 13px;
+      color: var(--text-2);
+    }
+
+    .keys-count b {
+      color: var(--brand);
+      font-weight: 600;
+    }
+
+    .create-key-btn {
+      padding: 10px 22px;
+      background: var(--brand);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .create-key-btn:hover {
+      background: var(--brand-hover);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 14px rgba(212, 184, 150, 0.3);
+    }
+
+    .keys-table {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .keys-table-header {
+      display: grid;
+      grid-template-columns: 1.5fr 2.5fr 1fr 1.5fr 1.5fr 1fr;
+      padding: 14px 22px;
+      background: var(--bg-card-soft);
+      border-bottom: 1px solid var(--border);
+      font-size: 12.5px;
+      color: var(--text-3);
+      font-weight: 500;
+      letter-spacing: 0.02em;
+    }
+
+    .key-row {
+      display: grid;
+      grid-template-columns: 1.5fr 2.5fr 1fr 1.5fr 1.5fr 1fr;
+      padding: 18px 22px;
+      border-bottom: 1px solid var(--border);
+      align-items: center;
+      transition: background 0.15s;
+    }
+
+    .key-row:last-child {
+      border-bottom: none;
+    }
+
+    .key-row:hover {
+      background: var(--brand-soft);
+    }
+
+    .key-name {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .key-name .key-badge {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+    }
+
+    .key-value {
+      font-family: ui-monospace, monospace;
+      font-size: 13px;
+      color: var(--text-2);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .key-value .eye-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+      color: var(--text-3);
+      padding: 2px;
+      transition: color 0.2s;
+    }
+
+    .key-value .eye-btn:hover {
+      color: var(--text);
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 500;
+      width: fit-content;
+    }
+
+    .status-badge.active {
+      background: var(--success-bg);
+      color: #6B8F62;
+    }
+
+    .status-badge.disabled {
+      background: var(--danger-bg);
+      color: #C48B82;
+    }
+
+    .key-date {
+      font-size: 12.5px;
+      color: var(--text-3);
+    }
+
+    .key-actions {
+      display: flex;
+      gap: 4px;
+      justify-content: flex-end;
+    }
+
+    .key-action-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: var(--bg-soft);
+      border: 1px solid var(--border);
+      cursor: pointer;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      color: var(--text-2);
+    }
+
+    .key-action-btn:hover {
+      background: var(--brand-soft);
+      border-color: var(--brand-light);
+      color: var(--text);
+    }
+
+    .key-action-btn.danger:hover {
+      background: var(--danger-bg);
+      border-color: var(--danger);
+      color: #C48B82;
+    }
+
+    .empty-keys {
+      padding: 60px 20px;
+      text-align: center;
+    }
+
+    .empty-keys .empty-icon {
+      font-size: 48px;
+      margin-bottom: 14px;
+      opacity: 0.6;
+    }
+
+    .empty-keys h4 {
+      font-size: 16px;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+
+    .empty-keys p {
+      font-size: 13px;
+      color: var(--text-2);
+      margin-bottom: 18px;
+    }
+
+    /* ===== API 文档 ===== */
+    .docs-container {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+
+    .docs-sidebar {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 14px 10px;
+      position: sticky;
+      top: 90px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .docs-group-title {
+      font-size: 11.5px;
+      color: var(--text-3);
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 10px 14px 6px;
+    }
+
+    .v11-badge {
+      display: inline-block;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color: white;
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      letter-spacing: 0;
+      text-transform: none;
+      font-weight: 600;
+      margin-left: 4px;
+      vertical-align: middle;
+    }
+
+    .docs-api-list {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .docs-api-item {
+      padding: 9px 14px;
+      border-radius: 10px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-2);
+      font-weight: 450;
+    }
+
+    .docs-api-item:hover {
+      background: var(--brand-soft);
+      color: var(--text);
+    }
+
+    .docs-api-item.active {
+      background: linear-gradient(135deg, var(--brand-soft), var(--brand-light));
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .docs-api-item .method-tag {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 5px;
+      font-family: ui-monospace, monospace;
+      letter-spacing: 0.03em;
+    }
+
+    .method-tag.post { background: #E8F0E4; color: #6B8F62; }
+    .method-tag.get { background: #E6EEF3; color: #6B8F9C; }
+
+    /* 即将上线 */
+    .docs-api-item.coming-soon {
+      opacity: 0.6;
+      cursor: default;
+    }
+    .docs-api-item.coming-soon:hover {
+      background: transparent;
+    }
+    .coming-soon-badge {
+      display: inline-block;
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 4px;
+      background: #F5E6D3;
+      color: #B8860B;
+      margin-left: 6px;
+      font-weight: 600;
+      vertical-align: middle;
+    }
+    .coming-soon-title-badge {
+      display: inline-block;
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      background: #F5E6D3;
+      color: #B8860B;
+      margin-left: 10px;
+      font-weight: 600;
+      vertical-align: middle;
+    }
+    .coming-soon-notice {
+      background: #FFF8E7;
+      border: 1px solid #F5E6D3;
+      border-radius: 10px;
+      padding: 14px 18px;
+      color: #8B7355;
+      font-size: 13px;
+      margin: 16px 0;
+    }
+
+    .docs-content {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 32px;
+      box-shadow: var(--shadow-sm);
+      min-height: 600px;
+    }
+
+    .api-doc-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .api-doc-desc {
+      font-size: 14px;
+      color: var(--text-2);
+      margin-bottom: 24px;
+      line-height: 1.7;
+    }
+
+    .api-endpoint {
+      background: var(--bg-card-soft);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+
+    .api-method-badge {
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      font-family: ui-monospace, monospace;
+      letter-spacing: 0.03em;
+    }
+
+    .api-method-badge.post { background: #E8F0E4; color: #6B8F62; }
+    .api-method-badge.get { background: #E6EEF3; color: #6B8F9C; }
+
+    .api-url {
+      font-family: ui-monospace, monospace;
+      font-size: 13.5px;
+      color: var(--text);
+      flex: 1;
+      word-break: break-all;
+    }
+
+    .doc-section {
+      margin-bottom: 28px;
+    }
+
+    .doc-section-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .doc-section-title::before {
+      content: "";
+      width: 3px;
+      height: 16px;
+      border-radius: 2px;
+      background: var(--brand);
+    }
+
+    /* 参数表 */
+    .params-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .params-table th {
+      text-align: left;
+      padding: 10px 14px;
+      background: var(--bg-card-soft);
+      font-weight: 600;
+      color: var(--text-2);
+      font-size: 12.5px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .params-table th:first-child { border-radius: 8px 0 0 0; }
+    .params-table th:last-child { border-radius: 0 8px 0 0; }
+
+    .params-table td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-2);
+      vertical-align: top;
+    }
+
+    .params-table tr:last-child td { border-bottom: none; }
+
+    .params-table tr:hover td { background: var(--brand-soft); }
+
+    .param-name {
+      font-family: ui-monospace, monospace;
+      font-size: 12.5px;
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    .param-required {
+      color: var(--danger);
+      font-size: 11px;
+      margin-left: 4px;
+    }
+
+    .param-type {
+      font-family: ui-monospace, monospace;
+      font-size: 11.5px;
+      padding: 2px 8px;
+      background: var(--info-bg);
+      color: #6B8F9C;
+      border-radius: 5px;
+      font-weight: 500;
+    }
+
+    /* 代码示例标签切换 */
+    .code-tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 10px;
+    }
+
+    .code-tab {
+      padding: 6px 14px;
+      border-radius: 8px 8px 0 0;
+      font-size: 12.5px;
+      cursor: pointer;
+      transition: all 0.2s;
+      color: var(--text-3);
+      font-weight: 500;
+      background: transparent;
+      border: none;
+    }
+
+    .code-tab:hover { color: var(--text-2); }
+
+    .code-tab.active {
+      background: #2D2A26;
+      color: #F5E6D3;
+    }
+
+    .code-panel { display: none; }
+    .code-panel.active { display: block; }
+
+    /* 在线调试面板 */
+    .try-panel {
+      background: var(--bg-card-soft);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-top: 16px;
+    }
+
+    .try-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .try-panel-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .try-btn {
+      padding: 8px 18px;
+      background: var(--brand);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .try-btn:hover {
+      background: var(--brand-hover);
+    }
+
+    .try-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .try-result {
+      margin-top: 14px;
+      max-height: 300px;
+      overflow-y: auto;
+      display: none;
+    }
+
+    .try-result.show { display: block; }
+
+    /* ===== 调用统计 ===== */
+    .stats-filter {
+      display: flex;
+      gap: 6px;
+      background: var(--bg-card);
+      padding: 5px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      width: fit-content;
+      margin-bottom: 24px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .stats-filter-item {
+      padding: 7px 18px;
+      border-radius: 9px;
+      font-size: 13px;
+      color: var(--text-2);
+      cursor: pointer;
+      transition: all 0.2s;
+      font-weight: 450;
+    }
+
+    .stats-filter-item:hover { color: var(--text); }
+
+    .stats-filter-item.active {
+      background: var(--brand);
+      color: #fff;
+      font-weight: 500;
+    }
+
+    .stats-chart-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 28px;
+      margin-bottom: 24px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .stats-chart-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* 纯CSS柱状图 */
+    .bar-chart {
+      display: flex;
+      align-items: flex-end;
+      gap: 10px;
+      height: 260px;
+      padding: 0 8px;
+      border-bottom: 1px solid var(--border);
+      position: relative;
+    }
+
+    .bar-chart::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 50%;
+      height: 1px;
+      background: var(--border);
+      opacity: 0.5;
+    }
+
+    .bar-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      justify-content: flex-end;
+      min-width: 0;
+    }
+
+    .bar {
+      width: 100%;
+      max-width: 28px;
+      background: linear-gradient(180deg, var(--brand), var(--brand-light));
+      border-radius: 6px 6px 0 0;
+      transition: all 0.4s ease;
+      position: relative;
+      cursor: pointer;
+    }
+
+    .bar:hover {
+      background: linear-gradient(180deg, var(--brand-hover), var(--brand));
+      box-shadow: 0 -2px 12px rgba(212, 184, 150, 0.3);
+    }
+
+    .bar::after {
+      content: attr(data-value);
+      position: absolute;
+      top: -22px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 11px;
+      color: var(--text-2);
+      font-weight: 500;
+      opacity: 0;
+      transition: opacity 0.2s;
+      white-space: nowrap;
+    }
+
+    .bar:hover::after { opacity: 1; }
+
+    .bar-label {
+      font-size: 11px;
+      color: var(--text-3);
+      margin-top: 6px;
+      white-space: nowrap;
+    }
+
+    /* 接口调用占比 */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 24px;
+    }
+
+    .donut-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 28px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .donut-container {
+      display: flex;
+      align-items: center;
+      gap: 32px;
+    }
+
+    .donut-chart {
+      width: 160px;
+      height: 160px;
+      border-radius: 50%;
+      position: relative;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .donut-center {
+      position: absolute;
+      width: 100px;
+      height: 100px;
+      background: var(--bg-card);
+      border-radius: 50%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .donut-center .total-num {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .donut-center .total-label {
+      font-size: 11px;
+      color: var(--text-3);
+      margin-top: 2px;
+    }
+
+    .donut-legend {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .donut-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      color: var(--text-2);
+    }
+
+    .donut-legend-item .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+
+    .donut-legend-item .name { flex: 1; }
+    .donut-legend-item .pct { font-weight: 600; color: var(--text); }
+
+    /* 调用记录表格 */
+    .logs-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .logs-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .logs-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logs-table-wrap {
+      overflow-x: auto;
+    }
+
+    .logs-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .logs-table th {
+      text-align: left;
+      padding: 12px 24px;
+      background: var(--bg-card-soft);
+      font-weight: 600;
+      color: var(--text-2);
+      font-size: 12.5px;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    .logs-table td {
+      padding: 14px 24px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-2);
+      white-space: nowrap;
+    }
+
+    .logs-table tr:last-child td { border-bottom: none; }
+    .logs-table tr:hover td { background: var(--brand-soft); }
+
+    .log-api-name {
+      font-family: ui-monospace, monospace;
+      font-size: 12.5px;
+      color: var(--text);
+    }
+
+    .log-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 11.5px;
+      font-weight: 500;
+    }
+
+    .log-status.success { background: var(--success-bg); color: #6B8F62; }
+    .log-status.failed { background: var(--danger-bg); color: #C48B82; }
+    .log-status.processing { background: var(--warn-bg); color: #C49B5B; }
+
+    /* ===== Webhook 管理 ===== */
+    .webhook-card, .webhook-list-card, .webhook-info-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .webhook-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .webhook-form {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .webhook-form .form-group:last-of-type {
+      grid-column: 1 / -1;
+    }
+
+    .webhook-form label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-2);
+      margin-bottom: 6px;
+    }
+
+    .webhook-form input, .webhook-form select {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      font-size: 14px;
+      background: var(--bg);
+      color: var(--text);
+      transition: border-color .2s;
+      box-sizing: border-box;
+    }
+
+    .webhook-form input:focus, .webhook-form select:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .webhook-item {
+      display: flex;
+      align-items: center;
+      padding: 16px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      margin-bottom: 10px;
+      gap: 14px;
+    }
+
+    .webhook-item:last-child { margin-bottom: 0; }
+
+    .webhook-item-info { flex: 1; min-width: 0; }
+    .webhook-item-url {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+      word-break: break-all;
+      margin-bottom: 4px;
+    }
+    .webhook-item-meta {
+      font-size: 12px;
+      color: var(--text-3);
+      display: flex;
+      gap: 12px;
+    }
+
+    .webhook-status {
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .webhook-status.active { background: #E8F5E9; color: #5A8F5C; }
+    .webhook-status.disabled { background: #F5E8E8; color: #C48B82; }
+
+    .webhook-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+    .webhook-info-card h4 {
+      margin: 0 0 12px;
+      font-size: 14px;
+      color: var(--text);
+    }
+    .webhook-info-card ul {
+      margin: 0;
+      padding-left: 20px;
+      color: var(--text-2);
+      font-size: 13px;
+      line-height: 1.8;
+    }
+
+    .webhook-empty {
+      text-align: center;
+      padding: 30px;
+      color: var(--text-3);
+      font-size: 14px;
+    }
+
+    /* ===== 充值套餐 ===== */
+    .plans-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 22px;
+      margin-bottom: 32px;
+    }
+
+    .plan-card {
+      background: var(--bg-card);
+      border: 2px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 32px 28px;
+      position: relative;
+      transition: all 0.3s ease;
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .plan-card:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .plan-card.featured {
+      border-color: var(--brand);
+      box-shadow: 0 8px 32px rgba(212, 184, 150, 0.2);
+    }
+
+    .plan-badge {
+      position: absolute;
+      top: -1px;
+      right: 24px;
+      padding: 6px 16px;
+      background: linear-gradient(135deg, var(--brand), var(--brand-hover));
+      color: #fff;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 0 0 10px 10px;
+    }
+
+    .plan-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 16px;
+      background: var(--brand-soft);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      margin-bottom: 18px;
+    }
+
+    .plan-name {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .plan-desc {
+      font-size: 13px;
+      color: var(--text-2);
+      margin-bottom: 20px;
+      line-height: 1.6;
+    }
+
+    .plan-price {
+      margin-bottom: 24px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .plan-price .price-num {
+      font-size: 36px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1;
+    }
+
+    .plan-price .price-unit {
+      font-size: 14px;
+      color: var(--text-2);
+      margin-left: 4px;
+    }
+
+    .plan-price .price-original {
+      font-size: 13px;
+      color: var(--text-3);
+      text-decoration: line-through;
+      margin-top: 6px;
+    }
+
+    .plan-features {
+      flex: 1;
+      margin-bottom: 24px;
+    }
+
+    .plan-feature-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 13.5px;
+      color: var(--text-2);
+      margin-bottom: 12px;
+      line-height: 1.5;
+    }
+
+    .plan-feature-item .check {
+      color: var(--success);
+      font-size: 15px;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .plan-buy-btn {
+      width: 100%;
+      padding: 13px;
+      border-radius: 12px;
+      font-size: 14.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 2px solid var(--brand);
+      background: transparent;
+      color: var(--brand);
+    }
+
+    .plan-buy-btn:hover {
+      background: var(--brand-soft);
+    }
+
+    .plan-card.featured .plan-buy-btn {
+      background: var(--brand);
+      color: #fff;
+    }
+
+    .plan-card.featured .plan-buy-btn:hover {
+      background: var(--brand-hover);
+      border-color: var(--brand-hover);
+    }
+
+    /* 套餐说明 */
+    .plans-notes {
+      background: var(--bg-card-soft);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 24px 28px;
+    }
+
+    .plans-notes h4 {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .plans-notes ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .plans-notes li {
+      font-size: 13.5px;
+      color: var(--text-2);
+      padding-left: 22px;
+      position: relative;
+    }
+
+    .plans-notes li::before {
+      content: "✓";
+      position: absolute;
+      left: 0;
+      color: var(--success);
+      font-weight: 700;
+    }
+
+    /* ===== 弹窗 ===== */
+    .modal-mask {
+      position: fixed;
+      inset: 0;
+      background: rgba(92, 74, 58, 0.45);
+      z-index: 1000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+    }
+
+    .modal-mask.show { display: flex; }
+
+    .modal-box {
+      background: var(--bg-card);
+      border-radius: 20px;
+      width: 100%;
+      max-width: 480px;
+      box-shadow: 0 20px 60px rgba(92, 74, 58, 0.25);
+      overflow: hidden;
+      animation: modalIn 0.3s ease-out;
+    }
+
+    @keyframes modalIn {
+      from { opacity: 0; transform: translateY(20px) scale(0.95); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .modal-box-header {
+      padding: 22px 28px 18px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .modal-box-title {
+      font-size: 17px;
+      font-weight: 600;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .modal-close-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: var(--bg-soft);
+      border: none;
+      cursor: pointer;
+      font-size: 18px;
+      color: var(--text-2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+
+    .modal-close-btn:hover {
+      background: var(--danger-bg);
+      color: #C48B82;
+    }
+
+    .modal-box-body {
+      padding: 24px 28px;
+    }
+
+    .modal-box-footer {
+      padding: 16px 28px 22px;
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+
+    .modal-input-label {
+      display: block;
+      font-size: 13px;
+      color: var(--text-2);
+      margin-bottom: 8px;
+      font-weight: 500;
+    }
+
+    .modal-input {
+      width: 100%;
+      padding: 11px 16px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font-size: 14px;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    .modal-input:focus {
+      border-color: var(--brand);
+      background: #fff;
+      box-shadow: 0 0 0 4px rgba(212, 184, 150, 0.12);
+    }
+
+    .key-generated-box {
+      background: #2D2A26;
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .key-generated-box .key-text {
+      flex: 1;
+      font-family: ui-monospace, monospace;
+      font-size: 13px;
+      color: #F5E6D3;
+      word-break: break-all;
+    }
+
+    .key-warning {
+      background: var(--warn-bg);
+      border-radius: 10px;
+      padding: 12px 16px;
+      margin-top: 16px;
+      font-size: 12.5px;
+      color: #C49B5B;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      line-height: 1.6;
+    }
+
+    .btn-secondary {
+      padding: 10px 22px;
+      background: var(--bg-soft);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text-2);
+      font-size: 13.5px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-weight: 500;
+    }
+
+    .btn-secondary:hover {
+      background: var(--brand-soft);
+      color: var(--text);
+    }
+
+    .btn-primary {
+      padding: 10px 22px;
+      background: var(--brand);
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      font-size: 13.5px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-primary:hover {
+      background: var(--brand-hover);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    /* 响应式 */
+    @media (max-width: 900px) {
+      .dev-page {
+        flex-direction: column;
+        padding: 16px;
+      }
+      .dev-sidebar {
+        width: 100%;
+        position: static;
+      }
+      .dev-menu {
+        flex-direction: row;
+        overflow-x: auto;
+      }
+      .dev-menu-item { white-space: nowrap; }
+      .stat-cards { grid-template-columns: 1fr; }
+      .plans-grid { grid-template-columns: 1fr; }
+      .docs-container { grid-template-columns: 1fr; }
+      .docs-sidebar { position: static; }
+      .stats-grid { grid-template-columns: 1fr; }
+      .keys-table-header, .key-row {
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="navbar-inner">
+      <div class="logo">
+        <div class="logo-icon">🎨</div>
+        <span class="logo-text">AI工作室</span>
+      </div>
+      <div class="nav-links">
+        <a href="index.html" class="nav-link">工作室</a>
+        <a href="developer.html" class="nav-link active">开发者平台</a>
+        <a href="/profile.html" class="nav-link" id="navMyWorks" style="display:none;">我的作品</a>
+      </div>
+      <div class="nav-right">
+        <div class="credit-badge" id="creditBadge" style="display:none;">
+          <span class="credit-icon">💎</span>
+          <b id="creditNum">--</b> 积分
+        </div>
+        <div id="navAuthLinks" style="display:flex;gap:8px;align-items:center;">
+          <a href="/login" class="nav-link" style="padding:6px 14px;">登录</a>
+          <a href="/register" style="padding:8px 18px;background:var(--brand);color:#fff;border-radius:10px;font-size:13px;font-weight:500;">注册</a>
+        </div>
+        <div class="avatar" id="userAvatar" style="display:none;">U</div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Developer Page -->
+  <div class="dev-page">
+    <!-- 侧边栏 -->
+    <aside class="dev-sidebar">
+      <div class="dev-sidebar-header">
+        <div class="dev-sidebar-title">
+          <span class="dev-icon">⚡</span>
+          <span>API 开放平台</span>
+        </div>
+        <div class="dev-sidebar-sub">开发者中心 v1.1</div>
+      </div>
+      <div class="dev-menu">
+        <div class="dev-menu-item active" data-section="dashboard">
+          <span class="menu-icon">🏠</span>
+          <span>概览</span>
+        </div>
+        <div class="dev-menu-item" data-section="keys">
+          <span class="menu-icon">🔑</span>
+          <span>我的密钥</span>
+        </div>
+        <div class="dev-menu-item" data-section="docs">
+          <span class="menu-icon">📚</span>
+          <span>API 文档</span>
+        </div>
+        <div class="dev-menu-item" data-section="stats">
+          <span class="menu-icon">📊</span>
+          <span>调用统计</span>
+        </div>
+        <div class="dev-menu-item" data-section="webhook">
+          <span class="menu-icon">🔗</span>
+          <span>Webhook 回调</span>
+          <span class="v11-badge" style="margin-left:auto">v1.1</span>
+        </div>
+      </div>
+      <div class="dev-sidebar-footer">
+        <div class="dev-api-status">
+          <span class="status-dot"></span>
+          <span>API 服务正常运行</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- 主内容区 -->
+    <main class="dev-main">
+      <!-- ===== Dashboard 概览 ===== -->
+      <section class="dev-section active" id="section-dashboard">
+        <div class="welcome-card">
+          <h2>👋 欢迎使用 AI 工作室开放平台</h2>
+          <p>通过 API 调用 8 大 AI 工作室能力，快速集成到你的产品中</p>
+          <div class="welcome-stats">
+            <div class="welcome-stat-item">
+              <div class="num" id="dashCredit">--</div>
+              <div class="label">剩余积分</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="stat-cards">
+          <div class="stat-card">
+            <div class="stat-card-icon today">📈</div>
+            <div class="stat-card-num" id="statToday">128</div>
+            <div class="stat-card-label">今日调用次数</div>
+            <div class="stat-card-trend up">↑ 12.5% 较昨日</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon total">🔢</div>
+            <div class="stat-card-num" id="statTotal">2,847</div>
+            <div class="stat-card-label">累计调用次数</div>
+            <div class="stat-card-trend up">↑ 8.3% 较上月</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon credit">💎</div>
+            <div class="stat-card-num" id="statMonthCost">456</div>
+            <div class="stat-card-label">本月消耗积分</div>
+            <div class="stat-card-trend down">↓ 5.2% 较上月</div>
+          </div>
+        </div>
+
+        <div class="quickstart-card">
+          <h3>🚀 快速开始</h3>
+          <p class="qs-desc">复制下方 curl 命令，在终端中运行即可发起你的第一次 API 调用。请先在「我的密钥」中获取你的 API Key。</p>
+          <div class="code-block">
+            <button class="copy-code-btn" onclick="copyCode(this)">复制</button>
+<span class="code-comment"># 调用电商套图生成接口</span>
+curl -X POST <span class="code-string" id="quickStartUrl">/api/v1/generate/ecommerce</span> \
+  -H <span class="code-string">"Content-Type: application/json"</span> \
+  -H <span class="code-string">"X-API-Key: sk_your_api_key_here"</span> \
+  -d '{
+    <span class="code-keyword">"platform"</span>: <span class="code-string">"淘宝"</span>,
+    <span class="code-keyword">"selling_points"</span>: <span class="code-string">"高端护肤精华液，主打抗衰修复"</span>,
+    <span class="code-keyword">"image_count"</span>: <span class="code-string">4</span>,
+    <span class="code-keyword">"ratio"</span>: <span class="code-string">"1:1"</span>
+  }'
+          </div>
+          <div style="margin-top: 18px; display: flex; gap: 12px; flex-wrap: wrap;">
+            <button class="action-btn primary" onclick="switchSection('keys')">🔑 查看我的密钥</button>
+            <button class="action-btn" onclick="switchSection('docs')">📚 查看完整文档</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== API Keys 密钥管理 ===== -->
+      <section class="dev-section" id="section-keys">
+        <h2 class="dev-page-title">🔑 我的密钥</h2>
+        <p class="dev-page-desc">管理你的 API 密钥，每个账户最多创建 5 个密钥。请妥善保管，不要泄露给他人。</p>
+
+        <div class="keys-header">
+          <div class="keys-count">共 <b id="keyCountNum">0</b> / 5 个密钥</div>
+          <button class="create-key-btn" onclick="openCreateKeyModal()">
+            <span>＋</span>创建新密钥
+          </button>
+        </div>
+
+        <div class="keys-table">
+          <div class="keys-table-header">
+            <div>密钥名称</div>
+            <div>API Key</div>
+            <div>状态</div>
+            <div>创建时间</div>
+            <div>最后使用</div>
+            <div style="text-align:right;">操作</div>
+          </div>
+          <div id="keysList">
+            <div class="empty-keys">
+              <div class="empty-icon">🔐</div>
+              <h4>还没有 API 密钥</h4>
+              <p>创建你的第一个 API 密钥，开始调用 AI 工作室能力</p>
+              <button class="action-btn primary" onclick="openCreateKeyModal()">＋ 创建密钥</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== API 文档 ===== -->
+      <section class="dev-section" id="section-docs">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+          <div>
+            <h2 class="dev-page-title" style="margin:0;">📚 API 文档</h2>
+            <p class="dev-page-desc" style="margin-top:6px;">完整的 API 接口文档，包含请求参数、响应示例和代码示例</p>
+          </div>
+          <button class="action-btn" onclick="downloadAllDocs()" style="flex-shrink:0;white-space:nowrap;">⬇ 下载全部文档</button>
+        </div>
+
+        <div class="docs-container">
+          <div class="docs-sidebar">
+            <div class="docs-group-title">生成接口</div>
+            <div class="docs-api-list" id="apiList">
+              <!-- 动态生成 -->
+            </div>
+            <div class="docs-group-title">查询接口</div>
+            <div class="docs-api-list" id="queryApiList">
+              <!-- 动态生成 -->
+            </div>
+            <div class="docs-group-title">Webhook 接口 <span class="v11-badge">v1.1</span></div>
+            <div class="docs-api-list" id="webhookApiList">
+              <!-- 动态生成 -->
+            </div>
+          </div>
+          <div class="docs-content" id="apiDocContent">
+            <!-- 动态生成 -->
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== 调用统计 ===== -->
+      <section class="dev-section" id="section-stats">
+        <h2 class="dev-page-title">📊 调用统计</h2>
+        <p class="dev-page-desc">查看你的 API 调用情况和使用趋势</p>
+
+        <div class="stats-filter">
+          <div class="stats-filter-item active" data-range="today">今日</div>
+          <div class="stats-filter-item" data-range="7d">近 7 天</div>
+          <div class="stats-filter-item" data-range="30d">近 30 天</div>
+        </div>
+
+        <div class="stats-chart-card">
+          <div class="stats-chart-title">📈 调用次数趋势</div>
+          <div class="bar-chart" id="usageBarChart">
+            <!-- 动态生成柱状图 -->
+          </div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="donut-card">
+            <div class="stats-chart-title">🥧 接口调用占比</div>
+            <div class="donut-container">
+              <div class="donut-chart" id="usageDonut" style="background: conic-gradient(
+                var(--brand) 0deg 120deg,
+                var(--brand-light) 120deg 200deg,
+                #E8D4BC 200deg 260deg,
+                #F0DFC8 260deg 300deg,
+                var(--info) 300deg 340deg,
+                var(--border) 340deg 360deg
+              );">
+                <div class="donut-center">
+                  <div class="total-num">128</div>
+                  <div class="total-label">总调用</div>
+                </div>
+              </div>
+              <div class="donut-legend" id="donutLegend">
+                <!-- 动态生成 -->
+              </div>
+            </div>
+          </div>
+
+          <div class="donut-card">
+            <div class="stats-chart-title">⏱️ 响应时间分布</div>
+            <div class="donut-container">
+              <div class="donut-chart" style="background: conic-gradient(
+                var(--success) 0deg 200deg,
+                var(--warn) 200deg 300deg,
+                var(--danger) 300deg 360deg
+              );">
+                <div class="donut-center">
+                  <div class="total-num">2.4s</div>
+                  <div class="total-label">平均耗时</div>
+                </div>
+              </div>
+              <div class="donut-legend">
+                <div class="donut-legend-item">
+                  <span class="dot" style="background: var(--success);"></span>
+                  <span class="name">快速 (&lt;2s)</span>
+                  <span class="pct">55%</span>
+                </div>
+                <div class="donut-legend-item">
+                  <span class="dot" style="background: var(--warn);"></span>
+                  <span class="name">正常 (2-5s)</span>
+                  <span class="pct">28%</span>
+                </div>
+                <div class="donut-legend-item">
+                  <span class="dot" style="background: var(--danger);"></span>
+                  <span class="name">较慢 (&gt;5s)</span>
+                  <span class="pct">17%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="logs-card">
+          <div class="logs-header">
+            <div class="logs-title">📋 调用记录</div>
+            <div style="font-size: 12.5px; color: var(--text-3);">最近 20 条记录</div>
+          </div>
+          <div class="logs-table-wrap">
+            <table class="logs-table">
+              <thead>
+                <tr>
+                  <th>时间</th>
+                  <th>接口</th>
+                  <th>状态</th>
+                  <th>耗时</th>
+                  <th>消耗积分</th>
+                  <th>任务ID</th>
+                </tr>
+              </thead>
+              <tbody id="usageLogsTable">
+                <!-- 动态生成 -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== Webhook 回调管理 ===== -->
+      <section class="dev-section" id="section-webhook">
+        <h2 class="dev-page-title">🔗 Webhook 回调管理 <span class="v11-badge">v1.1</span></h2>
+        <p class="dev-page-desc">配置 Webhook 订阅，异步任务完成或失败时自动推送到你的服务器，无需轮询</p>
+
+        <div class="webhook-card">
+          <div class="webhook-card-header">
+            <div>
+              <h3 style="margin:0 0 4px;font-size:16px">新建 Webhook 订阅</h3>
+              <p style="margin:0;font-size:13px;color:var(--text-3)">任务状态变更时自动推送通知到指定 URL</p>
+            </div>
+          </div>
+          <div class="webhook-form">
+            <div class="form-group">
+              <label>回调 URL</label>
+              <input type="text" id="webhookUrl" placeholder="https://your-app.com/api/webhook-callback">
+            </div>
+            <div class="form-group">
+              <label>订阅事件</label>
+              <select id="webhookEvent">
+                <option value="task.completed,task.failed">全部事件（完成 + 失败）</option>
+                <option value="task.completed">仅任务完成</option>
+                <option value="task.failed">仅任务失败</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>签名密钥（可选）</label>
+              <input type="text" id="webhookSecret" placeholder="用于验证回调请求的来源，建议设置">
+            </div>
+            <button class="btn btn-primary" onclick="createWebhook()" style="align-self:flex-end">创建订阅</button>
+          </div>
+        </div>
+
+        <div class="webhook-list-card">
+          <h3 style="margin:0 0 16px;font-size:16px">我的 Webhook 订阅</h3>
+          <div id="webhookList">
+            <div style="text-align:center;padding:30px;color:var(--text-3)">加载中...</div>
+          </div>
+        </div>
+
+        <div class="webhook-info-card">
+          <h4>📌 Webhook 说明</h4>
+          <ul>
+            <li>异步生成任务（图片、头像、海报、电商套图、图生图）完成时触发</li>
+            <li>回调为 POST 请求，Content-Type 为 application/json</li>
+            <li>请求头包含 X-Webhook-Event（事件类型）和 X-Webhook-Secret（签名密钥）</li>
+            <li>回调超时为 5 秒，失败不会重试，请确保你的服务稳定可用</li>
+            <li>事件类型：task.completed（任务完成）、task.failed（任务失败）</li>
+          </ul>
+        </div>
+      </section>
+
+
+    </main>
+  </div>
+
+  <!-- 创建密钥弹窗 -->
+  <div class="modal-mask" id="createKeyModal">
+    <div class="modal-box">
+      <div class="modal-box-header">
+        <div class="modal-box-title">🔑 创建新密钥</div>
+        <button class="modal-close-btn" onclick="closeCreateKeyModal()">×</button>
+      </div>
+      <div class="modal-box-body">
+        <div id="createKeyStep1">
+          <label class="modal-input-label">密钥名称</label>
+          <input type="text" class="modal-input" id="keyNameInput" placeholder="例如：生产环境密钥" maxlength="32">
+          <div style="font-size: 12px; color: var(--text-3); margin-top: 8px;">
+            给这个密钥起个名字，方便识别用途。每个账户最多创建 5 个密钥。
+          </div>
+        </div>
+        <div id="createKeyStep2" style="display:none;">
+          <div style="font-size: 13px; color: var(--text-2); margin-bottom: 8px; font-weight: 500;">
+            密钥 <span id="createdKeyName" style="color:var(--text);">默认密钥</span> 创建成功，请妥善保存（仅显示一次）
+          </div>
+          <div class="key-generated-box">
+            <span class="key-text" id="createdKeyValue">sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx</span>
+            <button class="action-btn" style="padding:6px 14px; font-size:12px; background: rgba(255,255,255,0.1); color:#F5E6D3; border:1px solid rgba(255,255,255,0.15);" onclick="copyCreatedKey()">复制</button>
+          </div>
+          <div class="key-warning">
+            <span>⚠️</span>
+            <div>
+              <b>重要提示：</b>出于安全考虑，密钥完整值仅在创建时显示一次，请立即复制并妥善保存。
+              关闭弹窗后将无法再次查看完整密钥。如果丢失，需要重新创建。
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-box-footer">
+        <button class="btn-secondary" id="createKeyCancelBtn" onclick="closeCreateKeyModal()">取消</button>
+        <button class="btn-primary" id="createKeyConfirmBtn" onclick="confirmCreateKey()">创建密钥</button>
+        <button class="btn-primary" id="createKeyDoneBtn" onclick="closeCreateKeyModal()" style="display:none;">知道了</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/common.js?v=21"></script>
+  <script src="js/app.js?v=21"></script>
+  <script>
+    // ===== 登录检查 =====
+    if (!isLoggedIn()) {
+      showToast('请先登录后使用开发者平台', 'error');
+      setTimeout(() => window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname), 1000);
+    }
+
+    // ===== 全局变量：当前用户的API密钥列表（从后端加载）=====
+    let g_apiKeys = [];
+    let g_revealedKeyId = null; // 当前显示明文的密钥ID
+
+    // ===== API v1 请求封装（使用 X-API-Key 鉴权）=====
+    async function apiV1Request(url, options = {}) {
+      const apiKey = getFirstApiKey();
+      const headers = Object.assign({}, options.headers || {});
+      if (apiKey) headers['X-API-Key'] = apiKey;
+      if (options.body && !(options.body instanceof FormData)) {
+        headers['Content-Type'] = 'application/json';
+      }
+      try {
+        const res = await fetch(url, Object.assign({}, options, { headers }));
+        return await res.json();
+      } catch (e) {
+        return { code: -1, msg: '网络错误：' + e.message };
+      }
+    }
+
+    // 获取第一个可用的API Key（用于文档在线调试）
+    function getFirstApiKey() {
+      const active = g_apiKeys.find(k => k.status === 1);
+      return active ? (active.api_key || active._revealed || '') : '';
+    }
+
+    // ===== 侧边栏切换 =====
+    function switchSection(sectionId) {
+      document.querySelectorAll('.dev-menu-item').forEach(item => {
+        item.classList.toggle('active', item.dataset.section === sectionId);
+      });
+      document.querySelectorAll('.dev-section').forEach(section => {
+        section.classList.toggle('active', section.id === 'section-' + sectionId);
+      });
+      if (sectionId === 'stats') {
+        _statsDays = 7;
+        renderBarChart(1);
+        renderLogs(1);
+        // 重置今日按钮高亮
+        document.querySelectorAll('.stats-filter-item').forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.range === 'today');
+        });
+      }
+      if (sectionId === 'keys') {
+        loadAndRenderKeys();
+      }
+      if (sectionId === 'dashboard') {
+        updateDashboardStats();
+      }
+      if (sectionId === 'webhook') {
+        loadWebhooks();
+      }
+    }
+
+    document.querySelectorAll('.dev-menu-item').forEach(item => {
+      item.addEventListener('click', function() {
+        switchSection(this.dataset.section);
+      });
+    });
+
+    // ===== API Keys 管理（真实后端接口）=====
+
+    // 从后端加载密钥列表
+    async function loadApiKeysFromServer() {
+      const res = await apiRequest('/api/user/api-keys');
+      if (res.code === 0 && res.data) {
+        g_apiKeys = res.data.map(k => ({
+          id: k.id,
+          name: k.name,
+          api_key_masked: k.api_key_masked,
+          status: k.status,
+          last_used_at: k.last_used_at,
+          created_at: k.created_at,
+          _revealed: null
+        }));
+        return true;
+      }
+      return false;
+    }
+
+    // 加载并渲染
+    async function loadAndRenderKeys() {
+      await loadApiKeysFromServer();
+      updateDebugKeyDisplay();
+      renderKeys();
+    }
+
+    function maskKey(key) {
+      if (!key) return '';
+      if (key.length <= 12) return key;
+      return key.substring(0, 6) + '...' + key.substring(key.length - 4);
+    }
+
+    function formatDate(dateStr) {
+      if (!dateStr) return '-';
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      return d.getFullYear() + '-' + 
+        String(d.getMonth() + 1).padStart(2, '0') + '-' + 
+        String(d.getDate()).padStart(2, '0');
+    }
+
+    function renderKeys() {
+      const listEl = document.getElementById('keysList');
+      const countEl = document.getElementById('keyCountNum');
+      
+      countEl.textContent = g_apiKeys.length;
+      
+      if (g_apiKeys.length === 0) {
+        listEl.innerHTML = `
+          <div class="empty-keys">
+            <div class="empty-icon">🔐</div>
+            <div class="empty-text">还没有 API 密钥</div>
+            <div class="empty-desc">创建你的第一个 API 密钥，开始调用 AI 工作室接口</div>
+            <button class="btn-primary" onclick="openCreateKeyModal()">+ 创建密钥</button>
+          </div>
+        `;
+        return;
+      }
+
+      listEl.innerHTML = g_apiKeys.map((key, index) => {
+        const isRevealed = key._revealed !== null;
+        const displayKey = isRevealed ? key._revealed : key.api_key_masked;
+        return `
+          <div class="key-item">
+            <div class="key-info">
+              <div class="key-name">${escapeHtml(key.name)}</div>
+              <div class="key-value">
+                <code>${escapeHtml(displayKey)}</code>
+                <button class="eye-btn" onclick="toggleKeyVisibility(${key.id})" title="${isRevealed ? '隐藏' : '显示'}">
+                  ${isRevealed ? '🙈' : '👁️'}
+                </button>
+                <button class="copy-btn" onclick="copyKey(${key.id})" title="复制">📋</button>
+              </div>
+              <div class="key-meta">
+                <span class="key-status ${key.status === 1 ? 'status-active' : 'status-disabled'}">
+                  ${key.status === 1 ? '● 启用' : '○ 禁用'}
+                </span>
+                <span>创建：${formatDate(key.created_at)}</span>
+                <span>最后使用：${formatDate(key.last_used_at)}</span>
+              </div>
+            </div>
+            <div class="key-actions">
+              <button class="key-action-btn" onclick="toggleKeyStatus(${key.id})" title="${key.status === 1 ? '禁用' : '启用'}">
+                ${key.status === 1 ? '⏸️ 禁用' : '▶️ 启用'}
+              </button>
+              <button class="key-action-btn danger" onclick="deleteKey(${key.id})" title="删除">🗑️ 删除</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // 显示/隐藏密钥
+    async function toggleKeyVisibility(keyId) {
+      const key = g_apiKeys.find(k => k.id === keyId);
+      if (!key) return;
+
+      if (key._revealed) {
+        key._revealed = null;
+        renderKeys();
+        return;
+      }
+
+      const res = await apiRequest(`/api/user/api-keys/${keyId}/reveal`);
+      if (res.code === 0 && res.data) {
+        key._revealed = res.data.api_key;
+        renderKeys();
+      } else {
+        showToast(res.msg || '获取密钥失败', 'error');
+      }
+    }
+
+    // 复制密钥
+    async function copyKey(keyId) {
+      const key = g_apiKeys.find(k => k.id === keyId);
+      if (!key) return;
+
+      let textToCopy = key._revealed;
+      if (!textToCopy) {
+        // 没显示的话先获取
+        const res = await apiRequest(`/api/user/api-keys/${keyId}/reveal`);
+        if (res.code === 0 && res.data) {
+          textToCopy = res.data.api_key;
+          key._revealed = res.data.api_key;
+          renderKeys();
+        } else {
+          showToast(res.msg || '获取密钥失败', 'error');
+          return;
+        }
+      }
+
+      try {
+        await navigator.clipboard.writeText(textToCopy);
+        showToast('已复制到剪贴板', 'success');
+      } catch (e) {
+        // 降级方案
+        const textarea = document.createElement('textarea');
+        textarea.value = textToCopy;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        showToast('已复制到剪贴板', 'success');
+      }
+    }
+
+    // 切换密钥状态
+    async function toggleKeyStatus(keyId) {
+      const key = g_apiKeys.find(k => k.id === keyId);
+      if (!key) return;
+
+      const newStatus = key.status === 1 ? 0 : 1;
+      const res = await apiRequest(`/api/user/api-keys/${keyId}/status`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: newStatus })
+      });
+
+      if (res.code === 0) {
+        key.status = newStatus;
+        renderKeys();
+        showToast(newStatus === 1 ? '密钥已启用' : '密钥已禁用', 'success');
+      } else {
+        showToast(res.msg || '操作失败', 'error');
+      }
+    }
+
+    // 删除密钥
+    function deleteKey(keyId) {
+      const key = g_apiKeys.find(k => k.id === keyId);
+      if (!key) return;
+      
+      if (!confirm(`确定要删除密钥「${key.name}」吗？删除后无法恢复。`)) return;
+
+      apiRequest(`/api/user/api-keys/${keyId}`, { method: 'DELETE' }).then(res => {
+        if (res.code === 0) {
+          g_apiKeys = g_apiKeys.filter(k => k.id !== keyId);
+          renderKeys();
+          showToast('密钥已删除', 'success');
+        } else {
+          showToast(res.msg || '删除失败', 'error');
+        }
+      });
+    }
+
+    // 创建密钥弹窗
+    function openCreateKeyModal() {
+      if (g_apiKeys.length >= 5) {
+        showToast('最多创建 5 个 API 密钥', 'error');
+        return;
+      // 重置底部按钮状态
+      const confirmBtn = document.getElementById('createKeyConfirmBtn');
+      const doneBtn = document.getElementById('createKeyDoneBtn');
+      const cancelBtn = document.getElementById('createKeyCancelBtn');
+      if (confirmBtn) { confirmBtn.style.display = ''; confirmBtn.disabled = false; confirmBtn.textContent = '创建密钥'; }
+      if (doneBtn) doneBtn.style.display = 'none';
+      if (cancelBtn) { cancelBtn.style.display = ''; cancelBtn.textContent = '取消'; }
+      }
+      document.getElementById('createKeyModal').classList.add('show');
+      document.getElementById('createKeyStep1').style.display = 'block';
+      document.getElementById('createKeyStep2').style.display = 'none';
+      document.getElementById('keyNameInput').value = '';
+      document.getElementById('keyNameInput').focus();
+    }
+
+    function closeCreateKeyModal() {
+      document.getElementById('createKeyModal').classList.remove('show');
+      // 重置按钮状态
+      const btn = document.getElementById('createKeyConfirmBtn');
+      btn.disabled = false;
+      btn.textContent = '创建密钥';
+      const doneBtn = document.getElementById('createKeyDoneBtn');
+      const cancelBtn = document.getElementById('createKeyCancelBtn');
+      if (btn) { btn.style.display = ''; }
+      if (doneBtn) doneBtn.style.display = 'none';
+      if (cancelBtn) { cancelBtn.style.display = ''; }
+      _creatingKey = false;
+    }
+
+    // 点击遮罩关闭
+    document.getElementById('createKeyModal').addEventListener('click', function(e) {
+      if (e.target === this) closeCreateKeyModal();
+    });
+
+    // 确认创建密钥
+    let _creatingKey = false;
+    async function confirmCreateKey() {
+      if (_creatingKey) return;
+      _creatingKey = true;
+      const btn = document.getElementById('createKeyConfirmBtn');
+      const originalText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = '创建中...';
+
+      try {
+      const nameInput = document.getElementById('keyNameInput');
+      const name = nameInput.value.trim() || '默认密钥';
+
+      const res = await apiRequest('/api/user/api-keys', {
+        method: 'POST',
+        body: JSON.stringify({ name })
+      });
+
+      if (res.code === 0 && res.data) {
+        // 第一步完成，显示密钥
+        document.getElementById('createKeyStep1').style.display = 'none';
+        document.getElementById('createKeyStep2').style.display = 'block';
+        document.getElementById('createdKeyName').textContent = res.data.name;
+        document.getElementById('createdKeyValue').textContent = res.data.api_key;
+
+        // 把新密钥加入列表（带_revealed因为刚创建显示了完整key）
+        g_apiKeys.unshift({
+          id: res.data.id,
+          name: res.data.name,
+          api_key_masked: maskKey(res.data.api_key),
+          status: 1,
+          last_used_at: null,
+          created_at: res.data.created_at,
+          _revealed: res.data.api_key
+        });
+
+        // 刷新列表显示
+        renderKeys();
+
+        // 切换底部按钮：创建和取消隐藏，只显示"知道了"
+        const doneBtn = document.getElementById('createKeyDoneBtn');
+        const cancelBtn = document.getElementById('createKeyCancelBtn');
+        if (btn) btn.style.display = 'none';
+        if (doneBtn) doneBtn.style.display = '';
+        if (cancelBtn) cancelBtn.style.display = 'none';
+
+        // 重置创建状态（关闭弹窗后可再次创建）
+        _creatingKey = false;
+
+        showToast('密钥创建成功', 'success');
+      } else {
+        showToast(res.msg || '创建失败', 'error');
+        btn.disabled = false;
+        btn.textContent = originalText;
+        _creatingKey = false;
+      }
+      } catch(e) {
+        showToast('创建失败，请重试', 'error');
+        btn.disabled = false;
+        btn.textContent = originalText;
+        _creatingKey = false;
+      }
+    }
+
+    // 复制新创建的密钥
+    function copyCreatedKey() {
+      const keyValue = document.getElementById('createdKeyValue').textContent;
+      navigator.clipboard.writeText(keyValue).then(() => {
+        showToast('已复制到剪贴板', 'success');
+      }).catch(() => {
+        const textarea = document.createElement('textarea');
+        textarea.value = keyValue;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        showToast('已复制到剪贴板', 'success');
+      });
+    }
+
+    // ===== Dashboard 统计 =====
+    async function updateDashboardStats() {
+      const [statsRes, userRes] = await Promise.all([
+        apiRequest('/api/user/api-usage/summary'),
+        apiRequest('/api/user/profile')
+      ]);
+      if (statsRes.code === 0 && statsRes.data) {
+        const data = statsRes.data;
+        const todayEl = document.querySelector('#statToday');
+        const totalEl = document.querySelector('#statTotal');
+        const monthEl = document.querySelector('#statMonthCost');
+        if (todayEl) todayEl.textContent = data.today_calls;
+        if (totalEl) totalEl.textContent = data.total_calls;
+        if (monthEl) monthEl.textContent = data.month_cost + ' 积分';
+      }
+      if (userRes.code === 0 && userRes.data) {
+        const credits = userRes.data.credits != null ? userRes.data.credits : 0;
+        const dashCreditEl = document.getElementById('dashCredit');
+        const creditNumEl = document.getElementById('creditNum');
+        const creditBadgeEl = document.getElementById('creditBadge');
+        if (dashCreditEl) dashCreditEl.textContent = credits;
+        if (creditNumEl) creditNumEl.textContent = credits;
+        if (creditBadgeEl) creditBadgeEl.style.display = 'flex';
+      }
+    }
+
+
+    // ===== 调用统计图表 =====
+    async function renderBarChart(days) {
+      const res = await apiRequest(`/api/user/api-usage/trend?days=${days}`);
+      const chartEl = document.getElementById('usageBarChart');
+      if (!chartEl) return;
+
+      let data = [];
+      if (res.code === 0 && res.data) {
+        data = res.data;
+      }
+
+      if (data.length === 0) {
+        chartEl.innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:40px;">暂无数据</div>';
+        return;
+      }
+
+      const maxCalls = Math.max(...data.map(d => d.calls), 1);
+
+      chartEl.innerHTML = data.map(d => {
+        const h = Math.max((d.calls / maxCalls) * 100, 2);
+        return `
+          <div class="bar-col">
+            <div class="bar" style="height: ${h}%;" title="${d.date}: ${d.calls}次"></div>
+            <div class="bar-label">${d.date.slice(5)}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function renderDonutLegend(days = 1) {
+      const res = await apiRequest('/api/user/api-usage/by-endpoint?days=' + days);
+      const legendEl = document.getElementById('donutLegend');
+      const donutEl = document.getElementById('usageDonut');
+      if (!legendEl) return;
+
+      let data = [];
+      if (res.code === 0 && res.data) {
+        // 过滤掉 task 轮询接口，避免占满列表
+        data = res.data.filter(d => !d.endpoint.startsWith('/api/v1/task/'));
+      }
+
+      if (data.length === 0) {
+        if (legendEl) legendEl.innerHTML = '<div style="color:var(--text-secondary);text-align:center;padding:20px;">暂无数据</div>';
+        if (donutEl) {
+          donutEl.style.background = 'conic-gradient(#E8D4BC 0deg 360deg)';
+          const totalNumEl = donutEl.querySelector('.total-num');
+          if (totalNumEl) totalNumEl.textContent = '0';
+        }
+        return;
+      }
+
+      const total = data.reduce((s, d) => s + d.calls, 0) || 1;
+      const colors = ['#D4B896', '#5C4A3A', '#E8D5B7', '#8B7355', '#C9A97E', '#A08060', '#D4A574', '#B8956E'];
+
+      // 更新甜甜圈渐变
+      if (donutEl) {
+        let gradient = '';
+        let currentDeg = 0;
+        data.forEach((d, i) => {
+          const nextDeg = Math.round((d.calls / total) * 360);
+          if (i === data.length - 1) {
+            // 最后一段补满到 360 度，避免浮点误差缺口
+            gradient += ', ' + colors[i % colors.length] + ' ' + currentDeg + 'deg 360deg';
+          } else {
+            gradient += (gradient ? ', ' : '') + colors[i % colors.length] + ' ' + currentDeg + 'deg ' + (currentDeg + nextDeg) + 'deg';
+            currentDeg += nextDeg;
+          }
+        });
+        donutEl.style.background = 'conic-gradient(' + gradient + ')';
+
+        // 更新中间总数
+        const totalNumEl = donutEl.querySelector('.total-num');
+        if (totalNumEl) totalNumEl.textContent = total.toLocaleString();
+      }
+
+      // 更新图例（CSS class 用 .dot / .name / .pct 跟样式表对应）
+      legendEl.innerHTML = data.map((d, i) => `
+        <div class="donut-legend-item">
+          <span class="dot" style="background: ${colors[i % colors.length]}"></span>
+          <span class="name">${d.endpoint.split('/').pop()}</span>
+          <span class="pct">${d.calls} (${((d.calls/total)*100).toFixed(1)}%)</span>
+        </div>
+      `).join('');
+    }
+
+    let _statsDays = 7;
+    async function renderLogs(days) {
+      if (days) _statsDays = days;
+      const d = _statsDays;
+      const res = await apiRequest('/api/user/api-usage?page=1&pageSize=50&days=' + d);
+      const logsEl = document.getElementById('usageLogsTable');
+      if (!logsEl) return;
+
+      let list = [];
+      if (res.code === 0 && res.data && res.data.list) {
+        // 过滤掉 task 轮询接口，避免占满列表
+        list = res.data.list.filter(item => !item.endpoint.startsWith('/api/v1/task/'));
+      }
+
+      if (list.length === 0) {
+        logsEl.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-secondary);padding:30px;">暂无调用记录</td></tr>';
+        return;
+      }
+
+      logsEl.innerHTML = list.map(item => `
+        <tr>
+          <td>${item.created_at || '-'}</td>
+          <td><code>${item.endpoint || '-'}</code></td>
+          <td><span class="log-status ${item.status}">${item.status}</span></td>
+          <td>${item.response_time || 0}ms</td>
+          <td>${item.cost || 0}</td>
+          <td>${item.task_id ? item.task_id : '-'}</td>
+        </tr>
+      `).join('');
+    }
+
+    // 统计时间范围切换
+    function switchStatsRange(days) {
+      document.querySelectorAll('.stats-filter-item').forEach(btn => {
+        const range = days === 1 ? 'today' : (days + 'd');
+        btn.classList.toggle('active', btn.dataset.range === range);
+      });
+      _statsDays = days;
+      renderBarChart(days);
+      renderDonutLegend(days);
+      renderLogs(days);
+    }
+
+    function bindStatsFilters() {
+      document.querySelectorAll('.stats-filter-item').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const range = this.dataset.range;
+          let days = 1;
+          if (range === '7d') days = 7;
+          else if (range === '30d') days = 30;
+          switchStatsRange(days);
+        });
+      });
+    }
+
+
+// API文档数据定义
+const API_DOCS = {
+  ecommerce: {
+    name: '电商套图生成',
+    method: 'POST',
+    endpoint: '/api/v1/generate/ecommerce',
+    async: true,
+    desc: '生成电商产品套图。异步接口，返回task_id后需轮询获取结果。',
+    params: [
+      { name: 'model_id', type: 'number', required: true, desc: '生图模型ID，可通过 /api/v1/info 获取模型列表' },
+      { name: 'selling_points', type: 'string', required: true, desc: '商品卖点描述' },
+      { name: 'image_count', type: 'number', required: false, desc: '生成图片数量，默认4' },
+      { name: 'ratio', type: 'string', required: false, desc: '图片比例，默认1:1' },
+      { name: 'platform', type: 'string', required: false, desc: '平台风格，如淘宝/京东/拼多多' },
+      { name: 'tone', type: 'string', required: false, desc: '风格调性' }
+    ],
+    example: `{
+  "model_id": 1,
+  "selling_points": "高端护肤精华液，抗衰修复，玻璃瓶身",
+  "image_count": 4,
+  "ratio": "1:1",
+  "platform": "淘宝",
+  "tone": "简约高级"
+}`,
+    response: `{
+  "code": 0,
+  "msg": "success",
+  "data": {
+    "task_id": "task_xxx",
+    "status": "processing",
+    "studio_type": "ecommerce"
+  }
+}`
+  },
+  xiaohongshu: {
+    name: '小红书笔记生成',
+    method: 'POST',
+    endpoint: '/api/v1/generate/xiaohongshu',
+    async: false,
+    desc: '生成小红书风格的种草笔记文案。',
+    params: [
+      { name: 'model_id', type: 'number', required: true, desc: '文本模型ID' },
+      { name: 'topic', type: 'string', required: true, desc: '笔记主题' },
+      { name: 'versions', type: 'number', required: false, desc: '生成版本数，默认1' }
+    ],
+    example: `{
+  "model_id": 2,
+  "topic": "美白精华推荐",
+  "versions": 1
+}`,
+    response: `{
+  "code": 0,
+  "msg": "success",
+  "data": {
+    "task_id": "task_xxx",
+    "versions": [
+      {
+        "version": 1,
+        "title": "熬夜脸也能白到发光！",
+        "content": "姐妹们...",
+        "tags": ["美白精华", "熬夜救星"]
+      }
+    ]
+  }
+}`
+  },
+  poster: {
+    name: '海报生成',
+    method: 'POST',
+    endpoint: '/api/v1/generate/poster',
+    async: true,
+    desc: '生成主题海报。异步接口。',
+    params: [
+      { name: 'model_id', type: 'number', required: true, desc: '生图模型ID' },
+      { name: 'theme', type: 'string', required: true, desc: '海报主题' },
+      { name: 'poster_type', type: 'string', required: false, desc: '海报类型' },
+      { name: 'image_count', type: 'number', required: false, desc: '生成数量，默认1' },
+      { name: 'ratio', type: 'string', required: false, desc: '比例，默认3:4' }
+    ],
+    example: `{
+  "model_id": 1,
+  "theme": "双十一购物节",
+  "poster_type": "促销",
+  "image_count": 1,
+  "ratio": "3:4"
+}`,
+    response: `{
+  "code": 0,
+  "msg": "success",
+  "data": {
+    "task_id": "task_xxx",
+    "status": "processing"
+  }
+}`
+  },
+  copywriting: {
+    name: '文案写作',
+    method: 'POST',
+    endpoint: '/api/v1/generate/copywriting',
+    async: false,
+    desc: '生成各类营销文案，支持产品文案、品牌故事、广告语等。',
+    params: [
+      { name: 'model_id', type: 'number', required: true, desc: '文本模型ID' },
+      { name: 'product_name', type: 'string', required: false, desc: '产品名称（与selling_points至少填一个）' },
+      { name: 'selling_points', type: 'string', required: false, desc: '产品卖点（与product_name至少填一个）' },
+      { name: 'copy_type', type: 'string', required: false, desc: '文案类型：product品牌文案/slogan广告语/brand_story品牌故事，默认product' },
+      { name: 'versions', type: 'number', required: false, desc: '生成版本数，默认1' }
+    ],
+    example: `{
+  "model_id": 2,
+  "product_name": "智能保温杯",
+  "selling_points": "24小时保温、LED显示温度、316不锈钢",
+  "copy_type": "slogan",
+  "versions": 3
+}`,
+    response: `{
+  "code": 0,
+  "msg": "success",
+  "data": {
+    "task_id": "task_xxx",
+    "versions": [
+      { "version": 1, "content": "每一口，都是刚刚好的温度" }
+    ]
+  }
+}`
+  },
+  ppt: {
+    name: 'PPT生成',
+    method: 'POST',
+    endpoint: '/api/v1/generate/ppt',
+    async: false,
+    desc: '根据主题快速生成PPT大纲和内容。',
+    params: [
+      { name: 'model_id', type: 'number', required: true, desc: '文本模型ID' },
+      { name: 'topic', type: 'string', required: true, desc: 'PPT主题' },
+      { name: 'audience', type: 'string', required: false, desc: '目标受众' },
+      { name: 'style', type: 'string', required: false, desc: '风格：商务/学术/创意，默认商务' },
+      { name: 'pages', type: 'number', required: false, desc: '页数，默认10' },
+      { name: 'versions', type: 'number', required: false, desc: '生成版本数，默认1' }
+    ],
+    example: `{
+  "model_id": 2,
+  "topic": "2026年市场规划",
+  "audience": "公司管理层",
+  "style": "商务",
+  "pages": 12
+}`,
+    response: `{
+  "code": 0,
+  "msg": "success",
+  "data": {
+    "task_id": "task_xxx",
+    "versions": [
+      {
+        "version": 1,
+        "title": "2026年市场规划",
+        "content": "第1页：封面..."
+      }
+    ]
+  }
+}`
+  },
+  video: {
+    name: '短视频脚本生成',
+    method: 'POST',
+    endpoint: '/api/v1/generate/video',
+    async: false,
+    desc: '生成短视频脚本，包含分镜、台词和拍摄建议。',
+    params: [
+      { name: 'model_id', type: 'number', required: true, desc: '文本模型ID' },
+      { name: 'topic', type: 'string', required: true, desc: '视频主题' },
+      { name: 'platform', type: 'string', required: false, desc: '平台：douyin/xhs/bilibili，默认douyin' },
+      { name: 'duration', type: 'string', required: false, desc: '时长，如"30秒""60秒"，默认30秒' },
+      { name: 'style', type: 'string', required: false, desc: '风格：搞笑/科普/种草/Vlog' },
+      { name: 'versions', type: 'number', required: false, desc: '生成版本数，默认1' }
+    ],
+    example: `{
+  "model_id": 2,
+  "topic": "咖啡拉花入门教程",
+  "platform": "douyin",
+  "duration": "60秒",
+  "style": "科普"
+}`,
+    response: `{
+  "code": 0,
+  "msg": "success",
+  "data": {
+    "task_id": "task_xxx",
+    "versions": [
+      {
+        "version": 1,
+        "title": "咖啡拉花入门教程",
+        "content": "镜头1：..."
+      }
+    ]
+  }
+}`
+  },
+  resume: {
+    name: '简历优化',
+    method: 'POST',
+    endpoint: '/api/v1/generate/resume',
+    async: false,
+    desc: '根据原始简历信息优化润色，生成更专业的简历版本。',
+    params: [
+      { name: 'model_id', type: 'number', required: true, desc: '文本模型ID' },
+      { name: 'resume_text', type: 'string', required: true, desc: '原始简历文本内容' },
+      { name: 'target_position', type: 'string', required: false, desc: '目标职位' },
+      { name: 'optimize_type', type: 'string', required: false, desc: '优化类型：polish润色/rewrite重写/star STAR法则，默认polish' },
+      { name: 'versions', type: 'number', required: false, desc: '生成版本数，默认1' }
+    ],
+    example: `{
+  "model_id": 2,
+  "resume_text": "张三，3年产品经理经验...",
+  "target_position": "高级产品经理",
+  "optimize_type": "star"
+}`,
+    response: `{
+  "code": 0,
+  "msg": "success",
+  "data": {
+    "task_id": "task_xxx",
+    "versions": [
+      {
+        "version": 1,
+        "content": "### 个人简介
+..."
+      }
+    ]
+  }
+}`
+  },
+  avatar: {
+    name: 'AI头像生成',
+    method: 'POST',
+    endpoint: '/api/v1/generate/avatar',
+    async: true,
+    desc: '生成个性化AI头像。异步接口。',
+    params: [
+      { name: 'model_id', type: 'number', required: true, desc: '生图模型ID' },
+      { name: 'style', type: 'string', required: false, desc: '风格，默认cartoon' },
+      { name: 'gender', type: 'string', required: false, desc: '性别：male/female，默认female' },
+      { name: 'age_range', type: 'string', required: false, desc: '年龄段，默认young' },
+      { name: 'image_count', type: 'number', required: false, desc: '生成数量，默认1' },
+      { name: 'ratio', type: 'string', required: false, desc: '比例，默认1:1' }
+    ],
+    example: `{
+  "model_id": 1,
+  "style": "cartoon",
+  "gender": "female",
+  "age_range": "young",
+  "image_count": 1,
+  "ratio": "1:1"
+}`,
+    response: `{
+  "code": 0,
+  "msg": "success",
+  "data": {
+    "task_id": "task_xxx",
+    "status": "processing"
+  }
+}`
+  },
+  image: {
+    name: 'AI图片生成',
+    method: 'POST',
+    endpoint: '/api/v1/generate/image',
+    async: true,
+    desc: 'AI文生图接口，支持多种风格和比例，批量生成图片。异步接口，返回task_id后需轮询获取结果。',
+    params: [
+      { name: 'model_id', type: 'number', required: true, desc: '生图模型ID，可通过 /api/v1/info 获取模型列表' },
+      { name: 'prompt', type: 'string', required: true, desc: '图片描述提示词，越详细效果越好' },
+      { name: 'negative_prompt', type: 'string', required: false, desc: '负面提示词，描述不想要的内容' },
+      { name: 'style', type: 'string', required: false, desc: '风格预设：写实/动漫/油画/水彩/赛博朋克/国潮/3D渲染/扁平插画' },
+      { name: 'size', type: 'string', required: false, desc: '图片比例：1:1/16:9/9:16/3:4/4:3，默认1:1' },
+      { name: 'image_count', type: 'number', required: false, desc: '生成数量，1-9张，默认1' }
+    ],
+    example: `{
+  "model_id": 1,
+  "prompt": "a beautiful sunset over the ocean with golden light",
+  "style": "写实",
+  "size": "16:9",
+  "image_count": 2,
+  "negative_prompt": "people, buildings"
+}`,
+    response: `{
+  "code": 0,
+  "msg": "任务已提交",
+  "data": {
+    "task_id": 123,
+    "status": "processing",
+    "cost": 10,
+    "remaining_credits": 990
+  }
+}`
+  },
+  task_query: {
+    name: '任务状态查询',
+    method: 'GET',
+    endpoint: '/api/v1/task/:taskId',
+    async: false,
+    group: 'query',
+    desc: '查询异步任务的执行状态和结果。电商套图、海报、头像等异步生成接口需调用此接口获取最终结果。',
+    params: [
+      { name: 'taskId', type: 'string', required: true, desc: '任务ID，从异步生成接口返回的task_id获取（URL路径参数）' }
+    ],
+    example: 'GET /api/v1/task/task_abc123',
+    response: `{
+  "code": 0,
+  "msg": "success",
+  "data": {
+    "task_id": "task_xxx",
+    "status": "completed",
+    "studio_type": "ecommerce",
+    "result": {
+      "images": ["http://.../1.png", "http://.../2.png"]
+    }
+  }
+}`
+  },
+  info: {
+    name: '平台信息',
+    method: 'GET',
+    endpoint: '/api/v1/info',
+    async: false,
+    group: 'query',
+    desc: '获取平台基础信息，包括可用工作室、模型列表、限流规则等。公开接口，无需鉴权。',
+    params: [],
+    example: 'GET /api/v1/info',
+    response: `{
+  "code": 0,
+  "msg": "success",
+  "data": {
+    "version": "v1.1",
+    "available_studios": [...],
+    "models": [...],
+    "rate_limit": "60次/分钟/密钥",
+    "authentication": "X-API-Key header",
+    "features": ["同步生成", "异步任务", "任务查询", "Webhook回调", "批量查询"]
+  }
+}`
+  },
+  // ========== v1.1 新增接口 ==========
+  'image-edit': {
+    name: 'AI图生图/图片编辑',
+    method: 'POST',
+    endpoint: '/api/v1/generate/image-edit',
+    async: true,
+    desc: 'AI图生图接口，基于参考图片进行风格转换、变体生成或图片编辑。异步接口。（v1.1新增）',
+    params: [
+      { name: 'model_id', type: 'number', required: true, desc: '生图模型ID' },
+      { name: 'prompt', type: 'string', required: false, desc: '目标效果描述提示词' },
+      { name: 'ref_image', type: 'string', required: true, desc: '参考图片URL或base64编码' },
+      { name: 'negative_prompt', type: 'string', required: false, desc: '负面提示词' },
+      { name: 'mode', type: 'string', required: false, desc: '模式：variation变体/edit编辑，默认variation' },
+      { name: 'size', type: 'string', required: false, desc: '图片比例：1:1/16:9/9:16/3:4/4:3' },
+      { name: 'image_count', type: 'number', required: false, desc: '生成数量，1-4张，默认1' }
+    ],
+    example: `{
+  "model_id": 1,
+  "ref_image": "https://example.com/photo.jpg",
+  "prompt": "cyberpunk style, neon lights",
+  "mode": "variation",
+  "size": "1:1",
+  "image_count": 2
+}`,
+    response: `{
+  "code": 0,
+  "msg": "图生图任务已提交",
+  "data": {
+    "task_id": 123,
+    "status": "processing",
+    "cost": 15,
+    "remaining_credits": 985
+  }
+}`
+  },
+  'video-gen': {
+    name: 'AI视频生成',
+    method: 'POST',
+    endpoint: '/api/v1/generate/video-gen',
+    async: true,
+    desc: 'AI生成视频，支持文生视频、图生视频（首帧/参考图模式）。异步接口，返回task_id后需轮询获取结果。',
+    params: [
+      { name: 'model_id', type: 'number', required: true, desc: '视频模型ID' },
+      { name: 'prompt', type: 'string', required: true, desc: '视频内容描述' },
+      { name: 'mode', type: 'string', required: false, desc: '生成模式：text文生视频/image_firstframe首帧图生视频/image_reference参考图生视频，默认text' },
+      { name: 'ref_image', type: 'string', type: 'string', required: false, desc: '参考图片URL（图生视频模式必填），支持单图字符串或多图数组' },
+      { name: 'duration', type: 'number', required: false, desc: '视频时长，单位秒，默认5。不同模型支持范围不同' },
+      { name: 'ratio', type: 'string', required: false, desc: '视频比例：16:9/9:16/1:1，默认16:9' }
+    ],
+    example: `{
+  "model_id": 5,
+  "prompt": "一只可爱的橘猫在草地上奔跑，阳光明媚，慢镜头",
+  "mode": "text",
+  "duration": 5,
+  "ratio": "16:9"
+}`,
+    response: `{
+  "code": 0,
+  "msg": "视频生成任务已提交",
+  "data": {
+    "task_id": 123,
+    "status": "processing",
+    "cost": 50,
+    "remaining_credits": 950
+  }
+}`
+  },
+  'gif': {
+    name: 'GIF表情包生成',
+    method: 'POST',
+    endpoint: '/api/v1/generate/gif',
+    async: true,
+    desc: '生成GIF动图表情包，支持文生GIF和图生GIF。异步接口。',
+    params: [
+      { name: 'model_id', type: 'number', required: true, desc: '视频模型ID（GIF基于视频生成+ffmpeg转码）' },
+      { name: 'prompt', type: 'string', required: true, desc: 'GIF内容描述' },
+      { name: 'mode', type: 'string', required: false, desc: '生成模式：text/image_firstframe/image_reference，默认text' },
+      { name: 'ref_image', type: 'string', required: false, desc: '参考图片URL（图生GIF模式必填）' },
+      { name: 'duration', type: 'number', required: false, desc: '时长，默认3秒' },
+      { name: 'ratio', type: 'string', required: false, desc: '比例：1:1/16:9/9:16，默认1:1' }
+    ],
+    example: `{
+  "model_id": 5,
+  "prompt": "一只柴犬开心地摇尾巴，卡通风格",
+  "mode": "text",
+  "duration": 3,
+  "ratio": "1:1"
+}`,
+    response: `{
+  "code": 0,
+  "msg": "GIF生成任务已提交",
+  "data": {
+    "task_id": 123,
+    "status": "processing",
+    "cost": 30,
+    "remaining_credits": 970
+  }
+}`
+  },
+  'prompt-extract': {
+    name: '提示词反推',
+    method: 'POST',
+    endpoint: '/api/v1/generate/prompt-extract',
+    async: true,
+    desc: '上传图片或视频，反推AI生成提示词。支持多种提取模式。异步接口。',
+    params: [
+      { name: 'model_id', type: 'number', required: true, desc: '视觉理解模型ID（VLM模型）' },
+      { name: 'image_url', type: 'string', required: false, desc: '图片URL，与video_url至少填一个' },
+      { name: 'video_url', type: 'string', required: false, desc: '视频URL，与image_url至少填一个（视频会抽帧处理）' },
+      { name: 'extract_type', type: 'string', required: false, desc: '提取类型：prompt提示词/description详细描述/keywords关键词/midjourney，默认prompt' },
+      { name: 'style', type: 'string', required: false, desc: '风格偏好，默认general' }
+    ],
+    example: `{
+  "model_id": 8,
+  "image_url": "https://example.com/photo.jpg",
+  "extract_type": "prompt"
+}`,
+    response: `{
+  "code": 0,
+  "msg": "提示词反推任务已提交",
+  "data": {
+    "task_id": 123,
+    "status": "processing",
+    "cost": 10,
+    "remaining_credits": 990
+  }
+}`
+  },
+  'audio': {
+    name: '音频合成',
+    method: 'POST',
+    endpoint: '/api/v1/generate/audio',
+    async: true,
+    desc: 'AI语音合成，支持多种音色、方言和情感控制。异步接口。',
+    params: [
+      { name: 'model_id', type: 'number', required: true, desc: '音频模型ID' },
+      { name: 'input_text', type: 'string', required: true, desc: '要合成的文本，最多5000字' },
+      { name: 'voice', type: 'string', required: false, desc: '音色ID/名称' },
+      { name: 'dialect', type: 'string', required: false, desc: '方言选项' },
+      { name: 'response_format', type: 'string', required: false, desc: '输出格式：wav/mp3，默认wav' },
+      { name: 'speed', type: 'number', required: false, desc: '语速' },
+      { name: 'seed', type: 'number', required: false, desc: '随机种子，用于控制音色一致性' },
+      { name: 'ref_audio', type: 'string', required: false, desc: '参考音频URL（音色克隆模式用）' },
+      { name: 'ref_text', type: 'string', required: false, desc: '参考音频对应文本' }
+    ],
+    example: `{
+  "model_id": 10,
+  "input_text": "你好，欢迎使用AI工作室语音合成服务。",
+  "voice": "female_calm",
+  "response_format": "mp3",
+  "speed": 1.0
+}`,
+    response: `{
+  "code": 0,
+  "msg": "音频合成任务已提交",
+  "data": {
+    "task_id": 123,
+    "status": "processing",
+    "cost": 20,
+    "remaining_credits": 980
+  }
+}`
+  },
+  'idphoto': {
+    name: 'AI证件照',
+    method: 'POST',
+    endpoint: '/api/v1/generate/idphoto',
+    async: true,
+    desc: 'AI生成证件照，支持多种底色、尺寸和正装选项。异步接口。',
+    params: [
+      { name: 'model_id', type: 'number', required: true, desc: '生图模型ID' },
+      { name: 'ref_image', type: 'string', required: true, desc: '原始照片URL' },
+      { name: 'bg_color', type: 'string', required: false, desc: '底色：white/blue/red/gray，默认blue' },
+      { name: 'size', type: 'string', required: false, desc: '尺寸：1inch一寸/2inch二寸/small1inch小一寸/small2inch小二寸/big1inch大一寸/big2inch大二寸，默认1inch' },
+      { name: 'suit', type: 'string', required: false, desc: '正装：none不添加/male_formal男士正装/female_formal女士正装/male_civil男士文职/female_civil女士文职，默认none' },
+      { name: 'gender', type: 'string', required: false, desc: '性别：male/female/auto，默认auto' },
+      { name: 'quality', type: 'string', required: false, desc: '质量：standard/high，默认standard' },
+      { name: 'num_photos', type: 'number', required: false, desc: '生成数量，默认1' }
+    ],
+    example: `{
+  "model_id": 1,
+  "ref_image": "https://example.com/portrait.jpg",
+  "bg_color": "blue",
+  "size": "1inch",
+  "suit": "male_formal",
+  "num_photos": 1
+}`,
+    response: `{
+  "code": 0,
+  "msg": "证件照生成任务已提交",
+  "data": {
+    "task_id": 123,
+    "status": "processing",
+    "cost": 15,
+    "remaining_credits": 985
+  }
+}`
+  },
+  'face-swap': {
+    name: 'AI换脸',
+    method: 'POST',
+    endpoint: '/api/v1/generate/face-swap',
+    async: true,
+    desc: 'AI视频换脸，将参考视频中的人物替换为参考图片中的人脸。异步接口。',
+    params: [
+      { name: 'model_id', type: 'number', required: true, desc: '视频换脸模型ID' },
+      { name: 'video_url', type: 'string', required: true, desc: '参考视频URL' },
+      { name: 'image_url', type: 'string', required: true, desc: '人脸参考图片URL' },
+      { name: 'prompt', type: 'string', required: false, desc: '额外描述提示词，可选' },
+      { name: 'duration', type: 'number', required: false, desc: '视频时长，默认5秒' },
+      { name: 'ratio', type: 'string', required: false, desc: '视频比例，默认16:9' }
+    ],
+    example: `{
+  "model_id": 7,
+  "video_url": "https://example.com/source.mp4",
+  "image_url": "https://example.com/face.jpg",
+  "duration": 5,
+  "ratio": "16:9"
+}`,
+    response: `{
+  "code": 0,
+  "msg": "换脸生成任务已提交",
+  "data": {
+    "task_id": 123,
+    "status": "processing",
+    "cost": 75,
+    "remaining_credits": 925
+  }
+}`
+  },
+  'text': {
+    name: '文本生成',
+    method: 'POST',
+    endpoint: '/api/v1/generate/text',
+    async: false,
+    desc: '调用文本模型进行对话生成，兼容 OpenAI Chat Completions 消息格式。同步接口，直接返回生成结果。按 token 计费（price_per_1k_tokens 积分 / 1k tokens）。',
+    params: [
+      { name: 'model_id', type: 'number', required: true, desc: '文本模型ID，通过 /models?type=text 获取' },
+      { name: 'messages', type: 'array', required: true, desc: '对话消息数组，格式 [{role: user/system/assistant, content: 消息内容}]' },
+      { name: 'temperature', type: 'number', required: false, desc: '采样温度，0-2之间，默认 0.7' },
+      { name: 'max_tokens', type: 'number', required: false, desc: '最大生成 token 数，默认 2000' }
+    ],
+    example: `{
+  "model_id": 7,
+  "messages": [
+    {"role": "system", "content": "你是一个 helpful 的助手"},
+    {"role": "user", "content": "用一句话介绍人工智能"}
+  ],
+  "temperature": 0.7,
+  "max_tokens": 500
+}`,
+    response: `{
+  "code": 0,
+  "msg": "success",
+  "data": {
+    "task_id": "1234567890abcdef",
+    "model": "gpt-5.6-sol",
+    "content": "人工智能是研究、开发用于模拟、延伸和扩展人的智能的理论、方法、技术及应用系统的一门新的技术科学。",
+    "usage": {
+      "prompt_tokens": 25,
+      "completion_tokens": 35,
+      "total_tokens": 60
+    },
+    "cost": 0.6,
+    "price_per_1k": 10
+  }
+}`
+  },
+  'batch_tasks': {
+    name: '批量任务查询',
+    method: 'POST',
+    endpoint: '/api/v1/tasks/batch',
+    async: false,
+    group: 'query',
+    desc: '批量查询多个任务的状态和结果，最多支持50个任务ID。（v1.1新增）',
+    params: [
+      { name: 'task_ids', type: 'array', required: true, desc: '任务ID数组，如 [1, 2, 3]，最多50个' }
+    ],
+    example: `POST /api/v1/tasks/batch
+{
+  "task_ids": [101, 102, 103]
+}`,
+    response: `{
+  "code": 0,
+  "msg": "success",
+  "data": {
+    "tasks": [...],
+    "total": 3
+  }
+}`
+  },
+  'task_list': {
+    name: '任务列表',
+    method: 'GET',
+    endpoint: '/api/v1/tasks',
+    async: false,
+    group: 'query',
+    desc: '分页查询当前用户的所有生成任务记录，支持按类型和状态筛选。（v1.1新增）',
+    params: [
+      { name: 'page', type: 'number', required: false, desc: '页码，默认1' },
+      { name: 'page_size', type: 'number', required: false, desc: '每页数量，1-100，默认20' },
+      { name: 'studio_type', type: 'string', required: false, desc: '工作室类型筛选' },
+      { name: 'status', type: 'string', required: false, desc: '状态筛选：pending/success/failed' }
+    ],
+    example: 'GET /api/v1/tasks?page=1&page_size=20&studio_type=image&status=success',
+    response: `{
+  "code": 0,
+  "msg": "success",
+  "data": {
+    "tasks": [...],
+    "total": 50,
+    "page": 1,
+    "page_size": 20
+  }
+}`
+  },
+  'balance': {
+    name: '余额查询',
+    method: 'GET',
+    endpoint: '/api/v1/balance',
+    async: false,
+    group: 'query',
+    desc: '查询当前API密钥对应的账户积分余额。（v1.1新增）',
+    params: [],
+    example: 'GET /api/v1/balance',
+    response: `{
+  "code": 0,
+  "msg": "success",
+  "data": {
+    "credits": 990,
+    "username": "user123"
+  }
+}`
+  },
+  'models': {
+    name: '模型列表',
+    method: 'GET',
+    endpoint: '/api/v1/models',
+    async: false,
+    group: 'query',
+    desc: '获取平台可用的AI模型列表，包含模型ID、类型、价格等信息。（v1.1新增）',
+    params: [
+      { name: 'type', type: 'string', required: false, desc: '模型类型筛选：image/text，不传返回全部' }
+    ],
+    example: 'GET /api/v1/models?type=image',
+    response: `{
+  "code": 0,
+  "msg": "success",
+  "data": {
+    "models": [
+      {
+        "id": 1,
+        "name": "万相图像2.7",
+        "type": "image",
+        "model_identifier": "wanx2.1-t2i-turbo",
+        "price_per_call": 10,
+        "is_default": 1
+      }
+    ]
+  }
+}`
+  },
+  'usage_stats': {
+    name: '调用统计',
+    method: 'GET',
+    endpoint: '/api/v1/usage/stats',
+    async: false,
+    group: 'query',
+    desc: '查询API调用统计数据，包含调用量、成功率、消耗积分等。（v1.1新增）',
+    params: [
+      { name: 'period', type: 'string', required: false, desc: '统计周期：today/7d/30d/all，默认7d' }
+    ],
+    example: 'GET /api/v1/usage/stats?period=30d',
+    response: `{
+  "code": 0,
+  "msg": "success",
+  "data": {
+    "period": "30d",
+    "summary": {
+      "total_calls": 156,
+      "success_calls": 148,
+      "failed_calls": 8,
+      "success_rate": 0.95,
+      "total_cost": 1560,
+      "avg_response_time": 2300
+    },
+    "by_studio": [...]
+  }
+}`
+  },
+  'webhook_list': {
+    name: 'Webhook订阅列表',
+    method: 'GET',
+    endpoint: '/api/v1/webhooks',
+    async: false,
+    group: 'webhook',
+    desc: '获取当前用户的所有Webhook订阅配置。（v1.1新增）',
+    params: [],
+    example: 'GET /api/v1/webhooks',
+    response: `{
+  "code": 0,
+  "msg": "success",
+  "data": {
+    "webhooks": [
+      {
+        "id": 1,
+        "webhook_url": "https://your-app.com/api/callback",
+        "event_type": "task.completed,task.failed",
+        "status": 1,
+        "created_at": "2026-08-09 12:00:00"
+      }
+    ]
+  }
+}`
+  },
+  'webhook_create': {
+    name: '创建Webhook订阅',
+    method: 'POST',
+    endpoint: '/api/v1/webhooks',
+    async: false,
+    group: 'webhook',
+    desc: '创建新的Webhook订阅，任务完成或失败时自动推送到指定URL。（v1.1新增）',
+    params: [
+      { name: 'webhook_url', type: 'string', required: true, desc: '回调URL，需以http开头' },
+      { name: 'event_type', type: 'string', required: false, desc: '订阅事件，默认task.completed,task.failed' },
+      { name: 'secret', type: 'string', required: false, desc: '签名密钥，用于验证回调来源' }
+    ],
+    example: `POST /api/v1/webhooks
+{
+  "webhook_url": "https://your-app.com/api/callback",
+  "event_type": "task.completed,task.failed",
+  "secret": "your_secret_key"
+}`,
+    response: `{
+  "code": 0,
+  "msg": "Webhook订阅创建成功",
+  "data": {
+    "id": 1,
+    "webhook_url": "https://your-app.com/api/callback",
+    "event_type": "task.completed,task.failed",
+    "status": 1
+  }
+}`
+  },
+  'webhook_update': {
+    name: '更新Webhook订阅',
+    method: 'PUT',
+    endpoint: '/api/v1/webhooks/:id',
+    async: false,
+    group: 'webhook',
+    desc: '更新指定Webhook订阅的配置。（v1.1新增）',
+    params: [
+      { name: 'id', type: 'number', required: true, desc: 'Webhook ID（URL路径参数）' },
+      { name: 'webhook_url', type: 'string', required: false, desc: '新的回调URL' },
+      { name: 'event_type', type: 'string', required: false, desc: '新的订阅事件' },
+      { name: 'secret', type: 'string', required: false, desc: '新的签名密钥' },
+      { name: 'status', type: 'number', required: false, desc: '状态：1启用 0禁用' }
+    ],
+    example: `PUT /api/v1/webhooks/1
+{
+  "status": 0
+}`,
+    response: `{
+  "code": 0,
+  "msg": "更新成功",
+  "data": { "id": 1 }
+}`
+  },
+  'webhook_delete': {
+    name: '删除Webhook订阅',
+    method: 'DELETE',
+    endpoint: '/api/v1/webhooks/:id',
+    async: false,
+    group: 'webhook',
+    desc: '删除指定的Webhook订阅。（v1.1新增）',
+    params: [
+      { name: 'id', type: 'number', required: true, desc: 'Webhook ID（URL路径参数）' }
+    ],
+    example: 'DELETE /api/v1/webhooks/1',
+    response: `{
+  "code": 0,
+  "msg": "删除成功",
+  "data": null
+}`
+  }
+};
+
+// 渲染API列表
+function renderApiList() {
+  const generateList = document.getElementById('apiList');
+  const queryList = document.getElementById('queryApiList');
+  const webhookList = document.getElementById('webhookApiList');
+  if (!generateList) return;
+
+  let generateHtml = '';
+  let queryHtml = '';
+  let webhookHtml = '';
+
+  Object.keys(API_DOCS).forEach(key => {
+    const doc = API_DOCS[key];
+    const comingSoonBadge = doc.coming_soon ? '<span class="coming-soon-badge">即将上线</span>' : '';
+    const item = `<div class="docs-api-item ${doc.coming_soon ? 'coming-soon' : ''}" data-api="${key}" onclick="renderApiDoc('${key}')">
+      <span class="api-method ${doc.method.toLowerCase()}">${doc.method}</span>
+      <span class="api-name">${doc.name}${comingSoonBadge}</span>
+    </div>`;
+    if (doc.group === 'query') {
+      queryHtml += item;
+    } else if (doc.group === 'webhook') {
+      webhookHtml += item;
+    } else {
+      generateHtml += item;
+    }
+  });
+
+  generateList.innerHTML = generateHtml;
+  if (queryList) queryList.innerHTML = queryHtml;
+  if (webhookList) webhookList.innerHTML = webhookHtml;
+}
+
+// 渲染API文档详情
+function renderApiDoc(apiKey) {
+  const doc = API_DOCS[apiKey];
+  const contentEl = document.getElementById('apiDocContent');
+  if (!doc || !contentEl) return;
+
+  // 高亮侧边栏
+  document.querySelectorAll('.docs-api-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.api === apiKey);
+  });
+
+  const baseUrl = window.location.origin + '/api/v1';
+
+  let paramsHtml = '';
+  if (doc.params && doc.params.length > 0) {
+    paramsHtml = `
+      <div class="doc-section">
+        <div class="doc-section-title">请求参数</div>
+        <table class="params-table">
+          <thead>
+            <tr>
+              <th>参数名</th>
+              <th>类型</th>
+              <th>必填</th>
+              <th>说明</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${doc.params.map(p => `
+              <tr>
+                <td><code>${p.name}</code></td>
+                <td>${p.type}</td>
+                <td>${p.required ? '<span style="color:#e74c3c">是</span>' : '否'}</td>
+                <td>${p.desc}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  contentEl.innerHTML = `
+    <div class="doc-header">
+      <div class="doc-method-badge ${doc.method.toLowerCase()}">${doc.method}</div>
+      <div class="doc-endpoint">${doc.endpoint}</div>
+    </div>
+    <div class="doc-title">${doc.name}${doc.coming_soon ? '<span class="coming-soon-title-badge">即将上线</span>' : ''}</div>
+    <div class="doc-desc">${doc.desc}${doc.async && !doc.coming_soon ? ' <span style="color:#e67e22">【异步接口】</span>' : ''}</div>
+    ${doc.coming_soon ? '<div class="coming-soon-notice">🚧 此接口即将开放，敬请期待。如需提前体验，请联系客服申请内测。</div>' : ''}
+
+    ${paramsHtml}
+
+    <div class="doc-section">
+      <div class="doc-section-title">请求示例</div>
+      <div class="code-block">
+        <button class="copy-btn" onclick="copyToClipboard(this, 'example-${apiKey}')">复制</button>
+        <pre id="example-${apiKey}">${escapeHtml(typeof doc.example === 'string' ? doc.example : JSON.stringify(doc.example, null, 2))}</pre>
+      </div>
+    </div>
+
+    <div class="doc-section">
+      <div class="doc-section-title">响应示例</div>
+      <div class="code-block">
+        <button class="copy-btn" onclick="copyToClipboard(this, 'response-${apiKey}')">复制</button>
+        <pre id="response-${apiKey}">${escapeHtml(doc.response)}</pre>
+      </div>
+    </div>
+
+    <div class="doc-section">
+      <div class="doc-section-title">在线调试</div>
+      <div class="try-panel">
+        <div class="try-panel-header">
+          <div class="try-panel-title">🔧 快速测试</div>
+          <div class="try-api-key-label">当前密钥：<code id="debugKeyDisplay">未选择</code></div>
+        </div>
+        <div class="try-panel-body">
+          <div class="try-input-label">请求体 (JSON)</div>
+          <textarea id="debugRequestBody" class="try-textarea" rows="10" placeholder='输入JSON请求体...'>${doc.method === 'POST' ? (typeof doc.example === 'string' ? doc.example : JSON.stringify(doc.example, null, 2)) : ''}</textarea>
+          <button class="action-btn primary try-btn" onclick="runDebug('${apiKey}')" id="debugBtn">▶ 发送请求</button>
+          <div class="try-input-label" style="margin-top:16px">响应结果</div>
+          <div class="code-block" id="debugResponse" style="margin-top:0">
+            <pre style="margin:0;color:var(--text-2)">点击发送请求查看结果...</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// 下载全部 API 文档 (Markdown 格式)
+function downloadAllDocs() {
+  const baseUrl = window.location.origin + '/api/v1';
+  let md = '# AI 工作室 API 文档\n\n';
+  md += '> 完整的 API 接口文档，基于开发者平台自动生成。\n\n';
+  md += '**Base URL**: `' + baseUrl + '`\n\n';
+  md += '**鉴权方式**: 在请求头中携带 `Authorization: Bearer <你的API密钥>`\n\n';
+  md += '---\n\n';
+
+  // 按分组输出
+  const groups = [
+    { key: 'generate', title: '生成接口' },
+    { key: 'query', title: '查询接口' },
+    { key: 'webhook', title: 'Webhook 接口' },
+  ];
+
+  groups.forEach(group => {
+    const apis = Object.keys(API_DOCS).filter(k => {
+      const g = API_DOCS[k].group;
+      if (group.key === 'generate') return !g || g === 'generate';
+      return g === group.key;
+    });
+    if (apis.length === 0) return;
+
+    md += '## ' + group.title + '\n\n';
+
+    apis.forEach(apiKey => {
+      const doc = API_DOCS[apiKey];
+      if (doc.coming_soon) return;
+
+      md += '### ' + doc.name + '\n\n';
+      md += '- **方法**: `' + doc.method + '`\n';
+      md += '- **路径**: `' + doc.endpoint + '`\n';
+      if (doc.async) md += '- **模式**: 异步（返回 task_id，需轮询获取结果）\n';
+      md += '\n';
+      md += doc.desc + '\n\n';
+
+      // 参数表
+      if (doc.params && doc.params.length > 0) {
+        md += '**请求参数**\n\n';
+        md += '| 参数名 | 类型 | 必填 | 说明 |\n';
+        md += '|--------|------|------|------|\n';
+        doc.params.forEach(p => {
+          md += '| `' + p.name + '` | ' + p.type + ' | ' + (p.required ? '是' : '否') + ' | ' + p.desc + ' |\n';
+        });
+        md += '\n';
+      }
+
+      // 请求示例
+      const example = typeof doc.example === 'string' ? doc.example : JSON.stringify(doc.example, null, 2);
+      md += '**请求示例**\n\n';
+      md += '```json\n' + example + '\n```\n\n';
+
+      // 响应示例
+      md += '**响应示例**\n\n';
+      md += '```json\n' + doc.response + '\n```\n\n';
+
+      md += '---\n\n';
+    });
+  });
+
+  // 下载
+  const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'AI工作室API文档.md';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('文档已导出', 'success');
+}
+
+// 转义HTML
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// 复制到剪贴板
+function copyToClipboard(btn, elementId) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  const text = el.textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const original = btn.textContent;
+    btn.textContent = '已复制';
+    setTimeout(() => { btn.textContent = original; }, 1500);
+  });
+}
+
+// 在线调试
+let currentDebugApi = null;
+
+async function runDebug(apiKey) {
+  const doc = API_DOCS[apiKey];
+  if (!doc) return;
+
+  const apiKeyVal = getFirstApiKey();
+  if (!apiKeyVal) {
+    alert('请先创建API密钥');
+    switchSection('keys');
+    return;
+  }
+
+  const btn = document.getElementById('debugBtn');
+  const responseEl = document.getElementById('debugResponse');
+  btn.disabled = true;
+  btn.textContent = '请求中...';
+  responseEl.innerHTML = '<pre style="margin:0;color:var(--text-2)">请求发送中，请稍候...</pre>';
+
+  try {
+    let url = window.location.origin + doc.endpoint;
+    let body = null;
+
+    if (doc.method === 'POST') {
+      const textarea = document.getElementById('debugRequestBody');
+      try {
+        body = JSON.parse(textarea.value);
+      } catch (e) {
+        responseEl.innerHTML = `<pre style="margin:0;color:#e74c3c">JSON格式错误：${e.message}</pre>`;
+        btn.disabled = false;
+        btn.textContent = '▶ 发送请求';
+        return;
+      }
+    }
+
+    const res = await apiV1Request(doc.endpoint, {
+      method: doc.method,
+      headers: { 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined
+    });
+
+    responseEl.innerHTML = `<pre style="margin:0">${escapeHtml(JSON.stringify(res, null, 2))}</pre>`;
+
+    // 如果是异步任务，自动追加状态查询提示
+    if (res.code === 0 && res.data && res.data.task_id) {
+      const taskId = res.data.task_id;
+      const extra = document.createElement('div');
+      extra.style.marginTop = '12px';
+      extra.innerHTML = `
+        <div style="color:var(--text-2);margin-bottom:8px">💡 这是异步任务，10秒后自动查询状态...</div>
+        <div id="pollStatus" style="color:var(--text-2)">等待中...</div>
+      `;
+      responseEl.appendChild(extra);
+      pollTaskStatus(taskId, apiKeyVal);
+    }
+  } catch (err) {
+    responseEl.innerHTML = `<pre style="margin:0;color:#e74c3c">请求失败：${err.message}</pre>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '▶ 发送请求';
+  }
+}
+
+// 轮询任务状态
+async function pollTaskStatus(taskId, apiKey) {
+  const pollEl = document.getElementById('pollStatus');
+  const maxAttempts = 12;
+  let attempts = 0;
+
+  const poll = async () => {
+    attempts++;
+    try {
+      const res = await apiV1Request(`/api/v1/task/${taskId}`, {
+        method: 'GET',
+        headers: {}
+      });
+      if (res.code === 0 && res.data) {
+        const status = res.data.status;
+        pollEl.innerHTML = `状态：<strong>${status}</strong>（第${attempts}次查询）`;
+        if (status === 'completed' || status === 'failed') {
+          pollEl.innerHTML += `<pre style="margin-top:8px">${escapeHtml(JSON.stringify(res.data, null, 2))}</pre>`;
+          return;
+        }
+      }
+    } catch (e) {
+      pollEl.textContent = '查询失败：' + e.message;
+      return;
+    }
+    if (attempts < maxAttempts) {
+      setTimeout(poll, 5000);
+    } else {
+      pollEl.textContent = '查询超时，可手动调用任务查询接口查看结果';
+    }
+  };
+
+  setTimeout(poll, 10000);
+}
+
+// 更新调试面板显示的密钥
+function updateDebugKeyDisplay() {
+  const el = document.getElementById('debugKeyDisplay');
+  if (!el) return;
+  const key = getFirstApiKey();
+  el.textContent = key ? key.substring(0, 10) + '...' : '未选择';
+}
+
+    // ===== Webhook 管理（v1.1）=====
+    async function loadWebhooks() {
+      const listEl = document.getElementById('webhookList');
+      if (!listEl) return;
+
+      const res = await apiV1Request('/api/v1/webhooks', { method: 'GET' });
+      if (res.code === 0 && res.data) {
+        const webhooks = res.data.webhooks || [];
+        if (webhooks.length === 0) {
+          listEl.innerHTML = '<div class="webhook-empty">暂无 Webhook 订阅，创建后异步任务完成时会自动推送</div>';
+          return;
+        }
+
+        let html = '';
+        webhooks.forEach(wh => {
+          const statusText = wh.status === 1 ? '已启用' : '已禁用';
+          const statusClass = wh.status === 1 ? 'active' : 'disabled';
+          html += `
+            <div class="webhook-item">
+              <div class="webhook-item-info">
+                <div class="webhook-item-url">${escapeHtml(wh.webhook_url)}</div>
+                <div class="webhook-item-meta">
+                  <span>事件: ${escapeHtml(wh.event_type)}</span>
+                  <span>创建: ${wh.created_at}</span>
+                </div>
+              </div>
+              <span class="webhook-status ${statusClass}">${statusText}</span>
+              <div class="webhook-actions">
+                <button class="btn btn-sm" onclick="toggleWebhook(${wh.id}, ${wh.status === 1 ? 0 : 1})">
+                  ${wh.status === 1 ? '禁用' : '启用'}
+                </button>
+                <button class="btn btn-sm btn-danger" onclick="deleteWebhook(${wh.id})">删除</button>
+              </div>
+            </div>
+          `;
+        });
+        listEl.innerHTML = html;
+      } else {
+        listEl.innerHTML = `<div class="webhook-empty">加载失败: ${res.msg || '未知错误'}</div>`;
+      }
+    }
+
+    async function createWebhook() {
+      const url = document.getElementById('webhookUrl').value.trim();
+      const event_type = document.getElementById('webhookEvent').value;
+      const secret = document.getElementById('webhookSecret').value.trim();
+
+      if (!url) { alert('请填写回调URL'); return; }
+      if (!url.startsWith('http')) { alert('URL需以http或https开头'); return; }
+
+      const res = await apiV1Request('/api/v1/webhooks', {
+        method: 'POST',
+        body: JSON.stringify({ webhook_url: url, event_type, secret })
+      });
+      if (res.code === 0) {
+        alert('Webhook 创建成功！');
+        document.getElementById('webhookUrl').value = '';
+        document.getElementById('webhookSecret').value = '';
+        loadWebhooks();
+      } else {
+        alert('创建失败: ' + (res.msg || '未知错误'));
+      }
+    }
+
+    async function toggleWebhook(id, status) {
+      const res = await apiV1Request(`/api/v1/webhooks/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status })
+      });
+      if (res.code === 0) {
+        loadWebhooks();
+      } else {
+        alert('操作失败: ' + (res.msg || '未知错误'));
+      }
+    }
+
+    async function deleteWebhook(id) {
+      if (!confirm('确定要删除这个 Webhook 订阅吗？')) return;
+      const res = await apiV1Request(`/api/v1/webhooks/${id}`, { method: 'DELETE' });
+      if (res.code === 0) {
+        loadWebhooks();
+      } else {
+        alert('删除失败: ' + (res.msg || '未知错误'));
+      }
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // ===== 初始化 =====
+    document.addEventListener('DOMContentLoaded', async function() {
+      // 动态更新快速开始示例中的域名
+      const quickStartEl = document.getElementById('quickStartUrl');
+      if (quickStartEl) {
+        quickStartEl.textContent = window.location.origin + '/api/v1/generate/ecommerce';
+      }
+      // 先加载密钥，再初始化其他
+      await loadApiKeysFromServer();
+      updateDebugKeyDisplay();
+      renderApiList();
+      renderApiDoc('ecommerce');
+      renderKeys();
+      renderDonutLegend();
+      updateDashboardStats();
+      renderBarChart(1);
+      renderLogs(1);
+      bindStatsFilters();
+    });
+  </script>
+</body>
+</html>
