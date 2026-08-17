@@ -428,6 +428,15 @@
 
     // ========== 提交换人任务 ==========
     let pollTimer = null;
+    let pollSequence = 0;
+
+    function showStatusError(title, message, refunded) {
+      const content = $('previewContent');
+      content.innerHTML = '<div class="generating-status"><div style="font-size:48px;margin-bottom:12px;">❌</div><p class="error-title"></p><div class="progress-text error-message"></div><div class="refund-message" style="font-size:12px;color:var(--text-3);margin-top:10px;"></div></div>';
+      content.querySelector('.error-title').textContent = title;
+      content.querySelector('.error-message').textContent = String(message || '未知错误');
+      content.querySelector('.refund-message').textContent = refunded ? '积分已自动退还' : '';
+    }
 
     $('generateBtn').addEventListener('click', async function() {
       if (!isLoggedIn()) {
@@ -478,24 +487,12 @@
           const taskId = data.data.task_id;
           startPolling(taskId);
         } else {
-          $('previewContent').innerHTML = `
-            <div class="generating-status">
-              <div style="font-size:48px;margin-bottom:12px;">❌</div>
-              <p>提交失败</p>
-              <div class="progress-text">${data.msg || data.message || '未知错误'}</div>
-            </div>
-          `;
+          showStatusError('提交失败', data.msg || data.message || '未知错误', false);
           btn.classList.remove('loading');
           btn.disabled = false;
         }
       } catch (err) {
-        $('previewContent').innerHTML = `
-          <div class="generating-status">
-            <div style="font-size:48px;margin-bottom:12px;">❌</div>
-            <p>请求失败</p>
-            <div class="progress-text">${err.message || '网络错误'}</div>
-          </div>
-        `;
+        showStatusError('请求失败', err.message || '网络错误', false);
         btn.classList.remove('loading');
         btn.disabled = false;
       }
@@ -515,37 +512,43 @@
       `;
 
       let progress = 5;
-      pollTimer = setInterval(async () => {
+      const sequence = ++pollSequence;
+      if (pollTimer) clearTimeout(pollTimer);
+      const poll = async () => {
+        if (sequence !== pollSequence) return;
         try {
           const data = await apiRequest('/api/generate/face-swap/' + taskId);
+          if (data.code !== 0) throw new Error(data.msg || '任务状态查询失败');
+          const task = data.data;
+          const statusText = task.status === 'pending' ? '排队中' :
+                            task.status === 'processing' ? '生成中' :
+                            task.status === 'completed' ? '已完成' : '失败';
 
-          if (data.code === 0) {
-            const task = data.data;
-            const statusText = task.status === 'pending' ? '排队中' : 
-                              task.status === 'processing' ? '生成中' :
-                              task.status === 'completed' ? '已完成' : '失败';
-            
-            if (task.status === 'pending') {
-              progress = Math.min(progress + 1, 20);
-            } else if (task.status === 'processing') {
-              progress = Math.min(progress + 3, 90);
-            }
+          if (task.status === 'pending') {
+            progress = Math.min(progress + 1, 20);
+          } else if (task.status === 'processing') {
+            progress = Math.min(progress + 3, 90);
+          }
 
-            $('progressBar').style.width = progress + '%';
-            $('progressText').textContent = statusText + ' ' + progress + '%';
+          $('progressBar').style.width = progress + '%';
+          $('progressText').textContent = statusText + ' ' + progress + '%';
 
-            if (task.status === 'completed') {
-              clearInterval(pollTimer);
-              showResult(task);
-            } else if (task.status === 'failed') {
-              clearInterval(pollTimer);
-              showError(task.error_msg || '生成失败');
-            }
+          if (task.status === 'completed') {
+            pollSequence++;
+            showResult(task);
+            return;
+          }
+          if (task.status === 'failed') {
+            pollSequence++;
+            showError(task.error_msg || '生成失败');
+            return;
           }
         } catch (err) {
-          // 忽略轮询错误
+          console.warn('换人任务轮询失败:', err.message);
         }
-      }, 3000);
+        if (sequence === pollSequence) pollTimer = setTimeout(poll, 3000);
+      };
+      pollTimer = setTimeout(poll, 3000);
     }
 
     function showResult(task) {
@@ -553,18 +556,28 @@
       btn.classList.remove('loading');
       btn.disabled = false;
 
-      const videoUrl = task.video_url || task.output_url || '';
-      $('previewContent').innerHTML = `
-        <div class="result-card">
-          <div class="result-label">🎉 生成完成</div>
-          <div class="result-video-wrap">
-            <video src="${videoUrl}" controls autoplay loop playsinline></video>
-          </div>
-          <div style="margin-top:12px;display:flex;justify-content:center;">
-            <a href="${videoUrl}" class="download-btn" download target="_blank">⬇️ 下载视频</a>
-          </div>
-        </div>
-      `;
+      const videoUrl = normalizeMediaUrl(task.video_url || task.output_url || '');
+      if (!videoUrl) {
+        showError('视频地址无效');
+        return;
+      }
+      const content = $('previewContent');
+      content.innerHTML = '<div class="result-card"><div class="result-label">🎉 生成完成</div><div class="result-video-wrap"></div><div class="result-actions" style="margin-top:12px;display:flex;justify-content:center;"></div></div>';
+      const video = document.createElement('video');
+      video.src = videoUrl;
+      video.controls = true;
+      video.autoplay = true;
+      video.loop = true;
+      video.playsInline = true;
+      content.querySelector('.result-video-wrap').appendChild(video);
+      const download = document.createElement('a');
+      download.href = videoUrl;
+      download.className = 'download-btn';
+      download.download = '';
+      download.target = '_blank';
+      download.rel = 'noopener';
+      download.textContent = '⬇️ 下载视频';
+      content.querySelector('.result-actions').appendChild(download);
       refreshUserInfo();
     }
 
@@ -572,15 +585,7 @@
       const btn = $('generateBtn');
       btn.classList.remove('loading');
       btn.disabled = false;
-
-      $('previewContent').innerHTML = `
-        <div class="generating-status">
-          <div style="font-size:48px;margin-bottom:12px;">❌</div>
-          <p>生成失败</p>
-          <div class="progress-text">${msg || '未知错误'}</div>
-          <div style="font-size:12px;color:var(--text-3);margin-top:10px;">积分已自动退还</div>
-        </div>
-      `;
+      showStatusError('生成失败', msg || '未知错误', true);
       refreshUserInfo();
     }
 

@@ -9,6 +9,9 @@ const avatar = fs.readFileSync(path.join(publicDir, 'avatar.html'), 'utf8');
 const ppt = fs.readFileSync(path.join(publicDir, 'ppt.html'), 'utf8');
 const video = fs.readFileSync(path.join(publicDir, 'video.html'), 'utf8');
 const resume = fs.readFileSync(path.join(publicDir, 'resume.html'), 'utf8');
+const audio = fs.readFileSync(path.join(publicDir, 'audio.html'), 'utf8');
+const faceSwap = fs.readFileSync(path.join(publicDir, 'video-face-swap.html'), 'utf8');
+const idphoto = fs.readFileSync(path.join(publicDir, 'idphoto.html'), 'utf8');
 const common = fs.readFileSync(path.join(publicDir, 'js', 'common.js'), 'utf8');
 
 function parseInlineScripts(fileName, html) {
@@ -53,7 +56,32 @@ test('saved template names are rendered as text', () => {
   }
 });
 
+test('dynamic media results use normalized URLs and DOM APIs', () => {
+  assert.match(audio, /currentPollController = pollGeneration\(taskId/);
+  assert.doesNotMatch(audio, /currentPollInterval|setInterval\s*\(/);
+  assert.match(audio, /const audioUrl = normalizeMediaUrl\(result\.audio_url\)/);
+  assert.match(audio, /name\.textContent = '🎵 ' \+ fileName/);
+  assert.doesNotMatch(audio, /src="\$\{audioUrl\}"|\$\{errorMsg/);
+
+  assert.match(faceSwap, /const videoUrl = normalizeMediaUrl\(/);
+  assert.match(faceSwap, /pollTimer = setTimeout\(poll, 3000\)/);
+  assert.match(faceSwap, /sequence === pollSequence/);
+  assert.doesNotMatch(faceSwap, /pollTimer = setInterval/);
+  assert.match(faceSwap, /querySelector\('\.error-message'\)\.textContent/);
+  assert.doesNotMatch(faceSwap, /src="\$\{videoUrl\}"|\$\{msg \|\|/);
+
+  assert.match(idphoto, /\.map\(normalizeMediaUrl\)/);
+  assert.match(idphoto, /pollTimer = setTimeout\(poll, 2000\)/);
+  assert.match(idphoto, /sequence === pollSequence/);
+  assert.doesNotMatch(idphoto, /pollTimer = setInterval/);
+  assert.match(idphoto, /image\.src = img/);
+  assert.doesNotMatch(idphoto, /card\.innerHTML = `\s*<div class="result-img-wrap">/);
+});
+
 test('changed page inline scripts parse', () => {
   parseInlineScripts('avatar.html', avatar);
   parseInlineScripts('ppt.html', ppt);
+  parseInlineScripts('audio.html', audio);
+  parseInlineScripts('video-face-swap.html', faceSwap);
+  parseInlineScripts('idphoto.html', idphoto);
 });
