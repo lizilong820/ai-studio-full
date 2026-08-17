@@ -6,8 +6,18 @@ const aiAdapter = require('../controllers/aiAdapter');
 const creditService = require('../controllers/creditService');
 const { extractVideoFrames } = require('../utils/videoFrameExtract');
 const { safeRequest } = require('../utils/safeHttp');
+const { parseIntegerParam } = require('../utils/requestParams');
 
 const router = express.Router();
+
+function refundFailedGeneration(taskId, errorMessage) {
+  if (taskId === null || taskId === undefined) return;
+  try {
+    creditService.failGenerationAndRefund(taskId, errorMessage);
+  } catch (refundError) {
+    console.error(`任务 ${taskId} 失败退款异常:`, refundError.message);
+  }
+}
 
 // 获取站点配置 (不需要登录)
 router.get('/config', authOptional, (req, res) => {
@@ -40,18 +50,28 @@ router.get('/models', (req, res) => {
 
 // 计算生成价格
 router.post('/calculate-cost', (req, res) => {
-  const { model_id, count = 1, studio_type, duration } = req.body;
+  const { model_id, count, duration } = req.body;
   if (!model_id) return res.error('请选择模型');
-  
-    // 支持视频按秒计费
-  let costOptions = count;
-  if (duration !== undefined) {
-    costOptions = typeof count === 'object' ? { ...count, duration } : { count, duration };
+
+  try {
+    const actualCount = parseIntegerParam(count, {
+      name: '数量', min: 1, max: 20, defaultValue: 1
+    });
+    const costOptions = duration === undefined
+      ? actualCount
+      : {
+          count: actualCount,
+          duration: parseIntegerParam(duration, {
+            name: '时长', min: 1, max: 60
+          })
+        };
+    const cost = aiAdapter.calculateCost(model_id, costOptions);
+    if (cost === null) return res.error('模型不存在、已禁用或价格配置无效');
+
+    res.success({ cost });
+  } catch (err) {
+    res.error(err.message);
   }
-  const cost = aiAdapter.calculateCost(model_id, costOptions);
-  if (cost === null) return res.error('模型不存在或已禁用');
-  
-  res.success({ cost });
 });
 
 // ============ 生成相关 ============
@@ -63,20 +83,28 @@ router.post('/generate/ecommerce', authRequired, async (req, res) => {
       model_id, platform, market, language, text_setting,
       smart_composite, ratio, count, tone, prominence,
       forbidden_elements, avoid_requirements, selling_points,
-      image_count = 4, ref_image = ''
+      image_count, ref_image = ''
     } = req.body;
     
     if (!model_id) return res.error('请选择生图模型');
     if (!selling_points) return res.error('请填写商品卖点及要求');
     
-    const actualCount = parseInt(image_count) || parseInt(count) || 4;
+    const actualCount = parseIntegerParam(
+      image_count === undefined ? count : image_count,
+      { name: '图片数量', min: 1, max: 20, defaultValue: 4 }
+    );
     
     // 计算并扣减积分
     const cost = aiAdapter.calculateCost(model_id, actualCount);
     if (!cost) return res.error('模型价格获取失败');
     
-    const deductResult = creditService.deductCredits(
-      req.user.id, cost, 'consume', `电商套图生成 (${actualCount}张)`
+    const deductResult = creditService.createGenerationAndDeduct(
+      req.user.id,
+      'ecommerce',
+      model_id,
+      JSON.stringify({ ...req.body, count: actualCount, image_count: actualCount }),
+      cost,
+      `电商套图生成 (${actualCount}张)`
     );
     
     if (!deductResult.success) {
@@ -89,14 +117,7 @@ router.post('/generate/ecommerce', authRequired, async (req, res) => {
       Style: ${tone || 'neutral'}, Product prominence: ${prominence || 70}%.
       The product should be the main focus in a beautiful scene.`;
     
-    // 保存任务记录
-    const params = JSON.stringify(req.body);
-    const result = db.prepare(`INSERT INTO generations 
-      (user_id, studio_type, model_id, params, credits_used, status)
-      VALUES (?, 'ecommerce', ?, ?, ?, 'pending')`)
-      .run(req.user.id, model_id, params, cost);
-    
-    const taskId = result.lastInsertRowid;
+    const taskId = deductResult.taskId;
     
     // 异步执行生成 (用 setImmediate 模拟)
     setImmediate(async () => {
@@ -128,7 +149,7 @@ router.post('/generate/ecommerce', authRequired, async (req, res) => {
           
       } catch (err) {
         console.error('电商套图生成失败:', err);
-        creditService.failGenerationAndRefund(taskId, err.message);
+        refundFailedGeneration(taskId, err.message);
       }
     });
     
@@ -142,6 +163,7 @@ router.post('/generate/ecommerce', authRequired, async (req, res) => {
 
 // 小红书文案生成 (同步)
 router.post('/generate/xiaohongshu', authRequired, async (req, res) => {
+  let taskId = null;
   try {
     const {
       model_id, note_type, topic, target_audience,
@@ -152,16 +174,24 @@ router.post('/generate/xiaohongshu', authRequired, async (req, res) => {
     if (!model_id) return res.error('请选择文本模型');
     if (!topic) return res.error('请填写笔记主题');
     
-    const actualCount = parseInt(count) || 3;
+    const actualCount = parseIntegerParam(count, {
+      name: '版本数量', min: 1, max: 5, defaultValue: 3
+    });
     // 扣减积分：每个版本按一次文本模型调用计算
     const cost = aiAdapter.calculateCost(model_id, actualCount);
-    const deductResult = creditService.deductCredits(
-      req.user.id, cost, 'consume', `小红书笔记生成 (${actualCount}篇)`
+    const deductResult = creditService.createGenerationAndDeduct(
+      req.user.id,
+      'xiaohongshu',
+      model_id,
+      JSON.stringify({ ...req.body, count: actualCount }),
+      cost,
+      `小红书笔记生成 (${actualCount}篇)`
     );
     
     if (!deductResult.success) {
       return res.error(deductResult.msg, 402);
     }
+    taskId = deductResult.taskId;
     
     // 构建提示词
     const audience = Array.isArray(target_audience) ? target_audience.join('、') : (target_audience || '年轻女性');
@@ -182,14 +212,6 @@ router.post('/generate/xiaohongshu', authRequired, async (req, res) => {
 
 请直接输出完整的笔记内容，包括标题和标签。`;
 
-    // 创建任务
-    const params = JSON.stringify(req.body);
-    const result = db.prepare(`INSERT INTO generations 
-      (user_id, studio_type, model_id, params, credits_used, status)
-      VALUES (?, 'xiaohongshu', ?, ?, ?, 'pending')`)
-      .run(req.user.id, model_id, params, cost);
-    const taskId = result.lastInsertRowid;
-    
     // 调用模型
     const genResult = await aiAdapter.generateText(model_id, [
       { role: 'user', content: prompt }
@@ -213,6 +235,7 @@ router.post('/generate/xiaohongshu', authRequired, async (req, res) => {
     
   } catch (err) {
     console.error(err);
+    refundFailedGeneration(taskId, err.message);
     res.error('生成失败：' + err.message);
   }
 });
@@ -220,16 +243,24 @@ router.post('/generate/xiaohongshu', authRequired, async (req, res) => {
 // 海报生成
 router.post('/generate/poster', authRequired, async (req, res) => {
   try {
-    const { model_id, poster_type, theme, subtitle, style, color, image_count, count = 4 } = req.body;
+    const { model_id, poster_type, theme, subtitle, style, color, image_count, count } = req.body;
     
     if (!model_id) return res.error('请选择生图模型');
     if (!theme) return res.error('请填写海报主题');
     
-    const actualCount = parseInt(image_count) || parseInt(count) || 4;
+    const actualCount = parseIntegerParam(
+      image_count === undefined ? count : image_count,
+      { name: '图片数量', min: 1, max: 8, defaultValue: 4 }
+    );
     const cost = aiAdapter.calculateCost(model_id, actualCount);
     
-    const deductResult = creditService.deductCredits(
-      req.user.id, cost, 'consume', `海报生成 (${actualCount}张)`
+    const deductResult = creditService.createGenerationAndDeduct(
+      req.user.id,
+      'poster',
+      model_id,
+      JSON.stringify({ ...req.body, count: actualCount, image_count: actualCount }),
+      cost,
+      `海报生成 (${actualCount}张)`
     );
     
     if (!deductResult.success) {
@@ -273,12 +304,7 @@ CRITICAL REQUIREMENTS:
 
     const negativePrompt = 'text, words, letters, characters, writing, watermark, logo, signature, caption, subtitle text, realistic photograph, landscape photo, nature scenery, people portrait, low quality, blurry, distorted, ugly';
     
-    const params = JSON.stringify(req.body);
-    const result = db.prepare(`INSERT INTO generations 
-      (user_id, studio_type, model_id, params, credits_used, status)
-      VALUES (?, 'poster', ?, ?, ?, 'pending')`)
-      .run(req.user.id, model_id, params, cost);
-    const taskId = result.lastInsertRowid;
+    const taskId = deductResult.taskId;
     
     setImmediate(async () => {
       try {
@@ -305,7 +331,7 @@ CRITICAL REQUIREMENTS:
           
       } catch (err) {
         console.error('海报生成失败:', err);
-        creditService.failGenerationAndRefund(taskId, err.message);
+        refundFailedGeneration(taskId, err.message);
       }
     });
     
@@ -319,6 +345,7 @@ CRITICAL REQUIREMENTS:
 
 // AI文案生成
 router.post('/generate/copywriting', authRequired, async (req, res) => {
+  let taskId = null;
   try {
     const {
       model_id, copy_type, industry, product_name, selling_points,
@@ -328,16 +355,24 @@ router.post('/generate/copywriting', authRequired, async (req, res) => {
     if (!model_id) return res.error('请选择文本模型');
     if (!product_name) return res.error('请填写产品/品牌名称');
     
-    const actualCount = parseInt(count) || 3;
+    const actualCount = parseIntegerParam(count, {
+      name: '版本数量', min: 1, max: 3, defaultValue: 3
+    });
     const cost = aiAdapter.calculateCost(model_id, actualCount);
     
-    const deductResult = creditService.deductCredits(
-      req.user.id, cost, 'consume', `AI文案生成 (${actualCount}个版本)`
+    const deductResult = creditService.createGenerationAndDeduct(
+      req.user.id,
+      'copywriting',
+      model_id,
+      JSON.stringify({ ...req.body, count: actualCount }),
+      cost,
+      `AI文案生成 (${actualCount}个版本)`
     );
     
     if (!deductResult.success) {
       return res.error(deductResult.msg, 402);
     }
+    taskId = deductResult.taskId;
     
     const users = Array.isArray(target_users) ? target_users.join('、') : (target_users || '目标用户');
     const prompt = `请为以下产品撰写${actualCount}个不同风格版本的${copy_type || '产品文案'}：
@@ -359,13 +394,6 @@ router.post('/generate/copywriting', authRequired, async (req, res) => {
 
 用编号清晰分隔每个版本。`;
     
-    const params = JSON.stringify(req.body);
-    const result = db.prepare(`INSERT INTO generations 
-      (user_id, studio_type, model_id, params, credits_used, status)
-      VALUES (?, 'copywriting', ?, ?, ?, 'pending')`)
-      .run(req.user.id, model_id, params, cost);
-    const taskId = result.lastInsertRowid;
-    
     // 同步调用
     const genResult = await aiAdapter.generateText(model_id, [
       { role: 'user', content: prompt }
@@ -385,12 +413,14 @@ router.post('/generate/copywriting', authRequired, async (req, res) => {
     
   } catch (err) {
     console.error(err);
+    refundFailedGeneration(taskId, err.message);
     res.error('生成失败：' + err.message);
   }
 });
 
 // ==================== PPT生成工作室 ====================
 router.post('/generate/ppt', authRequired, async (req, res) => {
+  let taskId = null;
   try {
     const {
       model_id, ppt_type, topic, audience, duration,
@@ -400,17 +430,27 @@ router.post('/generate/ppt', authRequired, async (req, res) => {
     if (!model_id) return res.error('请选择文本模型');
     if (!topic) return res.error('请填写PPT主题');
     
-    const actualCount = parseInt(count) || 2;
-    const slides = parseInt(slide_count) || 12;
+    const actualCount = parseIntegerParam(count, {
+      name: '版本数量', min: 1, max: 3, defaultValue: 2
+    });
+    const slides = parseIntegerParam(slide_count, {
+      name: '页数', min: 3, max: 30, defaultValue: 12
+    });
     const cost = aiAdapter.calculateCost(model_id, actualCount);
     
-    const deductResult = creditService.deductCredits(
-      req.user.id, cost, 'consume', `PPT生成 (${actualCount}份)`
+    const deductResult = creditService.createGenerationAndDeduct(
+      req.user.id,
+      'ppt',
+      model_id,
+      JSON.stringify({ ...req.body, count: actualCount, slide_count: slides }),
+      cost,
+      `PPT生成 (${actualCount}份)`
     );
     
     if (!deductResult.success) {
       return res.error(deductResult.msg, 402);
     }
+    taskId = deductResult.taskId;
     
     const audiences = Array.isArray(audience) ? audience.join('、') : (audience || '目标受众');
     const prompt = `请为以下主题设计${actualCount}个不同风格的PPT大纲：
@@ -439,13 +479,6 @@ PPT主题：${topic}
 
 用编号清晰分隔每个版本，每个版本内用"第X页"标注页码。`;
     
-    const params = JSON.stringify(req.body);
-    const result = db.prepare(`INSERT INTO generations 
-      (user_id, studio_type, model_id, params, credits_used, status)
-      VALUES (?, 'ppt', ?, ?, ?, 'pending')`)
-      .run(req.user.id, model_id, params, cost);
-    const taskId = result.lastInsertRowid;
-    
     const genResult = await aiAdapter.generateText(model_id, [
       { role: 'user', content: prompt }
     ], { temperature: 0.75, max_tokens: 4000 });
@@ -465,12 +498,14 @@ PPT主题：${topic}
     
   } catch (err) {
     console.error(err);
+    refundFailedGeneration(taskId, err.message);
     res.error('生成失败：' + err.message);
   }
 });
 
 // ==================== 短视频脚本工作室 ====================
 router.post('/generate/video', authRequired, async (req, res) => {
+  let taskId = null;
   try {
     const {
       model_id, video_type, topic, platforms, duration,
@@ -481,16 +516,24 @@ router.post('/generate/video', authRequired, async (req, res) => {
     if (!model_id) return res.error('请选择文本模型');
     if (!topic) return res.error('请填写视频主题');
     
-    const actualCount = parseInt(count) || 2;
+    const actualCount = parseIntegerParam(count, {
+      name: '版本数量', min: 1, max: 3, defaultValue: 2
+    });
     const cost = aiAdapter.calculateCost(model_id, actualCount);
     
-    const deductResult = creditService.deductCredits(
-      req.user.id, cost, 'consume', `短视频脚本生成 (${actualCount}份)`
+    const deductResult = creditService.createGenerationAndDeduct(
+      req.user.id,
+      'video',
+      model_id,
+      JSON.stringify({ ...req.body, count: actualCount }),
+      cost,
+      `短视频脚本生成 (${actualCount}份)`
     );
     
     if (!deductResult.success) {
       return res.error(deductResult.msg, 402);
     }
+    taskId = deductResult.taskId;
     
     const platformsStr = Array.isArray(platforms) ? platforms.join('、') : (platforms || '抖音');
     const charsStr = Array.isArray(characters) ? characters.join('、') : (characters || '主角');
@@ -521,13 +564,6 @@ BGM风格：${bgm_style || '轻快活泼'}
 
 用编号清晰分隔每个版本。`;
     
-    const params = JSON.stringify(req.body);
-    const result = db.prepare(`INSERT INTO generations 
-      (user_id, studio_type, model_id, params, credits_used, status)
-      VALUES (?, 'video', ?, ?, ?, 'pending')`)
-      .run(req.user.id, model_id, params, cost);
-    const taskId = result.lastInsertRowid;
-    
     const genResult = await aiAdapter.generateText(model_id, [
       { role: 'user', content: prompt }
     ], { temperature: 0.85, max_tokens: 4000 });
@@ -547,12 +583,14 @@ BGM风格：${bgm_style || '轻快活泼'}
     
   } catch (err) {
     console.error(err);
+    refundFailedGeneration(taskId, err.message);
     res.error('生成失败：' + err.message);
   }
 });
 
 // ==================== 简历优化工作室 ====================
 router.post('/generate/resume', authRequired, async (req, res) => {
+  let taskId = null;
   try {
     const {
       model_id, target_position, experience_years, company_type,
@@ -564,16 +602,24 @@ router.post('/generate/resume', authRequired, async (req, res) => {
     if (!target_position) return res.error('请填写求职岗位');
     if (!work_experience) return res.error('请填写工作经历');
     
-    const actualCount = parseInt(count) || 2;
+    const actualCount = parseIntegerParam(count, {
+      name: '版本数量', min: 1, max: 3, defaultValue: 2
+    });
     const cost = aiAdapter.calculateCost(model_id, actualCount);
     
-    const deductResult = creditService.deductCredits(
-      req.user.id, cost, 'consume', `简历优化 (${actualCount}份)`
+    const deductResult = creditService.createGenerationAndDeduct(
+      req.user.id,
+      'resume',
+      model_id,
+      JSON.stringify({ ...req.body, count: actualCount }),
+      cost,
+      `简历优化 (${actualCount}份)`
     );
     
     if (!deductResult.success) {
       return res.error(deductResult.msg, 402);
     }
+    taskId = deductResult.taskId;
     
     const skillsStr = Array.isArray(skills) ? skills.join('、') : (skills || '专业技能');
     const prompt = `请根据以下信息，为求职者优化${actualCount}个版本的简历内容：
@@ -603,13 +649,6 @@ router.post('/generate/resume', authRequired, async (req, res) => {
 
 用编号清晰分隔每个版本。`;
     
-    const params = JSON.stringify(req.body);
-    const result = db.prepare(`INSERT INTO generations 
-      (user_id, studio_type, model_id, params, credits_used, status)
-      VALUES (?, 'resume', ?, ?, ?, 'pending')`)
-      .run(req.user.id, model_id, params, cost);
-    const taskId = result.lastInsertRowid;
-    
     const genResult = await aiAdapter.generateText(model_id, [
       { role: 'user', content: prompt }
     ], { temperature: 0.7, max_tokens: 4000 });
@@ -629,6 +668,7 @@ router.post('/generate/resume', authRequired, async (req, res) => {
     
   } catch (err) {
     console.error(err);
+    refundFailedGeneration(taskId, err.message);
     res.error('生成失败：' + err.message);
   }
 });
@@ -639,17 +679,25 @@ router.post('/generate/avatar', authRequired, async (req, res) => {
     const {
       model_id, avatar_style, gender, age_range,
       hairstyle, expression, clothing, background,
-      size, resolution, count = 4, image_count = 4, ref_images = []
+      size, resolution, count, image_count, ref_images = []
     } = req.body;
     
     if (!model_id) return res.error('请选择生图模型');
     if (!avatar_style) return res.error('请选择头像风格');
     
-    const actualCount = parseInt(image_count) || parseInt(count) || 4;
+    const actualCount = parseIntegerParam(
+      image_count === undefined ? count : image_count,
+      { name: '图片数量', min: 1, max: 20, defaultValue: 4 }
+    );
     const cost = aiAdapter.calculateCost(model_id, actualCount);
     
-    const deductResult = creditService.deductCredits(
-      req.user.id, cost, 'consume', `AI头像生成 (${actualCount}张)`
+    const deductResult = creditService.createGenerationAndDeduct(
+      req.user.id,
+      'avatar',
+      model_id,
+      JSON.stringify({ ...req.body, count: actualCount, image_count: actualCount }),
+      cost,
+      `AI头像生成 (${actualCount}张)`
     );
     
     if (!deductResult.success) {
@@ -683,12 +731,7 @@ router.post('/generate/avatar', authRequired, async (req, res) => {
     
     const negativePrompt = 'ugly, deformed, blurry, low quality, distorted face, extra fingers, bad anatomy, text, watermark, logo, signature';
     
-    const params = JSON.stringify(req.body);
-    const result = db.prepare(`INSERT INTO generations 
-      (user_id, studio_type, model_id, params, credits_used, status)
-      VALUES (?, 'avatar', ?, ?, ?, 'pending')`)
-      .run(req.user.id, model_id, params, cost);
-    const taskId = result.lastInsertRowid;
+    const taskId = deductResult.taskId;
     
     setImmediate(async () => {
       try {
@@ -706,7 +749,7 @@ router.post('/generate/avatar', authRequired, async (req, res) => {
           
       } catch (err) {
         console.error('头像生成失败:', err);
-        creditService.failGenerationAndRefund(taskId, err.message);
+        refundFailedGeneration(taskId, err.message);
       }
     });
     
@@ -732,20 +775,20 @@ router.post('/generate/audio', authRequired, async (req, res) => {
 
     const cost = aiAdapter.calculateCost(model_id, 1);
 
-    const deductResult = creditService.deductCredits(
-      req.user.id, cost, 'consume', 'AI音频合成'
+    const deductResult = creditService.createGenerationAndDeduct(
+      req.user.id,
+      'audio',
+      model_id,
+      JSON.stringify(req.body),
+      cost,
+      'AI音频合成'
     );
 
     if (!deductResult.success) {
       return res.error(deductResult.msg, 402);
     }
 
-    const params = JSON.stringify(req.body);
-    const result = db.prepare(`INSERT INTO generations
-      (user_id, studio_type, model_id, params, credits_used, status)
-      VALUES (?, 'audio', ?, ?, ?, 'pending')`)
-      .run(req.user.id, model_id, params, cost);
-    const taskId = result.lastInsertRowid;
+    const taskId = deductResult.taskId;
 
     setImmediate(async () => {
       try {
@@ -784,7 +827,7 @@ router.post('/generate/audio', authRequired, async (req, res) => {
 
       } catch (err) {
         console.error('音频生成失败:', err);
-        creditService.failGenerationAndRefund(taskId, err.message);
+        refundFailedGeneration(taskId, err.message);
       }
     });
 
@@ -806,11 +849,18 @@ router.post('/generate/image', authRequired, async (req, res) => {
     if (!model_id) return res.error('请选择生图模型');
     if (!prompt || !prompt.trim()) return res.error('请输入图片描述');
 
-    const actualCount = Math.min(parseInt(count) || 1, 9);
+    const actualCount = parseIntegerParam(count, {
+      name: '图片数量', min: 1, max: 9, defaultValue: 1
+    });
     const cost = aiAdapter.calculateCost(model_id, actualCount);
 
-    const deductResult = creditService.deductCredits(
-      req.user.id, cost, 'consume', `AI图片生成 (${actualCount}张)`
+    const deductResult = creditService.createGenerationAndDeduct(
+      req.user.id,
+      'image',
+      model_id,
+      JSON.stringify({ ...req.body, count: actualCount }),
+      cost,
+      `AI图片生成 (${actualCount}张)`
     );
 
     if (!deductResult.success) {
@@ -858,12 +908,7 @@ router.post('/generate/image', authRequired, async (req, res) => {
     const defaultNeg = 'ugly, deformed, blurry, low quality, bad anatomy, text, watermark, logo, signature';
     const finalNeg = negative_prompt ? `${defaultNeg}, ${negative_prompt}` : defaultNeg;
 
-    const params = JSON.stringify(req.body);
-    const result = db.prepare(`INSERT INTO generations 
-      (user_id, studio_type, model_id, params, credits_used, status)
-      VALUES (?, 'image', ?, ?, ?, 'pending')`)
-      .run(req.user.id, model_id, params, cost);
-    const taskId = result.lastInsertRowid;
+    const taskId = deductResult.taskId;
 
     setImmediate(async () => {
       try {
@@ -884,7 +929,7 @@ router.post('/generate/image', authRequired, async (req, res) => {
 
       } catch (err) {
         console.error('图片生成失败:', err);
-        creditService.failGenerationAndRefund(taskId, err.message);
+        refundFailedGeneration(taskId, err.message);
       }
     });
 
@@ -1147,19 +1192,20 @@ router.post('/editor/dewatermark', authRequired, async (req, res) => {
 
     const cost = aiAdapter.calculateCost(model_id, 1);
 
-    const deductResult = creditService.deductCredits(
-      req.user.id, cost, 'consume', 'AI去水印'
+    const deductResult = creditService.createGenerationAndDeduct(
+      req.user.id,
+      'image',
+      model_id,
+      JSON.stringify({ action: 'dewatermark' }),
+      cost,
+      'AI去水印'
     );
 
     if (!deductResult.success) {
       return res.error(deductResult.msg, 402);
     }
 
-    const result = db.prepare(`INSERT INTO generations 
-      (user_id, studio_type, model_id, params, credits_used, status)
-      VALUES (?, 'image', ?, ?, ?, 'pending')`)
-      .run(req.user.id, model_id, JSON.stringify({ action: 'dewatermark' }), cost);
-    const taskId = result.lastInsertRowid;
+    const taskId = deductResult.taskId;
 
     setImmediate(async () => {
       try {
@@ -1182,7 +1228,7 @@ router.post('/editor/dewatermark', authRequired, async (req, res) => {
 
       } catch (err) {
         console.error('AI去水印失败:', err);
-        creditService.failGenerationAndRefund(taskId, err.message);
+        refundFailedGeneration(taskId, err.message);
       }
     });
 
@@ -1324,12 +1370,20 @@ router.post('/generate/gif', authRequired, async (req, res) => {
       return res.error('该跳舞模型不支持首帧模式，请使用参考图生视频模式');
     }
 
-    const cost = aiAdapter.calculateCost(model_id, { duration: parseInt(duration) || 3 });
+    const actualDuration = parseIntegerParam(duration, {
+      name: '时长', min: 1, max: 60, defaultValue: 3
+    });
+    const cost = aiAdapter.calculateCost(model_id, { duration: actualDuration });
     if (cost === null) return res.error('无法计算价格');
 
     // 扣积分
-    const deductResult = creditService.deductCredits(
-      req.user.id, cost, 'consume', `GIF表情包生成`, 0
+    const deductResult = creditService.createGenerationAndDeduct(
+      req.user.id,
+      'gif',
+      model_id,
+      JSON.stringify({ prompt, mode, ref_image, duration: actualDuration, ratio }),
+      cost,
+      `GIF表情包生成`
     );
     if (!deductResult.success) return res.error(deductResult.message || '积分不足');
 
@@ -1353,17 +1407,7 @@ router.post('/generate/gif', authRequired, async (req, res) => {
       created_at: Date.now(),
     });
 
-    // 写入生成记录
-    db.prepare(`INSERT INTO generations (user_id, studio_type, model_id, params, credits_used, status)
-      VALUES (?, ?, ?, ?, ?, ?)`).run(
-      req.user.id,
-      'gif',
-      model_id,
-      JSON.stringify({ prompt, mode, ref_image, duration, ratio }),
-      cost,
-      'pending'
-    );
-    const genId = db.prepare('SELECT last_insert_rowid() as id').get().id;
+    const genId = deductResult.taskId;
 
     // 异步执行
     setImmediate(async () => {
@@ -1378,7 +1422,7 @@ router.post('/generate/gif', authRequired, async (req, res) => {
         // veo只支持16:9/9:16，选1:1时先生成9:16竖屏，转GIF时再裁成正方形
         const videoRatio = ratio === '1:1' ? '9:16' : ratio;
         const submitResult = await aiAdapter.submitVideoTask(model_id, prompt, {
-          duration,
+          duration: actualDuration,
           ratio: videoRatio,
           ref_image: mode === 'image' ? ref_image : '',
           model_mode: 'fast', // 生成模式：fast / standard / lite
@@ -1424,7 +1468,7 @@ router.post('/generate/gif', authRequired, async (req, res) => {
 
         const gifFileName = `${taskId}.gif`;
         const gifFilePath = path.join(tmpDir, gifFileName);
-        await videoToGif(videoUrl, gifFilePath, parseInt(duration) || 4, ratio);
+        await videoToGif(videoUrl, gifFilePath, actualDuration, ratio);
 
         // 转成uploads目录下的URL
         const uploadsDir = path.join(__dirname, '..', 'public', 'uploads');
@@ -1458,7 +1502,7 @@ router.post('/generate/gif', authRequired, async (req, res) => {
           task5.error_msg = err.message || '生成失败';
         }
         // 更新记录+退款
-        creditService.failGenerationAndRefund(genId, err.message);
+        refundFailedGeneration(genId, err.message);
       }
     });
 
@@ -1580,21 +1624,22 @@ router.post('/generate/idphoto', authRequired, async (req, res) => {
     const totalCost = aiAdapter.calculateCost(model_id, actualCount);
     if (totalCost === null) return res.error('无法计算价格');
 
-    const deductResult = creditService.deductCredits(
-      req.user.id, totalCost, 'consume', `AI证件照(${sizeConfig.name})`
+    const deductResult = creditService.createGenerationAndDeduct(
+      req.user.id,
+      'idphoto',
+      model_id,
+      JSON.stringify({
+        bg_color, size, suit, gender, quality, num_photos: actualCount
+      }),
+      totalCost,
+      `AI证件照(${sizeConfig.name})`
     );
 
     if (!deductResult.success) {
       return res.error(deductResult.msg, 402);
     }
 
-    const result = db.prepare(`INSERT INTO generations 
-      (user_id, studio_type, model_id, params, credits_used, status)
-      VALUES (?, 'idphoto', ?, ?, ?, 'pending')`)
-      .run(req.user.id, model_id, JSON.stringify({ 
-        bg_color, size, suit, gender, quality, num_photos: actualCount
-      }), totalCost);
-    const taskId = result.lastInsertRowid;
+    const taskId = deductResult.taskId;
 
     // 初始化任务状态
     idPhotoTasks.set(taskId, {
@@ -1694,7 +1739,7 @@ router.post('/generate/idphoto', authRequired, async (req, res) => {
           created_at: Date.now(),
           error_msg: err.message,
         });
-        creditService.failGenerationAndRefund(taskId, err.message);
+        refundFailedGeneration(taskId, err.message);
       }
     });
 
@@ -1813,28 +1858,31 @@ router.post('/generate/video-gen', authRequired, async (req, res) => {
       }
     }
 
+    const actualDuration = parseIntegerParam(duration, {
+      name: '时长', min: 1, max: 60, defaultValue: 5
+    });
+
     // Seedance 2.0 (paipu) 时长只能是 10 或 15 秒
-    if (isPaipu || isSeedance) {
-      const d = parseInt(duration);
-      if (d !== 10 && d !== 15) {
-        return res.error('该模型仅支持 10 秒或 15 秒时长');
-      }
+    if ((isPaipu || isSeedance) && actualDuration !== 10 && actualDuration !== 15) {
+      return res.error('该模型仅支持 10 秒或 15 秒时长');
     }
 
     // MiniMax H3 时长：1-15 秒整数
-    if (isMinimax) {
-      const d = parseInt(duration);
-      if (isNaN(d) || d < 1 || d > 15) {
-        return res.error("MiniMax H3 模型仅支持 1-15 秒时长");
-      }
+    if (isMinimax && actualDuration > 15) {
+      return res.error("MiniMax H3 模型仅支持 1-15 秒时长");
     }
 
-    const cost = aiAdapter.calculateCost(model_id, { duration: parseInt(duration) || 5 });
+    const cost = aiAdapter.calculateCost(model_id, { duration: actualDuration });
     if (cost === null) return res.error('无法计算价格');
 
     // 扣积分
-    const deductResult = creditService.deductCredits(
-      req.user.id, cost, 'consume', `AI视频生成`, 0
+    const deductResult = creditService.createGenerationAndDeduct(
+      req.user.id,
+      'video-gen',
+      model_id,
+      JSON.stringify({ prompt, mode, ref_image, duration: actualDuration, ratio }),
+      cost,
+      `AI视频生成`
     );
     if (!deductResult.success) return res.error(deductResult.message || '积分不足');
 
@@ -1855,17 +1903,7 @@ router.post('/generate/video-gen', authRequired, async (req, res) => {
       created_at: Date.now(),
     });
 
-    // 写入生成记录
-    db.prepare(`INSERT INTO generations (user_id, studio_type, model_id, params, credits_used, status)
-      VALUES (?, ?, ?, ?, ?, ?)`).run(
-      req.user.id,
-      'video-gen',
-      model_id,
-      JSON.stringify({ prompt, mode, ref_image, duration, ratio }),
-      cost,
-      'pending'
-    );
-    const genId = db.prepare('SELECT last_insert_rowid() as id').get().id;
+    const genId = deductResult.taskId;
 
     // 异步执行
     setImmediate(async () => {
@@ -1904,7 +1942,7 @@ router.post('/generate/video-gen', authRequired, async (req, res) => {
         }
 
         const submitResult = await aiAdapter.submitVideoTask(model_id, finalPrompt, {
-          duration,
+          duration: actualDuration,
           ratio,
           ref_image: submitRefImage,
           model_mode: 'fast',
@@ -1956,7 +1994,7 @@ router.post('/generate/video-gen', authRequired, async (req, res) => {
           t3.status = 'failed';
           t3.error_msg = err.message || '生成失败';
         }
-        creditService.failGenerationAndRefund(genId, err.message);
+        refundFailedGeneration(genId, err.message);
       }
     });
 
@@ -2007,17 +2045,17 @@ router.post('/generate/prompt-extract', authRequired, async (req, res) => {
     const basePrice = model.price_per_call || 10;
     cost = basePrice;
 
-    const deductResult = creditService.deductCredits(
-      req.user.id, cost, 'consume', '提示词提取'
+    const deductResult = creditService.createGenerationAndDeduct(
+      req.user.id,
+      'prompt-extract',
+      model_id,
+      JSON.stringify({ extract_type, style }),
+      cost,
+      '提示词提取'
     );
     if (!deductResult.success) return res.error(deductResult.msg || '积分不足', 402);
 
-    // 插入生成记录
-    const insertResult = db.prepare(`INSERT INTO generations
-      (user_id, studio_type, model_id, params, credits_used, status)
-      VALUES (?, 'prompt-extract', ?, ?, ?, 'pending')`)
-      .run(req.user.id, model_id, JSON.stringify({ extract_type, style }), cost);
-    taskId = insertResult.lastInsertRowid;
+    taskId = deductResult.taskId;
 
     // 构建系统提示词
     const systemPrompts = {
@@ -2126,7 +2164,7 @@ router.post('/generate/prompt-extract', authRequired, async (req, res) => {
     console.error('提示词提取失败:', err);
     // 更新为失败并退款
     try {
-      creditService.failGenerationAndRefund(taskId, err.message);
+      refundFailedGeneration(taskId, err.message);
     } catch (e) {
       console.error('更新失败记录或退款出错:', e);
     }
@@ -2159,14 +2197,22 @@ router.post('/generate/face-swap', authRequired, async (req, res) => {
     const model = aiAdapter.getEnabledModels('video').find(m => m.id === parseInt(model_id));
     if (!model) return res.error('视频模型不存在或未启用');
 
-    const cost = aiAdapter.calculateCost(model_id, { duration: parseInt(duration) || 5 });
+    const actualDuration = parseIntegerParam(duration, {
+      name: '时长', min: 1, max: 60, defaultValue: 5
+    });
+    const cost = aiAdapter.calculateCost(model_id, { duration: actualDuration });
     if (cost === null) return res.error('无法计算价格');
 
     // 视频换人价格加倍（更复杂）
-    const finalCost = Math.floor(cost * 1.5);
+    const finalCost = Math.round((cost * 1.5 + Number.EPSILON) * 100) / 100;
 
-    const deductResult = creditService.deductCredits(
-      req.user.id, finalCost, 'consume', '视频换人', 0
+    const deductResult = creditService.createGenerationAndDeduct(
+      req.user.id,
+      'face-swap',
+      model_id,
+      JSON.stringify({ prompt, video_url, image_url, duration: actualDuration, ratio }),
+      finalCost,
+      '视频换人'
     );
     if (!deductResult.success) return res.error(deductResult.message || '积分不足');
 
@@ -2183,16 +2229,7 @@ router.post('/generate/face-swap', authRequired, async (req, res) => {
       created_at: Date.now(),
     });
 
-    db.prepare(`INSERT INTO generations (user_id, studio_type, model_id, params, credits_used, status)
-      VALUES (?, ?, ?, ?, ?, ?)`).run(
-      req.user.id,
-      'face-swap',
-      model_id,
-      JSON.stringify({ prompt, video_url, image_url, duration, ratio }),
-      finalCost,
-      'pending'
-    );
-    const genId = db.prepare('SELECT last_insert_rowid() as id').get().id;
+    const genId = deductResult.taskId;
 
     // 异步执行
     setImmediate(async () => {
@@ -2203,7 +2240,7 @@ router.post('/generate/face-swap', authRequired, async (req, res) => {
         task.progress = 5;
 
         const submitResult = await aiAdapter.submitFaceSwapTask(model_id, prompt || '将视频中的人物替换为参考图片中的人物，保持动作和背景不变', {
-          duration,
+          duration: actualDuration,
           ratio,
           video_url,
           image_url,
@@ -2282,7 +2319,7 @@ router.post('/generate/face-swap', authRequired, async (req, res) => {
           t3.status = 'failed';
           t3.error_msg = err.message || '生成失败';
         }
-        creditService.failGenerationAndRefund(genId, err.message);
+        refundFailedGeneration(genId, err.message);
       }
     });
 

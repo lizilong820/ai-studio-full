@@ -199,29 +199,35 @@ async function generateImage(modelId, prompt, options = {}) {
 
   const fetch = globalThis.fetch || require('node-fetch');
   
-  // 注意：如果是占位假key，直接返回模拟结果
-  if (model.api_key.includes('example') || model.api_key.includes('请修改') || model.api_endpoint.includes('api.example.com')) {
-    return generateMockImageResult(options.n || 1, model.model_identifier);
+  const requestedCount = Number(options.n === undefined ? 1 : options.n);
+  if (!Number.isSafeInteger(requestedCount) || requestedCount < 1 || requestedCount > 20) {
+    throw new Error('图片数量必须为1-20之间的整数');
   }
 
-  // 判断是否为 Token Plan 多模态生成接口（百炼原生格式）
-  const isTokenPlanMultimodal = model.api_endpoint.includes('multimodal-generation/generation');
-  
-  // 有参考图时走图生图分支
-  if (options.ref_image) {
-    if (isTokenPlanMultimodal) {
-      // Token Plan 多模态接口也支持图生图（传图片+文字），复用现有逻辑
-      return generateImageTokenPlan(model, prompt, options, fetch);
+  let result;
+  // 注意：如果是占位假key，直接返回模拟结果
+  if (model.api_key.includes('example') || model.api_key.includes('请修改') || model.api_endpoint.includes('api.example.com')) {
+    result = generateMockImageResult(requestedCount, model.model_identifier);
+  } else {
+    // 判断是否为 Token Plan 多模态生成接口（百炼原生格式）
+    const isTokenPlanMultimodal = model.api_endpoint.includes('multimodal-generation/generation');
+
+    if (options.ref_image) {
+      result = isTokenPlanMultimodal
+        ? await generateImageTokenPlan(model, prompt, options, fetch)
+        : await editImageOpenAICompat(model, prompt, options, fetch);
     } else {
-      return editImageOpenAICompat(model, prompt, options, fetch);
+      result = isTokenPlanMultimodal
+        ? await generateImageTokenPlan(model, prompt, options, fetch)
+        : await generateImageOpenAICompat(model, prompt, options, fetch);
     }
   }
-  
-  if (isTokenPlanMultimodal) {
-    return generateImageTokenPlan(model, prompt, options, fetch);
-  } else {
-    return generateImageOpenAICompat(model, prompt, options, fetch);
+
+  if (!Array.isArray(result.images) || result.images.length < requestedCount) {
+    throw new Error(`图片生成数量不足：请求${requestedCount}张，实际${result.images?.length || 0}张`);
   }
+  result.images = result.images.slice(0, requestedCount);
+  return result;
 }
 
 /**
@@ -929,7 +935,8 @@ function generateMockTextResult(messages, modelName) {
  * 获取启用的模型列表
  */
 function getEnabledModels(type = null) {
-  let sql = 'SELECT id, name, type, model_identifier, price_per_call, is_default, description FROM models WHERE status = 1';
+  let sql = `SELECT id, name, type, api_endpoint, model_identifier,
+    price_per_call, is_default, description FROM models WHERE status = 1`;
   const params = [];
   if (type) {
     sql += ' AND type = ?';
@@ -958,7 +965,9 @@ function calculateCost(modelId, countOrOptions = 1) {
   if (!model) return null;
 
   const basePrice = Number(model.price_per_call);
-  if (!Number.isSafeInteger(basePrice) || basePrice <= 0) return null;
+  if (!Number.isFinite(basePrice) || basePrice <= 0 || basePrice > Number.MAX_SAFE_INTEGER) {
+    return null;
+  }
 
   const validateCount = value => (
     Number.isSafeInteger(value) && value >= 1 && value <= 20 ? value : null
@@ -967,10 +976,13 @@ function calculateCost(modelId, countOrOptions = 1) {
   // 兼容旧调用：传数字直接当 count
   if (typeof countOrOptions === 'number') {
     const count = validateCount(countOrOptions);
-    return count === null ? null : basePrice * count;
+    return count === null ? null : Math.round((basePrice * count + Number.EPSILON) * 100) / 100;
   }
 
-  const opts = countOrOptions || {};
+  if (!countOrOptions || typeof countOrOptions !== 'object' || Array.isArray(countOrOptions)) {
+    return null;
+  }
+  const opts = countOrOptions;
   const count = validateCount(opts.count === undefined ? 1 : Number(opts.count));
   if (count === null) return null;
 
@@ -978,10 +990,10 @@ function calculateCost(modelId, countOrOptions = 1) {
   if (model.type === 'video' && opts.duration !== undefined) {
     const seconds = Number(opts.duration);
     if (!Number.isSafeInteger(seconds) || seconds < 1 || seconds > 60) return null;
-    return Math.ceil(basePrice * seconds * count);
+    return Math.round((basePrice * seconds * count + Number.EPSILON) * 100) / 100;
   }
 
-  return basePrice * count;
+  return Math.round((basePrice * count + Number.EPSILON) * 100) / 100;
 }
 
 /**

@@ -4,8 +4,23 @@ const { apiKeyAuth, recordUsage } = require('../middleware/apiAuth');
 const aiAdapter = require('../controllers/aiAdapter');
 const creditService = require('../controllers/creditService');
 const { safeRequest, validatePublicUrl } = require('../utils/safeHttp');
+const { parseIntegerParam } = require('../utils/requestParams');
 
 const router = express.Router();
+
+function refundFailedGeneration(taskId, errorMessage) {
+  if (taskId === null || taskId === undefined) return;
+  try {
+    creditService.failGenerationAndRefund(taskId, errorMessage);
+  } catch (refundError) {
+    console.error(`任务 ${taskId} 失败退款异常:`, refundError.message);
+  }
+}
+
+function normalizeTokenUsage(value) {
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : 0;
+}
 
 // ========== Webhook 相关工具函数 ==========
 async function triggerWebhook(userId, eventType, payload) {
@@ -128,12 +143,19 @@ router.post('/generate/ecommerce', async (req, res) => {
     if (!model_id) return v1Error(res, '请提供 model_id 参数');
     if (!selling_points) return v1Error(res, '请提供 selling_points 商品卖点参数');
 
-    const actualCount = parseInt(image_count) || 4;
+    const actualCount = parseIntegerParam(image_count, {
+      name: 'image_count', min: 1, max: 8, defaultValue: 4
+    });
     const cost = aiAdapter.calculateCost(model_id, actualCount);
     if (!cost) return v1Error(res, '模型不存在或价格获取失败');
 
-    const deductResult = creditService.deductCredits(
-      user.id, cost, 'consume', `API-电商套图生成 (${actualCount}张)`
+    const deductResult = creditService.createGenerationAndDeduct(
+      user.id,
+      studioType,
+      model_id,
+      JSON.stringify({ ...req.body, image_count: actualCount }),
+      cost,
+      `API-电商套图生成 (${actualCount}张)`
     );
     if (!deductResult.success) {
       recordUsage(user.id, req.apiKeyId, '/api/v1/generate/ecommerce', studioType, null, 'failed', 0, Date.now() - startTime, deductResult.msg);
@@ -142,12 +164,7 @@ router.post('/generate/ecommerce', async (req, res) => {
 
     const prompt = `Generate high quality e-commerce product image for: ${selling_points}. Platform: ${platform || 'general'}, Style: ${tone || 'neutral'}. The product should be the main focus in a beautiful scene.`;
 
-    const result = db.prepare(`INSERT INTO generations 
-      (user_id, studio_type, model_id, params, credits_used, status)
-      VALUES (?, 'ecommerce', ?, ?, ?, 'pending')`)
-      .run(user.id, model_id, JSON.stringify(req.body), cost);
-
-    const taskId = result.lastInsertRowid;
+    const taskId = deductResult.taskId;
 
     // 异步生成
     setImmediate(async () => {
@@ -182,7 +199,7 @@ router.post('/generate/ecommerce', async (req, res) => {
           result: { images }
         });
       } catch (err) {
-        creditService.failGenerationAndRefund(taskId, err.message);
+        refundFailedGeneration(taskId, err.message);
 
         triggerWebhook(user.id, 'task.failed', {
           task_id: taskId,
@@ -212,29 +229,38 @@ router.post('/generate/xiaohongshu', async (req, res) => {
   const startTime = Date.now();
   const user = req.apiUser;
   const studioType = 'xiaohongshu';
+  let taskId = null;
 
   try {
     const { model_id, topic, versions = 1 } = req.body;
     if (!model_id) return v1Error(res, '请提供 model_id 参数');
     if (!topic) return v1Error(res, '请提供 topic 主题参数');
 
-    const actualVersions = parseInt(versions) || 1;
+    const actualVersions = parseIntegerParam(versions, {
+      name: 'versions', min: 1, max: 1, defaultValue: 1
+    });
     const cost = aiAdapter.calculateCost(model_id, actualVersions);
     if (!cost) return v1Error(res, '模型不存在或价格获取失败');
 
-    const deductResult = creditService.deductCredits(
-      user.id, cost, 'consume', `API-小红书生成 (${actualVersions}版)`
+    const deductResult = creditService.createGenerationAndDeduct(
+      user.id,
+      studioType,
+      model_id,
+      JSON.stringify({ ...req.body, versions: actualVersions }),
+      cost,
+      `API-小红书生成 (${actualVersions}版)`
     );
     if (!deductResult.success) {
       recordUsage(user.id, req.apiKeyId, '/api/v1/generate/xiaohongshu', studioType, null, 'failed', 0, Date.now() - startTime, deductResult.msg);
       return v1Error(res, deductResult.msg, 402);
     }
+    taskId = deductResult.taskId;
 
     const prompt = `请生成${actualVersions}篇小红书爆款笔记，主题：${topic}。
 每篇包含：标题（带emoji）、正文（分段落，有互动引导）、标签（5-8个）。
 风格：亲切种草感，有干货有情绪价值。`;
 
-    const genResult = await aiAdapter.generateText(model_id, prompt, { max_tokens: 2000 * actualVersions });
+    const genResult = await aiAdapter.generateText(model_id, [{ role: 'user', content: prompt }], { max_tokens: 2000 * actualVersions });
 
     const versionsResult = [{
       version: 1,
@@ -242,12 +268,9 @@ router.post('/generate/xiaohongshu', async (req, res) => {
       title: topic
     }];
 
-    const result = db.prepare(`INSERT INTO generations 
-      (user_id, studio_type, model_id, params, credits_used, status, result)
-      VALUES (?, 'xiaohongshu', ?, ?, ?, 'success', ?)`)
-      .run(user.id, model_id, JSON.stringify(req.body), cost, JSON.stringify({ versions: versionsResult }));
-
-    const taskId = result.lastInsertRowid;
+    db.prepare(`UPDATE generations SET result = ?, status = 'success',
+      completed_at = datetime('now','localtime') WHERE id = ?`)
+      .run(JSON.stringify({ versions: versionsResult }), taskId);
 
     recordUsage(user.id, req.apiKeyId, '/api/v1/generate/xiaohongshu', studioType, taskId, 'success', cost, Date.now() - startTime);
     v1Success(res, {
@@ -267,7 +290,8 @@ router.post('/generate/xiaohongshu', async (req, res) => {
     });
 
   } catch (err) {
-    recordUsage(user.id, req.apiKeyId, '/api/v1/generate/xiaohongshu', studioType, null, 'failed', 0, Date.now() - startTime, err.message);
+    refundFailedGeneration(taskId, err.message);
+    recordUsage(user.id, req.apiKeyId, '/api/v1/generate/xiaohongshu', studioType, taskId, 'failed', 0, Date.now() - startTime, err.message);
     v1Error(res, '生成失败：' + err.message);
   }
 });
@@ -283,12 +307,19 @@ router.post('/generate/poster', async (req, res) => {
     if (!model_id) return v1Error(res, '请提供 model_id 参数');
     if (!theme) return v1Error(res, '请提供 theme 主题参数');
 
-    const actualCount = parseInt(image_count) || 1;
+    const actualCount = parseIntegerParam(image_count, {
+      name: 'image_count', min: 1, max: 8, defaultValue: 1
+    });
     const cost = aiAdapter.calculateCost(model_id, actualCount);
     if (!cost) return v1Error(res, '模型不存在或价格获取失败');
 
-    const deductResult = creditService.deductCredits(
-      user.id, cost, 'consume', `API-海报生成 (${actualCount}张)`
+    const deductResult = creditService.createGenerationAndDeduct(
+      user.id,
+      studioType,
+      model_id,
+      JSON.stringify({ ...req.body, image_count: actualCount }),
+      cost,
+      `API-海报生成 (${actualCount}张)`
     );
     if (!deductResult.success) {
       recordUsage(user.id, req.apiKeyId, '/api/v1/generate/poster', studioType, null, 'failed', 0, Date.now() - startTime, deductResult.msg);
@@ -297,12 +328,7 @@ router.post('/generate/poster', async (req, res) => {
 
     const prompt = `Create a ${poster_type || 'promotional'} poster design for: ${theme}. High quality, eye-catching, professional design.`;
 
-    const result = db.prepare(`INSERT INTO generations 
-      (user_id, studio_type, model_id, params, credits_used, status)
-      VALUES (?, 'poster', ?, ?, ?, 'pending')`)
-      .run(user.id, model_id, JSON.stringify(req.body), cost);
-
-    const taskId = result.lastInsertRowid;
+    const taskId = deductResult.taskId;
 
     setImmediate(async () => {
       try {
@@ -336,7 +362,7 @@ router.post('/generate/poster', async (req, res) => {
           result: { images }
         });
       } catch (err) {
-        creditService.failGenerationAndRefund(taskId, err.message);
+        refundFailedGeneration(taskId, err.message);
 
         triggerWebhook(user.id, 'task.failed', {
           task_id: taskId,
@@ -366,37 +392,43 @@ router.post('/generate/copywriting', async (req, res) => {
   const startTime = Date.now();
   const user = req.apiUser;
   const studioType = 'copywriting';
+  let taskId = null;
 
   try {
     const { model_id, product, purpose, tone, versions = 1 } = req.body;
     if (!model_id) return v1Error(res, '请提供 model_id 参数');
     if (!product) return v1Error(res, '请提供 product 产品/服务名称');
 
-    const actualVersions = parseInt(versions) || 1;
+    const actualVersions = parseIntegerParam(versions, {
+      name: 'versions', min: 1, max: 1, defaultValue: 1
+    });
     const cost = aiAdapter.calculateCost(model_id, actualVersions);
     if (!cost) return v1Error(res, '模型不存在或价格获取失败');
 
-    const deductResult = creditService.deductCredits(
-      user.id, cost, 'consume', `API-文案写作 (${actualVersions}版)`
+    const deductResult = creditService.createGenerationAndDeduct(
+      user.id,
+      studioType,
+      model_id,
+      JSON.stringify({ ...req.body, versions: actualVersions }),
+      cost,
+      `API-文案写作 (${actualVersions}版)`
     );
     if (!deductResult.success) {
       recordUsage(user.id, req.apiKeyId, '/api/v1/generate/copywriting', studioType, null, 'failed', 0, Date.now() - startTime, deductResult.msg);
       return v1Error(res, deductResult.msg, 402);
     }
+    taskId = deductResult.taskId;
 
     const prompt = `请为【${product}】撰写${actualVersions}版${purpose || '营销'}文案，语气：${tone || '专业'}。
 要求：有吸引力、突出卖点、引导行动。`;
 
-    const genResult = await aiAdapter.generateText(model_id, prompt, { max_tokens: 1500 * actualVersions });
+    const genResult = await aiAdapter.generateText(model_id, [{ role: 'user', content: prompt }], { max_tokens: 1500 * actualVersions });
 
     const versionsResult = [{ version: 1, content: genResult.text, title: product + '文案' }];
 
-    const result = db.prepare(`INSERT INTO generations 
-      (user_id, studio_type, model_id, params, credits_used, status, result)
-      VALUES (?, 'copywriting', ?, ?, ?, 'success', ?)`)
-      .run(user.id, model_id, JSON.stringify(req.body), cost, JSON.stringify({ versions: versionsResult }));
-
-    const taskId = result.lastInsertRowid;
+    db.prepare(`UPDATE generations SET result = ?, status = 'success',
+      completed_at = datetime('now','localtime') WHERE id = ?`)
+      .run(JSON.stringify({ versions: versionsResult }), taskId);
 
     recordUsage(user.id, req.apiKeyId, '/api/v1/generate/copywriting', studioType, taskId, 'success', cost, Date.now() - startTime);
     v1Success(res, {
@@ -416,7 +448,8 @@ router.post('/generate/copywriting', async (req, res) => {
     });
 
   } catch (err) {
-    recordUsage(user.id, req.apiKeyId, '/api/v1/generate/copywriting', studioType, null, 'failed', 0, Date.now() - startTime, err.message);
+    refundFailedGeneration(taskId, err.message);
+    recordUsage(user.id, req.apiKeyId, '/api/v1/generate/copywriting', studioType, taskId, 'failed', 0, Date.now() - startTime, err.message);
     v1Error(res, '生成失败：' + err.message);
   }
 });
@@ -426,37 +459,43 @@ router.post('/generate/ppt', async (req, res) => {
   const startTime = Date.now();
   const user = req.apiUser;
   const studioType = 'ppt';
+  let taskId = null;
 
   try {
     const { model_id, topic, audience, style, pages = 10 } = req.body;
     if (!model_id) return v1Error(res, '请提供 model_id 参数');
     if (!topic) return v1Error(res, '请提供 topic 主题参数');
 
-    const actualPages = Math.max(3, Math.min(parseInt(pages) || 10, 30));
+    const actualPages = parseIntegerParam(pages, {
+      name: 'pages', min: 3, max: 30, defaultValue: 10
+    });
     const cost = aiAdapter.calculateCost(model_id, 1);
     if (!cost) return v1Error(res, '模型不存在或价格获取失败');
 
-    const deductResult = creditService.deductCredits(
-      user.id, cost, 'consume', `API-PPT生成 (${actualPages}页)`
+    const deductResult = creditService.createGenerationAndDeduct(
+      user.id,
+      studioType,
+      model_id,
+      JSON.stringify({ ...req.body, pages: actualPages }),
+      cost,
+      `API-PPT生成 (${actualPages}页)`
     );
     if (!deductResult.success) {
       recordUsage(user.id, req.apiKeyId, '/api/v1/generate/ppt', studioType, null, 'failed', 0, Date.now() - startTime, deductResult.msg);
       return v1Error(res, deductResult.msg, 402);
     }
+    taskId = deductResult.taskId;
 
     const prompt = `请生成一份关于"${topic}"的PPT大纲，共${actualPages}页。
 目标受众：${audience || '通用'}，风格：${style || '专业商务'}。
 每页包含：标题、核心要点（3-5条）、备注。
 格式清晰，逻辑连贯。`;
 
-    const genResult = await aiAdapter.generateText(model_id, prompt, { max_tokens: 3000 });
+    const genResult = await aiAdapter.generateText(model_id, [{ role: 'user', content: prompt }], { max_tokens: 3000 });
 
-    const result = db.prepare(`INSERT INTO generations 
-      (user_id, studio_type, model_id, params, credits_used, status, result)
-      VALUES (?, 'ppt', ?, ?, ?, 'success', ?)`)
-      .run(user.id, model_id, JSON.stringify(req.body), cost, JSON.stringify({ outline: genResult.text, pages: actualPages }));
-
-    const taskId = result.lastInsertRowid;
+    db.prepare(`UPDATE generations SET result = ?, status = 'success',
+      completed_at = datetime('now','localtime') WHERE id = ?`)
+      .run(JSON.stringify({ outline: genResult.text, pages: actualPages }), taskId);
 
     recordUsage(user.id, req.apiKeyId, '/api/v1/generate/ppt', studioType, taskId, 'success', cost, Date.now() - startTime);
     v1Success(res, {
@@ -475,7 +514,8 @@ router.post('/generate/ppt', async (req, res) => {
     });
 
   } catch (err) {
-    recordUsage(user.id, req.apiKeyId, '/api/v1/generate/ppt', studioType, null, 'failed', 0, Date.now() - startTime, err.message);
+    refundFailedGeneration(taskId, err.message);
+    recordUsage(user.id, req.apiKeyId, '/api/v1/generate/ppt', studioType, taskId, 'failed', 0, Date.now() - startTime, err.message);
     v1Error(res, '生成失败：' + err.message);
   }
 });
@@ -485,25 +525,37 @@ router.post('/generate/video', async (req, res) => {
   const startTime = Date.now();
   const user = req.apiUser;
   const studioType = 'video';
+  let taskId = null;
 
   try {
     const { model_id, topic, duration = 60, platform = 'douyin', versions = 1 } = req.body;
     if (!model_id) return v1Error(res, '请提供 model_id 参数');
     if (!topic) return v1Error(res, '请提供 topic 主题参数');
 
-    const actualVersions = parseInt(versions) || 1;
+    const actualVersions = parseIntegerParam(versions, {
+      name: 'versions', min: 1, max: 1, defaultValue: 1
+    });
+    const actualDuration = parseIntegerParam(duration, {
+      name: 'duration', min: 1, max: 600, defaultValue: 60
+    });
     const cost = aiAdapter.calculateCost(model_id, actualVersions);
     if (!cost) return v1Error(res, '模型不存在或价格获取失败');
 
-    const deductResult = creditService.deductCredits(
-      user.id, cost, 'consume', `API-短视频脚本 (${actualVersions}版)`
+    const deductResult = creditService.createGenerationAndDeduct(
+      user.id,
+      studioType,
+      model_id,
+      JSON.stringify({ ...req.body, versions: actualVersions, duration: actualDuration }),
+      cost,
+      `API-短视频脚本 (${actualVersions}版)`
     );
     if (!deductResult.success) {
       recordUsage(user.id, req.apiKeyId, '/api/v1/generate/video', studioType, null, 'failed', 0, Date.now() - startTime, deductResult.msg);
       return v1Error(res, deductResult.msg, 402);
     }
+    taskId = deductResult.taskId;
 
-    const prompt = `请为${platform}平台创作一个约${duration}秒的短视频脚本，主题：${topic}。
+    const prompt = `请为${platform}平台创作一个约${actualDuration}秒的短视频脚本，主题：${topic}。
 共${actualVersions}个版本。
 
 每个版本包含：
@@ -515,16 +567,13 @@ router.post('/generate/video', async (req, res) => {
 
 要求：开头3秒有钩子，节奏紧凑，有情绪起伏，结尾有引导。`;
 
-    const genResult = await aiAdapter.generateText(model_id, prompt, { max_tokens: 2000 * actualVersions });
+    const genResult = await aiAdapter.generateText(model_id, [{ role: 'user', content: prompt }], { max_tokens: 2000 * actualVersions });
 
     const versionsResult = [{ version: 1, content: genResult.text, title: topic + ' - 短视频脚本' }];
 
-    const result = db.prepare(`INSERT INTO generations 
-      (user_id, studio_type, model_id, params, credits_used, status, result)
-      VALUES (?, 'video', ?, ?, ?, 'success', ?)`)
-      .run(user.id, model_id, JSON.stringify(req.body), cost, JSON.stringify({ versions: versionsResult }));
-
-    const taskId = result.lastInsertRowid;
+    db.prepare(`UPDATE generations SET result = ?, status = 'success',
+      completed_at = datetime('now','localtime') WHERE id = ?`)
+      .run(JSON.stringify({ versions: versionsResult }), taskId);
 
     recordUsage(user.id, req.apiKeyId, '/api/v1/generate/video', studioType, taskId, 'success', cost, Date.now() - startTime);
     v1Success(res, {
@@ -543,7 +592,8 @@ router.post('/generate/video', async (req, res) => {
     });
 
   } catch (err) {
-    recordUsage(user.id, req.apiKeyId, '/api/v1/generate/video', studioType, null, 'failed', 0, Date.now() - startTime, err.message);
+    refundFailedGeneration(taskId, err.message);
+    recordUsage(user.id, req.apiKeyId, '/api/v1/generate/video', studioType, taskId, 'failed', 0, Date.now() - startTime, err.message);
     v1Error(res, '生成失败：' + err.message);
   }
 });
@@ -553,23 +603,32 @@ router.post('/generate/resume', async (req, res) => {
   const startTime = Date.now();
   const user = req.apiUser;
   const studioType = 'resume';
+  let taskId = null;
 
   try {
     const { model_id, position, experience, skills, versions = 1 } = req.body;
     if (!model_id) return v1Error(res, '请提供 model_id 参数');
     if (!position) return v1Error(res, '请提供 position 求职岗位参数');
 
-    const actualVersions = parseInt(versions) || 1;
+    const actualVersions = parseIntegerParam(versions, {
+      name: 'versions', min: 1, max: 1, defaultValue: 1
+    });
     const cost = aiAdapter.calculateCost(model_id, actualVersions);
     if (!cost) return v1Error(res, '模型不存在或价格获取失败');
 
-    const deductResult = creditService.deductCredits(
-      user.id, cost, 'consume', `API-简历优化 (${actualVersions}版)`
+    const deductResult = creditService.createGenerationAndDeduct(
+      user.id,
+      studioType,
+      model_id,
+      JSON.stringify({ ...req.body, versions: actualVersions }),
+      cost,
+      `API-简历优化 (${actualVersions}版)`
     );
     if (!deductResult.success) {
       recordUsage(user.id, req.apiKeyId, '/api/v1/generate/resume', studioType, null, 'failed', 0, Date.now() - startTime, deductResult.msg);
       return v1Error(res, deductResult.msg, 402);
     }
+    taskId = deductResult.taskId;
 
     const prompt = `请为求职简历做优化，生成${actualVersions}个版本。
 目标岗位：${position}
@@ -584,16 +643,13 @@ router.post('/generate/resume', async (req, res) => {
 
 要求：专业、精准、有说服力，突出候选人的核心竞争力。`;
 
-    const genResult = await aiAdapter.generateText(model_id, prompt, { max_tokens: 2000 * actualVersions });
+    const genResult = await aiAdapter.generateText(model_id, [{ role: 'user', content: prompt }], { max_tokens: 2000 * actualVersions });
 
     const versionsResult = [{ version: 1, content: genResult.text, title: position + ' - 简历优化' }];
 
-    const result = db.prepare(`INSERT INTO generations 
-      (user_id, studio_type, model_id, params, credits_used, status, result)
-      VALUES (?, 'resume', ?, ?, ?, 'success', ?)`)
-      .run(user.id, model_id, JSON.stringify(req.body), cost, JSON.stringify({ versions: versionsResult }));
-
-    const taskId = result.lastInsertRowid;
+    db.prepare(`UPDATE generations SET result = ?, status = 'success',
+      completed_at = datetime('now','localtime') WHERE id = ?`)
+      .run(JSON.stringify({ versions: versionsResult }), taskId);
 
     recordUsage(user.id, req.apiKeyId, '/api/v1/generate/resume', studioType, taskId, 'success', cost, Date.now() - startTime);
     v1Success(res, {
@@ -612,7 +668,8 @@ router.post('/generate/resume', async (req, res) => {
     });
 
   } catch (err) {
-    recordUsage(user.id, req.apiKeyId, '/api/v1/generate/resume', studioType, null, 'failed', 0, Date.now() - startTime, err.message);
+    refundFailedGeneration(taskId, err.message);
+    recordUsage(user.id, req.apiKeyId, '/api/v1/generate/resume', studioType, taskId, 'failed', 0, Date.now() - startTime, err.message);
     v1Error(res, '生成失败：' + err.message);
   }
 });
@@ -627,12 +684,19 @@ router.post('/generate/avatar', async (req, res) => {
     const { model_id, style = 'cartoon', gender = 'female', age_range = 'young', image_count = 1, ratio = '1:1' } = req.body;
     if (!model_id) return v1Error(res, '请提供 model_id 参数');
 
-    const actualCount = parseInt(image_count) || 1;
+    const actualCount = parseIntegerParam(image_count, {
+      name: 'image_count', min: 1, max: 8, defaultValue: 1
+    });
     const cost = aiAdapter.calculateCost(model_id, actualCount);
     if (!cost) return v1Error(res, '模型不存在或价格获取失败');
 
-    const deductResult = creditService.deductCredits(
-      user.id, cost, 'consume', `API-AI头像生成 (${actualCount}张)`
+    const deductResult = creditService.createGenerationAndDeduct(
+      user.id,
+      studioType,
+      model_id,
+      JSON.stringify({ ...req.body, image_count: actualCount }),
+      cost,
+      `API-AI头像生成 (${actualCount}张)`
     );
     if (!deductResult.success) {
       recordUsage(user.id, req.apiKeyId, '/api/v1/generate/avatar', studioType, null, 'failed', 0, Date.now() - startTime, deductResult.msg);
@@ -641,12 +705,7 @@ router.post('/generate/avatar', async (req, res) => {
 
     const prompt = `A beautiful ${style} style avatar portrait of a ${age_range} ${gender} person, high quality, detailed face, artistic, profile picture style.`;
 
-    const result = db.prepare(`INSERT INTO generations 
-      (user_id, studio_type, model_id, params, credits_used, status)
-      VALUES (?, 'avatar', ?, ?, ?, 'pending')`)
-      .run(user.id, model_id, JSON.stringify(req.body), cost);
-
-    const taskId = result.lastInsertRowid;
+    const taskId = deductResult.taskId;
 
     setImmediate(async () => {
       try {
@@ -680,7 +739,7 @@ router.post('/generate/avatar', async (req, res) => {
           result: { images }
         });
       } catch (err) {
-        creditService.failGenerationAndRefund(taskId, err.message);
+        refundFailedGeneration(taskId, err.message);
 
         triggerWebhook(user.id, 'task.failed', {
           task_id: taskId,
@@ -716,12 +775,19 @@ router.post('/generate/image', async (req, res) => {
     if (!model_id) return v1Error(res, '请提供 model_id 参数');
     if (!prompt || !prompt.trim()) return v1Error(res, '请提供 prompt 参数（图片描述）');
 
-    const actualCount = Math.min(parseInt(image_count) || 1, 9);
+    const actualCount = parseIntegerParam(image_count, {
+      name: 'image_count', min: 1, max: 9, defaultValue: 1
+    });
     const cost = aiAdapter.calculateCost(model_id, actualCount);
     if (!cost) return v1Error(res, '模型不存在或价格获取失败');
 
-    const deductResult = creditService.deductCredits(
-      user.id, cost, 'consume', `API-AI图片生成 (${actualCount}张)`
+    const deductResult = creditService.createGenerationAndDeduct(
+      user.id,
+      studioType,
+      model_id,
+      JSON.stringify({ ...req.body, image_count: actualCount }),
+      cost,
+      `API-AI图片生成 (${actualCount}张)`
     );
     if (!deductResult.success) {
       recordUsage(user.id, req.apiKeyId, '/api/v1/generate/image', studioType, null, 'failed', 0, Date.now() - startTime, deductResult.msg);
@@ -746,12 +812,7 @@ router.post('/generate/image', async (req, res) => {
     const sizeMap = { '1:1': '1024x1024', '3:4': '768x1024', '4:3': '1024x768', '16:9': '1024x576', '9:16': '576x1024' };
     const genSize = sizeMap[size] || '1024x1024';
 
-    const result = db.prepare(`INSERT INTO generations 
-      (user_id, studio_type, model_id, params, credits_used, status)
-      VALUES (?, 'image', ?, ?, ?, 'pending')`)
-      .run(user.id, model_id, JSON.stringify(req.body), cost);
-
-    const taskId = result.lastInsertRowid;
+    const taskId = deductResult.taskId;
 
     setImmediate(async () => {
       try {
@@ -784,7 +845,7 @@ router.post('/generate/image', async (req, res) => {
           result: { images: allImages }
         });
       } catch (err) {
-        creditService.failGenerationAndRefund(taskId, err.message);
+        refundFailedGeneration(taskId, err.message);
 
         triggerWebhook(user.id, 'task.failed', {
           task_id: taskId,
@@ -820,14 +881,21 @@ router.post('/generate/image-edit', async (req, res) => {
     if (!model_id) return v1Error(res, '请提供 model_id 参数');
     if (!ref_image) return v1Error(res, '请提供 ref_image 参数（参考图片URL或base64）');
 
-    const actualCount = Math.min(parseInt(image_count) || 1, 4);
+    const actualCount = parseIntegerParam(image_count, {
+      name: 'image_count', min: 1, max: 4, defaultValue: 1
+    });
     // 图生图价格按生图的1.5倍计算
     const baseCost = aiAdapter.calculateCost(model_id, actualCount);
     if (!baseCost) return v1Error(res, '模型不存在或价格获取失败');
-    const cost = Math.ceil(baseCost * 1.5);
+    const cost = Math.round((baseCost * 1.5 + Number.EPSILON) * 100) / 100;
 
-    const deductResult = creditService.deductCredits(
-      user.id, cost, 'consume', `API-AI图生图 (${actualCount}张)`
+    const deductResult = creditService.createGenerationAndDeduct(
+      user.id,
+      studioType,
+      model_id,
+      JSON.stringify({ ...req.body, image_count: actualCount }),
+      cost,
+      `API-AI图生图 (${actualCount}张)`
     );
     if (!deductResult.success) {
       recordUsage(user.id, req.apiKeyId, '/api/v1/generate/image-edit', studioType, null, 'failed', 0, Date.now() - startTime, deductResult.msg);
@@ -841,12 +909,7 @@ router.post('/generate/image-edit', async (req, res) => {
     const sizeMap = { '1:1': '1024x1024', '3:4': '768x1024', '4:3': '1024x768', '16:9': '1024x576', '9:16': '576x1024' };
     const genSize = sizeMap[size] || '1024x1024';
 
-    const result = db.prepare(`INSERT INTO generations 
-      (user_id, studio_type, model_id, params, credits_used, status)
-      VALUES (?, 'image-edit', ?, ?, ?, 'pending')`)
-      .run(user.id, model_id, JSON.stringify(req.body), cost);
-
-    const taskId = result.lastInsertRowid;
+    const taskId = deductResult.taskId;
 
     setImmediate(async () => {
       try {
@@ -872,7 +935,7 @@ router.post('/generate/image-edit', async (req, res) => {
           result: { images, mode }
         });
       } catch (err) {
-        creditService.failGenerationAndRefund(taskId, err.message);
+        refundFailedGeneration(taskId, err.message);
 
         triggerWebhook(user.id, 'task.failed', {
           task_id: taskId,
@@ -914,19 +977,20 @@ router.post('/generate/audio', async (req, res) => {
     const cost = aiAdapter.calculateCost(model_id, 1);
     if (!cost) return v1Error(res, '模型不存在或价格获取失败');
 
-    const deductResult = creditService.deductCredits(
-      user.id, cost, 'consume', 'API-音频合成'
+    const deductResult = creditService.createGenerationAndDeduct(
+      user.id,
+      studioType,
+      model_id,
+      JSON.stringify(req.body),
+      cost,
+      'API-音频合成'
     );
     if (!deductResult.success) {
       recordUsage(user.id, req.apiKeyId, '/api/v1/generate/audio', studioType, null, 'failed', 0, Date.now() - startTime, deductResult.msg);
       return v1Error(res, deductResult.msg, 402);
     }
 
-    const result = db.prepare(`INSERT INTO generations
-      (user_id, studio_type, model_id, params, credits_used, status)
-      VALUES (?, 'audio', ?, ?, ?, 'pending')`)
-      .run(user.id, model_id, JSON.stringify(req.body), cost);
-    const taskId = result.lastInsertRowid;
+    const taskId = deductResult.taskId;
 
     setImmediate(async () => {
       try {
@@ -971,7 +1035,7 @@ router.post('/generate/audio', async (req, res) => {
         });
       } catch (err) {
         console.error('API音频生成失败:', err);
-        creditService.failGenerationAndRefund(taskId, err.message);
+        refundFailedGeneration(taskId, err.message);
 
         triggerWebhook(user.id, 'task.failed', {
           task_id: taskId,
@@ -1014,19 +1078,20 @@ router.post('/generate/prompt-extract', async (req, res) => {
 
     const cost = model.price_per_call || 10;
 
-    const deductResult = creditService.deductCredits(
-      user.id, cost, 'consume', 'API-提示词提取'
+    const deductResult = creditService.createGenerationAndDeduct(
+      user.id,
+      studioType,
+      model_id,
+      JSON.stringify({ extract_type, style, image_url, video_url }),
+      cost,
+      'API-提示词提取'
     );
     if (!deductResult.success) {
       recordUsage(user.id, req.apiKeyId, '/api/v1/generate/prompt-extract', studioType, null, 'failed', 0, Date.now() - startTime, deductResult.msg);
       return v1Error(res, deductResult.msg, 402);
     }
 
-    const insertResult = db.prepare(`INSERT INTO generations
-      (user_id, studio_type, model_id, params, credits_used, status)
-      VALUES (?, 'prompt-extract', ?, ?, ?, 'pending')`)
-      .run(user.id, model_id, JSON.stringify({ extract_type, style, image_url, video_url }), cost);
-    const taskId = insertResult.lastInsertRowid;
+    const taskId = deductResult.taskId;
 
     const systemPrompts = {
       prompt: '你是一位专业的AI提示词工程师。请仔细分析这张图片/视频的所有细节，然后生成一段高质量的英文AI绘画/视频提示词。要求：\n1. 详细描述主体、场景、构图、光影、色彩、风格、材质、氛围\n2. 使用逗号分隔的关键词形式，按重要性排序\n3. 适合用于Midjourney、DALL-E、Stable Diffusion等模型生成相似内容\n4. 输出格式：先写一段完整的英文提示词（50-150词），再换行用中文简要解释图片内容',
@@ -1118,7 +1183,7 @@ router.post('/generate/prompt-extract', async (req, res) => {
         });
       } catch (err) {
         console.error('API提示词反推失败:', err);
-        creditService.failGenerationAndRefund(taskId, err.message);
+        refundFailedGeneration(taskId, err.message);
 
         triggerWebhook(user.id, 'task.failed', {
           task_id: taskId,
@@ -1201,21 +1266,22 @@ router.post('/generate/idphoto', async (req, res) => {
     const totalCost = aiAdapter.calculateCost(model_id, actualCount);
     if (totalCost === null) return v1Error(res, '无法计算价格');
 
-    const deductResult = creditService.deductCredits(
-      user.id, totalCost, 'consume', `API-AI证件照(${sizeConfig.name})`
+    const deductResult = creditService.createGenerationAndDeduct(
+      user.id,
+      studioType,
+      model_id,
+      JSON.stringify({
+        bg_color, size, suit, gender, quality, num_photos: actualCount, ref_image
+      }),
+      totalCost,
+      `API-AI证件照(${sizeConfig.name})`
     );
     if (!deductResult.success) {
       recordUsage(user.id, req.apiKeyId, '/api/v1/generate/idphoto', studioType, null, 'failed', 0, Date.now() - startTime, deductResult.msg);
       return v1Error(res, deductResult.msg, 402);
     }
 
-    const result = db.prepare(`INSERT INTO generations
-      (user_id, studio_type, model_id, params, credits_used, status)
-      VALUES (?, 'idphoto', ?, ?, ?, 'pending')`)
-      .run(user.id, model_id, JSON.stringify({
-        bg_color, size, suit, gender, quality, num_photos: actualCount, ref_image
-      }), totalCost);
-    const taskId = result.lastInsertRowid;
+    const taskId = deductResult.taskId;
 
     setImmediate(async () => {
       try {
@@ -1251,7 +1317,7 @@ router.post('/generate/idphoto', async (req, res) => {
         });
       } catch (err) {
         console.error('API证件照生成失败:', err);
-        creditService.failGenerationAndRefund(taskId, err.message);
+        refundFailedGeneration(taskId, err.message);
 
         triggerWebhook(user.id, 'task.failed', {
           task_id: taskId,
@@ -1320,41 +1386,39 @@ router.post('/generate/video-gen', async (req, res) => {
         return v1Error(res, '该模型为参考图生视频模型，必须上传至少1张参考图');
       }
     }
-    if (isPaipu || isSeedance) {
-      const d = parseInt(duration);
-      if (d !== 10 && d !== 15) {
-        return v1Error(res, '该模型仅支持 10 秒或 15 秒时长');
-      }
+    const actualDuration = parseIntegerParam(duration, {
+      name: 'duration', min: 1, max: 60, defaultValue: 5
+    });
+    if ((isPaipu || isSeedance) && actualDuration !== 10 && actualDuration !== 15) {
+      return v1Error(res, '该模型仅支持 10 秒或 15 秒时长');
     }
-    if (isMinimax) {
-      const d = parseInt(duration);
-      if (isNaN(d) || d < 1 || d > 15) {
-        return v1Error(res, 'MiniMax H3 模型仅支持 1-15 秒时长');
-      }
+    if (isMinimax && actualDuration > 15) {
+      return v1Error(res, 'MiniMax H3 模型仅支持 1-15 秒时长');
     }
 
-    const cost = aiAdapter.calculateCost(model_id, { duration: parseInt(duration) || 5 });
+    const cost = aiAdapter.calculateCost(model_id, { duration: actualDuration });
     if (cost === null) return v1Error(res, '无法计算价格');
 
-    const deductResult = creditService.deductCredits(
-      user.id, cost, 'consume', 'API-AI视频生成'
+    const deductResult = creditService.createGenerationAndDeduct(
+      user.id,
+      studioType,
+      model_id,
+      JSON.stringify({ ...req.body, duration: actualDuration }),
+      cost,
+      'API-AI视频生成'
     );
     if (!deductResult.success) {
       recordUsage(user.id, req.apiKeyId, '/api/v1/generate/video-gen', studioType, null, 'failed', 0, Date.now() - startTime, deductResult.msg);
       return v1Error(res, deductResult.msg || '积分不足', 402);
     }
 
-    const result = db.prepare(`INSERT INTO generations
-      (user_id, studio_type, model_id, params, credits_used, status)
-      VALUES (?, 'video-gen', ?, ?, ?, 'pending')`)
-      .run(user.id, model_id, JSON.stringify(req.body), cost);
-    const taskId = result.lastInsertRowid;
+    const taskId = deductResult.taskId;
 
     // 异步执行视频生成
     setImmediate(async () => {
       try {
         const submitResult = await aiAdapter.submitVideoTask(model_id, prompt, {
-          duration,
+          duration: actualDuration,
           ratio,
           ref_image: mode === 'text' ? '' : ref_image,
           mode,
@@ -1389,7 +1453,7 @@ router.post('/generate/video-gen', async (req, res) => {
           completed_at = datetime('now','localtime') WHERE id = ?`)
           .run(JSON.stringify({
             video_url: videoUrl,
-            duration,
+            duration: actualDuration,
             ratio,
             mode,
             thumbnail_url: ''
@@ -1403,7 +1467,7 @@ router.post('/generate/video-gen', async (req, res) => {
         });
       } catch (err) {
         console.error('API视频生成失败:', err);
-        creditService.failGenerationAndRefund(taskId, err.message);
+        refundFailedGeneration(taskId, err.message);
 
         triggerWebhook(user.id, 'task.failed', {
           task_id: taskId,
@@ -1461,22 +1525,26 @@ router.post('/generate/gif', async (req, res) => {
       return v1Error(res, '该跳舞模型不支持首帧模式，请使用参考图生视频模式');
     }
 
-    const cost = aiAdapter.calculateCost(model_id, { duration: parseInt(duration) || 3 });
+    const actualDuration = parseIntegerParam(duration, {
+      name: 'duration', min: 1, max: 60, defaultValue: 3
+    });
+    const cost = aiAdapter.calculateCost(model_id, { duration: actualDuration });
     if (cost === null) return v1Error(res, '无法计算价格');
 
-    const deductResult = creditService.deductCredits(
-      user.id, cost, 'consume', 'API-GIF表情包生成'
+    const deductResult = creditService.createGenerationAndDeduct(
+      user.id,
+      studioType,
+      model_id,
+      JSON.stringify({ ...req.body, duration: actualDuration }),
+      cost,
+      'API-GIF表情包生成'
     );
     if (!deductResult.success) {
       recordUsage(user.id, req.apiKeyId, '/api/v1/generate/gif', studioType, null, 'failed', 0, Date.now() - startTime, deductResult.msg);
       return v1Error(res, deductResult.msg || '积分不足', 402);
     }
 
-    const result = db.prepare(`INSERT INTO generations
-      (user_id, studio_type, model_id, params, credits_used, status)
-      VALUES (?, 'gif', ?, ?, ?, 'pending')`)
-      .run(user.id, model_id, JSON.stringify(req.body), cost);
-    const taskId = result.lastInsertRowid;
+    const taskId = deductResult.taskId;
 
     setImmediate(async () => {
       try {
@@ -1486,7 +1554,7 @@ router.post('/generate/gif', async (req, res) => {
         // veo只支持16:9/9:16，选1:1时先生成9:16竖屏，转GIF时再裁成正方形
         const videoRatio = ratio === '1:1' ? '9:16' : ratio;
         const submitResult = await aiAdapter.submitVideoTask(model_id, prompt, {
-          duration,
+          duration: actualDuration,
           ratio: videoRatio,
           ref_image: mode === 'text' ? '' : ref_image,
           mode,
@@ -1554,7 +1622,7 @@ router.post('/generate/gif', async (req, res) => {
           .run(JSON.stringify({
             gif_url: gifUrl,
             video_url: videoUrl,
-            duration,
+            duration: actualDuration,
             ratio,
             mode
           }), taskId);
@@ -1567,7 +1635,7 @@ router.post('/generate/gif', async (req, res) => {
         });
       } catch (err) {
         console.error('API GIF生成失败:', err);
-        creditService.failGenerationAndRefund(taskId, err.message);
+        refundFailedGeneration(taskId, err.message);
 
         triggerWebhook(user.id, 'task.failed', {
           task_id: taskId,
@@ -1608,28 +1676,32 @@ router.post('/generate/face-swap', async (req, res) => {
     const model = aiAdapter.getEnabledModels('video').find(m => m.id === parseInt(model_id));
     if (!model) return v1Error(res, '视频模型不存在或未启用');
 
-    const baseCost = aiAdapter.calculateCost(model_id, { duration: parseInt(duration) || 5 });
+    const actualDuration = parseIntegerParam(duration, {
+      name: 'duration', min: 1, max: 60, defaultValue: 5
+    });
+    const baseCost = aiAdapter.calculateCost(model_id, { duration: actualDuration });
     if (baseCost === null) return v1Error(res, '无法计算价格');
-    const cost = Math.floor(baseCost * 1.5);
+    const cost = Math.round((baseCost * 1.5 + Number.EPSILON) * 100) / 100;
 
-    const deductResult = creditService.deductCredits(
-      user.id, cost, 'consume', 'API-AI换脸'
+    const deductResult = creditService.createGenerationAndDeduct(
+      user.id,
+      studioType,
+      model_id,
+      JSON.stringify({ ...req.body, duration: actualDuration }),
+      cost,
+      'API-AI换脸'
     );
     if (!deductResult.success) {
       recordUsage(user.id, req.apiKeyId, '/api/v1/generate/face-swap', studioType, null, 'failed', 0, Date.now() - startTime, deductResult.msg);
       return v1Error(res, deductResult.msg || '积分不足', 402);
     }
 
-    const result = db.prepare(`INSERT INTO generations
-      (user_id, studio_type, model_id, params, credits_used, status)
-      VALUES (?, 'face-swap', ?, ?, ?, 'pending')`)
-      .run(user.id, model_id, JSON.stringify(req.body), cost);
-    const taskId = result.lastInsertRowid;
+    const taskId = deductResult.taskId;
 
     setImmediate(async () => {
       try {
         const submitResult = await aiAdapter.submitFaceSwapTask(model_id, prompt || '将视频中的人物替换为参考图片中的人物，保持动作和背景不变', {
-          duration,
+          duration: actualDuration,
           ratio,
           video_url,
           image_url,
@@ -1662,7 +1734,7 @@ router.post('/generate/face-swap', async (req, res) => {
             video_url: resultVideoUrl,
             image_url,
             source_video_url: video_url,
-            duration,
+            duration: actualDuration,
             ratio
           }), taskId);
 
@@ -1674,7 +1746,7 @@ router.post('/generate/face-swap', async (req, res) => {
         });
       } catch (err) {
         console.error('API换脸生成失败:', err);
-        creditService.failGenerationAndRefund(taskId, err.message);
+        refundFailedGeneration(taskId, err.message);
 
         triggerWebhook(user.id, 'task.failed', {
           task_id: taskId,
@@ -2069,6 +2141,8 @@ router.delete('/webhooks/:id', async (req, res) => {
 router.post('/generate/text', async (req, res) => {
   const startTime = Date.now();
   const user = req.apiUser;
+  const studioType = 'text';
+  let taskId = null;
   let cost = 0;
 
   try {
@@ -2082,34 +2156,49 @@ router.post('/generate/text', async (req, res) => {
     const model = aiAdapter.getEnabledModels('text').find(m => m.id === parseInt(model_id));
     if (!model) return v1Error(res, '模型不存在或已禁用');
 
-    const pricePer1k = model.price_per_1k_tokens != null ? model.price_per_1k_tokens : 10;
+    const pricePer1k = Number(model.price_per_call);
+    if (!Number.isFinite(pricePer1k) || pricePer1k <= 0) {
+      return v1Error(res, '模型价格配置无效');
+    }
+
+    const actualMaxTokens = parseIntegerParam(max_tokens, {
+      name: 'max_tokens', min: 1, max: 32000, defaultValue: 2000
+    });
+    const promptTokenUpperBound = Buffer.byteLength(JSON.stringify(messages), 'utf8');
+    const reservedCost = Math.max(
+      1,
+      Math.ceil(((promptTokenUpperBound + actualMaxTokens) / 1000) * pricePer1k * 100) / 100
+    );
+    const deductResult = creditService.createGenerationAndDeduct(
+      user.id,
+      studioType,
+      model_id,
+      JSON.stringify({ messages, temperature, max_tokens: actualMaxTokens }),
+      reservedCost,
+      'API文本生成：' + model.name
+    );
+    if (!deductResult.success) {
+      recordUsage(user.id, req.apiKeyId, '/api/v1/generate/text', studioType, null, 'failed', 0, Date.now() - startTime, deductResult.msg);
+      return v1Error(res, deductResult.msg, 402);
+    }
+    taskId = deductResult.taskId;
 
     const genResult = await aiAdapter.generateText(parseInt(model_id), messages, {
-      temperature: temperature,
-      max_tokens: max_tokens || 2000,
+      temperature,
+      max_tokens: actualMaxTokens,
     });
 
     const usage = genResult.raw?.usage || {};
-    const promptTokens = usage.prompt_tokens || 0;
-    const completionTokens = usage.completion_tokens || 0;
-    const totalTokens = usage.total_tokens || (promptTokens + completionTokens);
-
+    const promptTokens = normalizeTokenUsage(usage.prompt_tokens);
+    const completionTokens = normalizeTokenUsage(usage.completion_tokens);
+    const reportedTotalTokens = normalizeTokenUsage(usage.total_tokens);
+    const totalTokens = reportedTotalTokens || (promptTokens + completionTokens);
+    if (totalTokens > promptTokenUpperBound + actualMaxTokens) {
+      throw new Error('模型返回的 token 用量超过预授权上限');
+    }
     cost = Math.max(1, Math.ceil((totalTokens / 1000) * pricePer1k * 100) / 100);
 
-    const deductResult = creditService.deductCredits(
-      user.id, cost, 'consume', 'API文本生成：' + model.name
-    );
-    if (!deductResult.success) {
-      recordUsage(user.id, req.apiKeyId, '/api/v1/generate/text', 'text', null, 'failed', 0, Date.now() - startTime, deductResult.msg);
-      return v1Error(res, deductResult.msg, 402);
-    }
-
-    const taskId = Date.now() + Math.random().toString(36).slice(2, 8);
-
-    recordUsage(user.id, req.apiKeyId, '/api/v1/generate/text', 'text', taskId, 'success', cost, Date.now() - startTime);
-
-    v1Success(res, {
-      task_id: taskId,
+    const result = {
       model: model.model_identifier,
       content: genResult.text,
       usage: {
@@ -2117,13 +2206,26 @@ router.post('/generate/text', async (req, res) => {
         completion_tokens: completionTokens,
         total_tokens: totalTokens,
       },
-      cost: cost,
       price_per_1k: pricePer1k,
-      remaining_credits: deductResult.balance,
+    };
+    const settlement = creditService.settleGenerationCharge(
+      taskId,
+      cost,
+      JSON.stringify(result)
+    );
+
+    recordUsage(user.id, req.apiKeyId, '/api/v1/generate/text', studioType, taskId, 'success', cost, Date.now() - startTime);
+
+    v1Success(res, {
+      task_id: taskId,
+      ...result,
+      cost,
+      remaining_credits: settlement.balance,
     });
 
   } catch (err) {
-    recordUsage(user.id, req.apiKeyId, '/api/v1/generate/text', 'text', null, 'failed', 0, Date.now() - startTime, err.message);
+    refundFailedGeneration(taskId, err.message);
+    recordUsage(user.id, req.apiKeyId, '/api/v1/generate/text', studioType, taskId, 'failed', 0, Date.now() - startTime, err.message);
     v1Error(res, '生成失败：' + err.message);
   }
 });

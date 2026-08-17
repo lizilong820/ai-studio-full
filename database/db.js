@@ -2,7 +2,9 @@ const Database = require('better-sqlite3');
 const path = require('path');
 const bcrypt = require('bcryptjs');
 
-const dbPath = path.join(__dirname, 'ai_studio.db');
+const dbPath = process.env.AI_STUDIO_DB_PATH
+  ? path.resolve(process.env.AI_STUDIO_DB_PATH)
+  : path.join(__dirname, 'ai_studio.db');
 const db = new Database(dbPath);
 
 // 启用外键

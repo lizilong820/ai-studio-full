@@ -3132,12 +3132,12 @@ const API_DOCS = {
     method: 'POST',
     endpoint: '/api/v1/generate/text',
     async: false,
-    desc: '调用文本模型进行对话生成，兼容 OpenAI Chat Completions 消息格式。同步接口，直接返回生成结果。按 token 计费（price_per_1k_tokens 积分 / 1k tokens）。',
+    desc: '调用文本模型进行对话生成，兼容 OpenAI Chat Completions 消息格式。同步接口，直接返回生成结果。文本模型的 price_per_call 表示每千 token 积分单价。',
     params: [
       { name: 'model_id', type: 'number', required: true, desc: '文本模型ID，通过 /models?type=text 获取' },
       { name: 'messages', type: 'array', required: true, desc: '对话消息数组，格式 [{role: user/system/assistant, content: 消息内容}]' },
       { name: 'temperature', type: 'number', required: false, desc: '采样温度，0-2之间，默认 0.7' },
-      { name: 'max_tokens', type: 'number', required: false, desc: '最大生成 token 数，默认 2000' }
+      { name: 'max_tokens', type: 'number', required: false, desc: '最大生成 token 数，1-32000，默认 2000' }
     ],
     example: `{
   "model_id": 7,
