@@ -2075,10 +2075,10 @@ curl -X POST <span class="code-string" id="quickStartUrl">/api/v1/generate/ecomm
       }
     }
 
-    // 获取第一个可用的API Key（用于文档在线调试）
+    // 获取当前页面内仍可用的API Key（仅新建后的一次性值）
     function getFirstApiKey() {
-      const active = g_apiKeys.find(k => k.status === 1);
-      return active ? (active.api_key || active._revealed || '') : '';
+      const active = g_apiKeys.find(k => k.status === 1 && k._revealed);
+      return active ? active._revealed : '';
     }
 
     // ===== 侧边栏切换 =====
@@ -2176,18 +2176,15 @@ curl -X POST <span class="code-string" id="quickStartUrl">/api/v1/generate/ecomm
       }
 
       listEl.innerHTML = g_apiKeys.map((key, index) => {
-        const isRevealed = key._revealed !== null;
-        const displayKey = isRevealed ? key._revealed : key.api_key_masked;
+        const hasOneTimeKey = Boolean(key._revealed);
+        const displayKey = hasOneTimeKey ? key._revealed : key.api_key_masked;
         return `
           <div class="key-item">
             <div class="key-info">
               <div class="key-name">${escapeHtml(key.name)}</div>
               <div class="key-value">
                 <code>${escapeHtml(displayKey)}</code>
-                <button class="eye-btn" onclick="toggleKeyVisibility(${key.id})" title="${isRevealed ? '隐藏' : '显示'}">
-                  ${isRevealed ? '🙈' : '👁️'}
-                </button>
-                <button class="copy-btn" onclick="copyKey(${key.id})" title="复制">📋</button>
+                ${hasOneTimeKey ? `<button class="copy-btn" onclick="copyKey(${key.id})" title="复制">📋</button>` : ''}
               </div>
               <div class="key-meta">
                 <span class="key-status ${key.status === 1 ? 'status-active' : 'status-disabled'}">
@@ -2208,45 +2205,15 @@ curl -X POST <span class="code-string" id="quickStartUrl">/api/v1/generate/ecomm
       }).join('');
     }
 
-    // 显示/隐藏密钥
-    async function toggleKeyVisibility(keyId) {
+    // 复制当前页面内的一次性密钥
+    async function copyKey(keyId) {
       const key = g_apiKeys.find(k => k.id === keyId);
-      if (!key) return;
-
-      if (key._revealed) {
-        key._revealed = null;
-        renderKeys();
+      if (!key || !key._revealed) {
+        showToast('密钥只在创建时显示一次，无法恢复', 'error');
         return;
       }
 
-      const res = await apiRequest(`/api/user/api-keys/${keyId}/reveal`);
-      if (res.code === 0 && res.data) {
-        key._revealed = res.data.api_key;
-        renderKeys();
-      } else {
-        showToast(res.msg || '获取密钥失败', 'error');
-      }
-    }
-
-    // 复制密钥
-    async function copyKey(keyId) {
-      const key = g_apiKeys.find(k => k.id === keyId);
-      if (!key) return;
-
-      let textToCopy = key._revealed;
-      if (!textToCopy) {
-        // 没显示的话先获取
-        const res = await apiRequest(`/api/user/api-keys/${keyId}/reveal`);
-        if (res.code === 0 && res.data) {
-          textToCopy = res.data.api_key;
-          key._revealed = res.data.api_key;
-          renderKeys();
-        } else {
-          showToast(res.msg || '获取密钥失败', 'error');
-          return;
-        }
-      }
-
+      const textToCopy = key._revealed;
       try {
         await navigator.clipboard.writeText(textToCopy);
         showToast('已复制到剪贴板', 'success');
@@ -2365,7 +2332,7 @@ curl -X POST <span class="code-string" id="quickStartUrl">/api/v1/generate/ecomm
         document.getElementById('createdKeyName').textContent = res.data.name;
         document.getElementById('createdKeyValue').textContent = res.data.api_key;
 
-        // 把新密钥加入列表（带_revealed因为刚创建显示了完整key）
+        // 仅在当前页面会话中保留一次性密钥值
         g_apiKeys.unshift({
           id: res.data.id,
           name: res.data.name,

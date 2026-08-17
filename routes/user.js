@@ -1,5 +1,6 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
+const { generateApiKey, hashApiKey, getApiKeyPrefix, maskApiKey } = require('../utils/apiKey');
 const fs = require('fs');
 const path = require('path');
 const { exec } = require('child_process');
@@ -948,18 +949,16 @@ router.delete('/search/history', authRequired, (req, res) => {
 // 获取我的API密钥列表
 router.get('/api-keys', authRequired, (req, res) => {
   const list = db.prepare(`
-    SELECT id, name, api_key, status, last_used_at, created_at
+    SELECT id, name, api_key_prefix, api_key, status, last_used_at, created_at
     FROM api_keys
     WHERE user_id = ?
     ORDER BY created_at DESC
   `).all(req.user.id);
 
-  // 返回掩码后的key
   res.success(list.map(k => ({
     id: k.id,
     name: k.name,
-    api_key_masked: maskKey(k.api_key),
-    api_key_full: '', // 默认不返回完整key
+    api_key_masked: maskApiKey(k.api_key_prefix || (k.api_key ? getApiKeyPrefix(k.api_key) : '')),
     status: k.status,
     last_used_at: k.last_used_at,
     created_at: k.created_at
@@ -979,12 +978,13 @@ router.post('/api-keys', authRequired, (req, res) => {
 
   const keyName = (name || '默认密钥').toString().slice(0, 50);
   const apiKey = generateApiKey();
+  const apiKeyHash = hashApiKey(apiKey);
 
   try {
     const result = db.prepare(`
-      INSERT INTO api_keys (user_id, name, api_key, status)
-      VALUES (?, ?, ?, 1)
-    `).run(userId, keyName, apiKey);
+      INSERT INTO api_keys (user_id, name, api_key, api_key_hash, api_key_prefix, status)
+      VALUES (?, ?, ?, ?, ?, 1)
+    `).run(userId, keyName, apiKeyHash, apiKeyHash, getApiKeyPrefix(apiKey));
 
     res.success({
       id: result.lastInsertRowid,
@@ -996,13 +996,6 @@ router.post('/api-keys', authRequired, (req, res) => {
   } catch (err) {
     return res.error('创建失败，请重试');
   }
-});
-
-// 查看完整密钥（需要验证密码？这里简化直接返回，但记录操作）
-router.get('/api-keys/:id/reveal', authRequired, (req, res) => {
-  const key = db.prepare('SELECT * FROM api_keys WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
-  if (!key) return res.error('密钥不存在');
-  res.success({ api_key: key.api_key });
 });
 
 // 更新密钥状态（启用/禁用）
@@ -1151,16 +1144,5 @@ router.get('/api-usage/by-endpoint', authRequired, (req, res) => {
 
   res.success(data);
 });
-
-// 工具函数
-function generateApiKey() {
-  const crypto = require('crypto');
-  return 'sk_' + crypto.randomBytes(16).toString('hex');
-}
-
-function maskKey(key) {
-  if (!key || key.length <= 10) return '****';
-  return key.slice(0, 6) + '...' + key.slice(-4);
-}
 
 module.exports = router;

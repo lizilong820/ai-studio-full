@@ -304,13 +304,24 @@ db.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
     name TEXT NOT NULL DEFAULT '默认密钥',
-    api_key TEXT NOT NULL UNIQUE,
+    api_key TEXT,
+    api_key_hash TEXT,
+    api_key_prefix TEXT DEFAULT '',
     status INTEGER DEFAULT 1,
     last_used_at TEXT,
     created_at TEXT DEFAULT (datetime('now','localtime')),
     FOREIGN KEY (user_id) REFERENCES users(id)
   )
 `);
+
+try {
+  db.prepare('ALTER TABLE api_keys ADD COLUMN api_key_hash TEXT').run();
+} catch (e) {}
+try {
+  db.prepare('ALTER TABLE api_keys ADD COLUMN api_key_prefix TEXT DEFAULT ""').run();
+} catch (e) {}
+
+db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(api_key_hash) WHERE api_key_hash IS NOT NULL');
 
 // API调用记录表
 db.exec(`
