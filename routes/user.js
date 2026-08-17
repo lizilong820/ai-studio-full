@@ -96,7 +96,8 @@ router.post('/register', (req, res) => {
   }
   
   const hash = bcrypt.hashSync(password, 10);
-  const bonus = parseInt(getSetting('register_bonus_credits', '100')) || 0;
+  const configuredBonus = parseInt(getSetting('register_bonus_credits', '100'), 10);
+  const bonus = Number.isSafeInteger(configuredBonus) && configuredBonus >= 0 ? configuredBonus : 0;
   const inviteCode = req.body.invite_code || '';
   let invitedBy = 0;
 
@@ -113,25 +114,29 @@ router.post('/register', (req, res) => {
     userInviteCode += chars[Math.floor(Math.random() * chars.length)];
   }
 
-  const result = db.prepare(`INSERT INTO users (username, password_hash, email, credits, is_admin, status, invited_by, invite_code)
-                             VALUES (?, ?, ?, ?, 0, 1, ?, ?)`).run(username, hash, email || '', bonus, invitedBy, userInviteCode);
-  
-  const userId = result.lastInsertRowid;
-  
-  // 积分流水 - 注册赠送
-  if (bonus > 0) {
-    creditService.addCredits(userId, bonus, 'recharge', '注册赠送积分');
-  }
+  const registerTransaction = db.transaction(() => {
+    const result = db.prepare(`INSERT INTO users (username, password_hash, email, credits, is_admin, status, invited_by, invite_code)
+                               VALUES (?, ?, ?, 0, 0, 1, ?, ?)`).run(username, hash, email || '', invitedBy, userInviteCode);
+    const userId = result.lastInsertRowid;
 
-  // 邀请奖励
-  if (invitedBy > 0) {
-    const inviteBonus = parseInt(getSetting('invite_bonus_credits', '50')) || 50;
-    const tx = db.transaction(() => {
-      db.prepare('UPDATE users SET credits = credits + ? WHERE id = ?').run(inviteBonus, invitedBy);
-      creditService.addCredits(invitedBy, inviteBonus, 'recharge', `邀请好友奖励（${username}）`);
-    });
-    tx();
-  }
+    if (bonus > 0) {
+      creditService.addCredits(userId, bonus, 'recharge', '注册赠送积分');
+    }
+
+    if (invitedBy > 0) {
+      const configuredInviteBonus = parseInt(getSetting('invite_bonus_credits', '50'), 10);
+      const inviteBonus = Number.isSafeInteger(configuredInviteBonus) && configuredInviteBonus >= 0
+        ? configuredInviteBonus
+        : 50;
+      if (inviteBonus > 0) {
+        creditService.addCredits(invitedBy, inviteBonus, 'recharge', `邀请好友奖励（${username}）`);
+      }
+    }
+
+    return userId;
+  });
+
+  const userId = registerTransaction();
   
   const user = db.prepare('SELECT id, username, email, credits, is_admin FROM users WHERE id = ?').get(userId);
   const token = signToken(user);
@@ -708,35 +713,36 @@ router.get('/orders', authRequired, (req, res) => {
 // ========== 每日签到 ==========
 
 router.post('/sign', authRequired, (req, res) => {
-  const user = db.prepare('SELECT sign_days, last_sign_at, credits FROM users WHERE id = ?').get(req.user.id);
   const today = new Date().toISOString().slice(0, 10);
-  const lastSign = user.last_sign_at ? user.last_sign_at.slice(0, 10) : '';
+  const signTransaction = db.transaction(() => {
+    const user = db.prepare('SELECT sign_days, last_sign_at FROM users WHERE id = ?').get(req.user.id);
+    const lastSign = user.last_sign_at ? user.last_sign_at.slice(0, 10) : '';
+    if (lastSign === today) return null;
 
-  if (lastSign === today) {
-    return res.error('今天已签到过了');
-  }
+    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    const isConsecutive = lastSign === yesterday;
+    const newDays = isConsecutive ? (user.sign_days || 0) + 1 : 1;
+    const bonus = Math.min(5 + (newDays - 1), 20);
 
-  // 判断是否连续签到
-  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-  const isConsecutive = lastSign === yesterday;
-  const newDays = isConsecutive ? (user.sign_days || 0) + 1 : 1;
+    const updateResult = db.prepare(`UPDATE users
+      SET sign_days = ?, last_sign_at = ?
+      WHERE id = ? AND COALESCE(substr(last_sign_at, 1, 10), '') <> ?`)
+      .run(newDays, today, req.user.id, today);
+    if (updateResult.changes !== 1) return null;
 
-  // 签到奖励：基础5积分，连续签到每天+1，最多20积分
-  const bonus = Math.min(5 + (newDays - 1) * 1, 20);
-
-  const todayStr = new Date().toISOString().slice(0, 10);
-  const tx = db.transaction(() => {
-    db.prepare('UPDATE users SET sign_days = ?, last_sign_at = ?, credits = credits + ? WHERE id = ?')
-      .run(newDays, todayStr, bonus, req.user.id);
-    creditService.addCredits(req.user.id, bonus, 'recharge', `每日签到奖励（连续${newDays}天）`);
+    const balance = creditService.addCredits(
+      req.user.id,
+      bonus,
+      'recharge',
+      `每日签到奖励（连续${newDays}天）`
+    );
+    return { bonus, sign_days: newDays, total_credits: balance };
   });
-  tx();
 
-  res.success({
-    bonus,
-    sign_days: newDays,
-    total_credits: user.credits + bonus,
-  }, `签到成功，获得 ${bonus} 积分`);
+  const result = signTransaction();
+  if (!result) return res.error('今天已签到过了');
+
+  res.success(result, `签到成功，获得 ${result.bonus} 积分`);
 });
 
 // 签到状态

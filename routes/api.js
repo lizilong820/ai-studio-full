@@ -1057,22 +1057,43 @@ router.post('/payment/xunhupay/notify', async (req, res) => {
       return res.type('text/plain').send('success');
     }
 
-    // 事务：更新订单 + 加积分
-    const tx = db.transaction(() => {
-      // 更新订单状态
-      db.prepare(`UPDATE orders SET status = 'paid', transaction_id = ?, paid_at = datetime('now', 'localtime') WHERE id = ?`)
-        .run(params.open_order_id || params.transaction_id || '', order.id);
+    const callbackAmount = Number(params.total_fee);
+    const orderAmount = Number(order.amount);
+    const callbackCents = Math.round(callbackAmount * 100);
+    const orderCents = Math.round(orderAmount * 100);
+    if (!Number.isFinite(callbackAmount) || !Number.isFinite(orderAmount)
+        || callbackCents <= 0 || callbackCents !== orderCents) {
+      console.log('[虎皮椒回调] 金额校验失败:', {
+        tradeOrderId,
+        callbackAmount: params.total_fee,
+        orderAmount: order.amount,
+      });
+      return res.type('text/plain').send('fail');
+    }
 
-      // 加积分
+    // 只有成功抢占未处理订单的回调才能入账，防止并发重复通知重复加积分
+    const processPayment = db.transaction(() => {
+      const updateResult = db.prepare(`UPDATE orders
+        SET status = 'paid', transaction_id = ?, paid_at = datetime('now', 'localtime')
+        WHERE id = ? AND status = 'pending'`)
+        .run(params.open_order_id || params.transaction_id || '', order.id);
+      if (updateResult.changes !== 1) return false;
+
       creditService.addCredits(
         order.user_id,
         order.credits,
         'recharge',
-        `充值订单 ${tradeOrderId}`
+        `充值订单 ${tradeOrderId}`,
+        order.id
       );
+      return true;
     });
 
-    tx();
+    const processed = processPayment();
+    if (!processed) {
+      console.log('[虎皮椒回调] 订单已被其他回调处理，跳过:', tradeOrderId);
+      return res.type('text/plain').send('success');
+    }
 
     console.log('[虎皮椒回调] 支付成功，订单:', tradeOrderId, '积分:', order.credits);
     res.type('text/plain').send('success');

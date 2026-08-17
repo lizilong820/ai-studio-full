@@ -369,18 +369,29 @@ router.get('/orders', adminRequired, (req, res) => {
 // 手动确认订单到账
 router.post('/orders/:id/confirm', adminRequired, (req, res) => {
   const orderId = req.params.id;
-  const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
-  
-  if (!order) return res.error('订单不存在');
-  if (order.status === 'paid' || order.status === 'manual') return res.error('订单已支付');
-  
-  // 加积分
-  creditService.addCredits(order.user_id, order.credits, 'recharge', `充值套餐: ${order.credits}积分`, orderId);
-  
-  // 更新订单状态
-  db.prepare(`UPDATE orders SET status = 'manual', paid_at = datetime('now','localtime') WHERE id = ?`)
-    .run(orderId);
-  
+  const confirmOrder = db.transaction(() => {
+    const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
+    if (!order) return { status: 'missing' };
+
+    const updateResult = db.prepare(`UPDATE orders
+      SET status = 'manual', paid_at = datetime('now','localtime')
+      WHERE id = ? AND status = 'pending'`).run(orderId);
+    if (updateResult.changes !== 1) return { status: 'processed' };
+
+    creditService.addCredits(
+      order.user_id,
+      order.credits,
+      'recharge',
+      `充值套餐: ${order.credits}积分`,
+      orderId
+    );
+    return { status: 'confirmed' };
+  });
+
+  const result = confirmOrder();
+  if (result.status === 'missing') return res.error('订单不存在');
+  if (result.status === 'processed') return res.error('订单已支付');
+
   res.success({}, '订单已确认到账');
 });
 

@@ -955,22 +955,28 @@ function calculateCost(modelId, countOrOptions = 1) {
   const model = db.prepare('SELECT * FROM models WHERE id = ? AND status = 1').get(modelId);
   if (!model) return null;
 
-  const basePrice = model.price_per_call || 0;
+  const basePrice = Number(model.price_per_call);
+  if (!Number.isSafeInteger(basePrice) || basePrice <= 0) return null;
+
+  const validateCount = value => (
+    Number.isSafeInteger(value) && value >= 1 && value <= 20 ? value : null
+  );
 
   // 兼容旧调用：传数字直接当 count
   if (typeof countOrOptions === 'number') {
-    return basePrice * countOrOptions;
+    const count = validateCount(countOrOptions);
+    return count === null ? null : basePrice * count;
   }
 
   const opts = countOrOptions || {};
-  const count = opts.count || 1;
+  const count = validateCount(opts.count === undefined ? 1 : Number(opts.count));
+  if (count === null) return null;
 
   // 视频模型按秒计费（price_per_call 表示每秒价格）
-  if (model.type === 'video' && opts.duration) {
-    const seconds = parseInt(opts.duration) || 0;
-    if (seconds > 0) {
-      return Math.ceil(basePrice * seconds * count);
-    }
+  if (model.type === 'video' && opts.duration !== undefined) {
+    const seconds = Number(opts.duration);
+    if (!Number.isSafeInteger(seconds) || seconds < 1 || seconds > 60) return null;
+    return Math.ceil(basePrice * seconds * count);
   }
 
   return basePrice * count;
