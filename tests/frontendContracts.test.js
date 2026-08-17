@@ -191,6 +191,19 @@ test('model options use DOM APIs across studios', () => {
   assert.doesNotMatch(editor, /(?:resceneSel|dwmSel)\.innerHTML\s*=\s*data\.data\.map/);
 });
 
+test('image studio polling uses shared non-overlapping control', () => {
+  assert.match(image, /currentPoll = pollGeneration\(/);
+  assert.match(image, /currentPoll\.stop\(\)/);
+  assert.doesNotMatch(image, /setInterval\s*\(async/);
+  assert.doesNotMatch(image, /clearInterval\(currentPollInterval\)/);
+  assert.match(poster, /startImageGeneration\(formData\.count/);
+  assert.match(poster, /pollGeneration\(\s*taskId/);
+  assert.doesNotMatch(poster, /startImageGeneration\(count/);
+  assert.doesNotMatch(poster, /setInterval\s*\(async/);
+  assert.match(ecommerce, /pollGeneration\(\s*taskId/);
+  assert.doesNotMatch(ecommerce, /setInterval\s*\(async/);
+});
+
 test('changed page inline scripts parse', () => {
   parseInlineScripts('avatar.html', avatar);
   parseInlineScripts('ppt.html', ppt);

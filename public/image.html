@@ -451,7 +451,7 @@
     // 当前模式
     let currentMode = 'text2img';
     // 当前生成任务ID
-    let currentPollInterval = null;
+    let currentPoll = null;
     // 模型列表缓存
     let modelList = [];
 
@@ -714,9 +714,9 @@
       btn.innerHTML = '<span class="btn-icon">⏳</span>生成中...';
       
       // 停止之前的轮询
-      if (currentPollInterval) {
-        clearInterval(currentPollInterval);
-        currentPollInterval = null;
+      if (currentPoll) {
+        currentPoll.stop();
+        currentPoll = null;
       }
       
       // 提交生成
@@ -754,70 +754,50 @@
         // 显示生成动画
         showGeneratingState(formData.count);
         
-        // 轮询任务状态 (每2秒)
-        let pollCount = 0;
-        const maxPolls = 120; // 最多轮询4分钟
-        
-        currentPollInterval = setInterval(async () => {
-          pollCount++;
-          
-          if (pollCount > maxPolls) {
-            clearInterval(currentPollInterval);
-            currentPollInterval = null;
-            showToast('生成超时，请稍后在个人中心查看结果', 'error');
-            resetGenerateBtn();
-            return;
-          }
-          
-          try {
-            const statusData = await apiRequest('/api/generation/' + taskId);
-            
-            if (statusData.code === 0 && statusData.data.status === 'success') {
-              clearInterval(currentPollInterval);
-              currentPollInterval = null;
-              
-              // 解析结果
-              let images = [];
-              if (statusData.data.result) {
-                try {
-                  const result = typeof statusData.data.result === 'string' 
-                    ? JSON.parse(statusData.data.result) 
-                    : statusData.data.result;
-                  images = result.images || [];
-                } catch (e) {
-                  console.error('解析结果失败', e);
-                }
+        // 轮询任务状态，确保请求不会重叠
+        currentPoll = pollGeneration(
+          taskId,
+          statusData => {
+            currentPoll = null;
+            let images = [];
+            if (statusData.result) {
+              try {
+                const result = typeof statusData.result === 'string'
+                  ? JSON.parse(statusData.result)
+                  : statusData.result;
+                images = result.images || [];
+              } catch (e) {
+                console.error('解析结果失败', e);
               }
-              
-              if (images.length > 0) {
-                displayImageResults(images, {
-                  studio_type: 'image',
-                  params: getFormData(),
-                  regenerate_fn: doRegenerate,
-                  save_template: true,
-                });
-                showToast('生成成功！共 ' + images.length + ' 张图片', 'success');
-              } else {
-                showToast('生成成功，但未获取到图片', 'warn');
-                showEmptyResult();
-              }
-              
-              resetGenerateBtn();
-              refreshUserInfo();
-              
-            } else if (statusData.code === 0 && statusData.data.status === 'failed') {
-              clearInterval(currentPollInterval);
-              currentPollInterval = null;
-              showToast('生成失败：' + (statusData.data.error_msg || '未知错误'), 'error');
-              resetGenerateBtn();
-              showFailedState(statusData.data.error_msg || '未知错误');
-              refreshUserInfo();
             }
-            // pending状态继续轮询
-          } catch (e) {
-            console.error('轮询出错', e);
-          }
-        }, 2000);
+            if (images.length > 0) {
+              displayImageResults(images, {
+                studio_type: 'image',
+                params: getFormData(),
+                regenerate_fn: doRegenerate,
+                save_template: true,
+              });
+              showToast('生成成功！共 ' + images.length + ' 张图片', 'success');
+            } else {
+              showToast('生成成功，但未获取到图片', 'warn');
+              showEmptyResult();
+            }
+            resetGenerateBtn();
+            refreshUserInfo();
+          },
+          error => {
+            currentPoll = null;
+            if (error === 'timeout') {
+              showToast('生成超时，请稍后在个人中心查看结果', 'error');
+            } else {
+              showToast('生成失败：' + error, 'error');
+              showFailedState(error);
+            }
+            resetGenerateBtn();
+            refreshUserInfo();
+          },
+          120,
+        );
       }).catch(err => {
         showToast('网络错误，请稍后重试', 'error');
         resetGenerateBtn();

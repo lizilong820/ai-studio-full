@@ -537,23 +537,20 @@
         // 显示生成动画
         startImageGeneration(count, function() {});
         
-        // 轮询状态
-        let pollCount = 0;
-        const pollInterval = setInterval(async () => {
-          pollCount++;
-          if (pollCount > 60) { // 最多等5分钟
-            clearInterval(pollInterval);
-            showToast('生成超时，请稍后在个人中心查看结果', 'error');
-            btn.classList.remove('loading');
-            btn.disabled = false;
-            btn.innerHTML = '<span class="btn-icon">✨</span>重新生成';
-            return;
-          }
-          
-          const statusData = await apiRequest('/api/generation/' + taskId);
-          if (statusData.code === 0 && statusData.data.status === 'success') {
-            clearInterval(pollInterval);
-            const images = statusData.data.result?.images || [];
+        pollGeneration(
+          taskId,
+          statusData => {
+            let images = [];
+            if (statusData.result) {
+              try {
+                const result = typeof statusData.result === 'string'
+                  ? JSON.parse(statusData.result)
+                  : statusData.result;
+                images = result.images || [];
+              } catch (e) {
+                console.error('解析结果失败', e);
+              }
+            }
             displayImageResults(images, {
               studio_type: 'ecommerce',
               params: getFormData(),
@@ -565,15 +562,18 @@
             btn.innerHTML = '<span class="btn-icon">✨</span>重新生成';
             showToast('生成成功！共 ' + images.length + ' 张图片', 'success');
             refreshUserInfo();
-          } else if (statusData.code === 0 && statusData.data.status === 'failed') {
-            clearInterval(pollInterval);
-            showToast('生成失败：' + (statusData.data.error_msg || '未知错误'), 'error');
+          },
+          error => {
+            showToast(error === 'timeout'
+              ? '生成超时，请稍后在个人中心查看结果'
+              : '生成失败：' + error, 'error');
             btn.classList.remove('loading');
             btn.disabled = false;
             btn.innerHTML = '<span class="btn-icon">✨</span>重新生成';
             refreshUserInfo();
-          }
-        }, 3000);
+          },
+          60,
+        );
       });
     });
     
