@@ -4,8 +4,10 @@ const express = require('express');
 const path = require('path');
 const cors = require('cors');
 
-const { host, port } = require('./config/security');
+const { host, port, corsOrigins } = require('./config/security');
 const responseWrapper = require('./middleware/response');
+const securityHeaders = require('./middleware/securityHeaders');
+const { generalApiLimit, authLimit } = require('./middleware/rateLimit');
 const userRoutes = require('./routes/user');
 const apiRoutes = require('./routes/api');
 const adminRoutes = require('./routes/admin');
@@ -14,10 +16,24 @@ const apiV1Routes = require('./routes/apiV1');
 const app = express();
 
 // 中间件
-app.use(cors());
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true }));
+app.set('trust proxy', 'loopback');
+app.disable('x-powered-by');
+app.use(securityHeaders);
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || corsOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error('CORS origin denied'));
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key'],
+  maxAge: 86400
+}));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use(responseWrapper);
+app.use('/api', generalApiLimit);
+app.use('/api/user/login', authLimit);
+app.use('/api/user/register', authLimit);
 
 // 静态文件
 app.use(express.static(path.join(__dirname, 'public')));

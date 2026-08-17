@@ -1,6 +1,10 @@
 const jwtAlgorithm = 'HS256';
 const host = process.env.HOST || '127.0.0.1';
 const port = Number(process.env.PORT || 3000);
+const corsOrigins = (process.env.CORS_ORIGINS || '')
+  .split(',')
+  .map(origin => origin.trim())
+  .filter(Boolean);
 
 const jwtSecret = process.env.JWT_SECRET
   || (process.env.NODE_ENV === 'test' ? process.env.JWT_TEST_SECRET : undefined);
@@ -17,4 +21,4 @@ if (!Number.isInteger(port) || port < 1 || port > 65535) {
   throw new Error('PORT must be an integer between 1 and 65535');
 }
 
-module.exports = { jwtSecret, jwtAlgorithm, host, port };
+module.exports = { jwtSecret, jwtAlgorithm, host, port, corsOrigins };

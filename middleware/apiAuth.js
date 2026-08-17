@@ -1,6 +1,26 @@
 const { db } = require('../database/db');
 const { hashApiKey } = require('../utils/apiKey');
 
+const rateBuckets = new Map();
+
+function enforceApiKeyRateLimit(keyRecord, res) {
+  const now = Date.now();
+  const max = Math.min(600, Math.max(1, Number(keyRecord.rate_limit) || 60));
+  const bucket = rateBuckets.get(keyRecord.id);
+
+  if (!bucket || bucket.resetAt <= now) {
+    rateBuckets.set(keyRecord.id, { count: 1, resetAt: now + 60_000 });
+    return true;
+  }
+  if (bucket.count >= max) {
+    res.setHeader('Retry-After', String(Math.max(1, Math.ceil((bucket.resetAt - now) / 1000))));
+    res.status(429).json({ code: 429, msg: 'API Key 调用频率超过限制' });
+    return false;
+  }
+  bucket.count += 1;
+  return true;
+}
+
 // API Key 鉴权中间件
 function apiKeyAuth(req, res, next) {
   const apiKey = req.headers['x-api-key'] || req.headers['X-API-Key'];
@@ -60,6 +80,8 @@ function apiKeyAuth(req, res, next) {
       msg: '账号已被禁用'
     });
   }
+
+  if (!enforceApiKeyRateLimit(keyRecord, res)) return;
 
   // 挂载用户和密钥信息到 req
   req.apiUser = {
