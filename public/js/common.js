@@ -695,6 +695,11 @@ function displayImageResults(images, options) {
 
 // Poll generation task status without overlapping requests
 function pollGeneration(taskId, onSuccess, onFail, maxPolls) {
+  const normalizedTaskId = String(taskId ?? '');
+  if (!normalizedTaskId || normalizedTaskId.length > 128) {
+    if (onFail) onFail('任务编号无效');
+    return { stop() {} };
+  }
   maxPolls = maxPolls || 60;
   let pollCount = 0;
   let timer = null;
@@ -715,7 +720,9 @@ function pollGeneration(taskId, onSuccess, onFail, maxPolls) {
     }
 
     try {
-      const statusData = await apiRequest('/api/generation/' + taskId);
+      const statusData = await apiRequest(
+        '/api/generation/' + encodeURIComponent(normalizedTaskId)
+      );
       if (stopped) return;
       if (statusData.code !== 0) {
         stop();

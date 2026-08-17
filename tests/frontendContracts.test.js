@@ -280,6 +280,27 @@ test('gif and video generation polling isolates tasks and validates media URLs',
   assert.match(videoGen, /lastVideoUrl = mediaUrl/);
   assert.doesNotMatch(videoGen, /lastGifUrl/);
 });
+test('task IDs, editor media, history requests, and image errors stay bounded', () => {
+  assert.match(common, /const normalizedTaskId = String\(taskId \?\? ''\)/);
+  assert.match(common, /encodeURIComponent\(normalizedTaskId\)/);
+  assert.match(common, /normalizedTaskId\.length > 128/);
+  assert.match(faceSwap, /const taskId = String\(data\.data\?\.task_id \?\? ''\)/);
+  assert.match(faceSwap, /encodeURIComponent\(taskId\)/);
+  assert.match(editor, /function normalizeEditorMediaUrl\(value\)/);
+  assert.match(editor, /encodeURIComponent\(String\(taskId\)\)/);
+  assert.match(editor, /const mediaUrl = normalizeEditorMediaUrl\(url\)/);
+  assert.match(editor, /newImg\.src = mediaUrl/);
+  assert.match(audio, /let historyItemRequestSeq = 0/);
+  assert.match(audio, /const requestSeq = \+\+historyItemRequestSeq/);
+  assert.match(audio, /requestSeq !== historyItemRequestSeq/);
+  assert.match(audio, /encodeURIComponent\(normalizedId\)/);
+  assert.match(image, /const errorMessage = previewContent\.querySelector\('\.error-message'\)/);
+  assert.match(image, /errorMessage\.replaceChildren\(/);
+  assert.match(image, /querySelector\('button'\)\.addEventListener\('click'/);
+  assert.doesNotMatch(image, /\$\{errorMsg/);
+  assert.doesNotMatch(image, /onclick=\"document\.getElementById\('generateBtn'\)/);
+});
+
 test('developer data and prompt errors render with DOM APIs', () => {
   assert.match(developer, /function renderKeys\(\)[\s\S]*listEl\.replaceChildren\(\)/);
   assert.match(developer, /copy\.addEventListener\('click', \(\) => copyKey\(keyId\)\)/);

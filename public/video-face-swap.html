@@ -484,7 +484,10 @@
         });
 
         if (data.code === 0) {
-          const taskId = data.data.task_id;
+          const taskId = String(data.data?.task_id ?? '');
+          if (!taskId || taskId.length > 128) {
+            throw new Error('任务编号无效');
+          }
           startPolling(taskId);
         } else {
           showStatusError('提交失败', data.msg || data.message || '未知错误', false);
@@ -517,7 +520,9 @@
       const poll = async () => {
         if (sequence !== pollSequence) return;
         try {
-          const data = await apiRequest('/api/generate/face-swap/' + taskId);
+          const data = await apiRequest(
+            '/api/generate/face-swap/' + encodeURIComponent(taskId)
+          );
           if (data.code !== 0) throw new Error(data.msg || '任务状态查询失败');
           const task = data.data;
           const statusText = task.status === 'pending' ? '排队中' :

@@ -1076,8 +1076,18 @@
       }).catch(function() {});
     }
 
-    function loadHistoryItem(id) {
-      apiRequest('/api/generation/' + id).then(res => {
+    let historyItemRequestSeq = 0;
+
+    async function loadHistoryItem(id) {
+      const requestSeq = ++historyItemRequestSeq;
+      const normalizedId = String(id ?? '');
+      if (!/^\d+$/.test(normalizedId) || Number(normalizedId) < 1) return;
+
+      try {
+        const res = await apiRequest(
+          '/api/generation/' + encodeURIComponent(normalizedId)
+        );
+        if (requestSeq !== historyItemRequestSeq) return;
         if (res.code === 0 && res.data) {
           switchTab('result', document.querySelectorAll('.preview-tab')[0]);
           if (res.data.status === 'success') {
@@ -1094,7 +1104,7 @@
             `;
           }
         }
-      }).catch(() => {});
+      } catch (error) {}
     }
 
     // ===== 初始化 =====

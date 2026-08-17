@@ -884,10 +884,19 @@
         <div class="preview-empty" style="max-width: 400px;">
           <div class="empty-icon">😔</div>
           <h3>生成失败</h3>
-          <p>${errorMsg || '生成过程中出现了错误，请稍后重试。'}<br>如问题持续出现，请联系客服。</p>
-          <button class="action-btn primary" style="margin-top: 20px; padding: 10px 24px;" onclick="document.getElementById('generateBtn').click()">🔄 重新生成</button>
+          <p class="error-message"></p>
+          <button class="action-btn primary" style="margin-top: 20px; padding: 10px 24px;">🔄 重新生成</button>
         </div>
       `;
+      const errorMessage = previewContent.querySelector('.error-message');
+      errorMessage.replaceChildren(
+        document.createTextNode(String(errorMsg || '生成过程中出现了错误，请稍后重试。')),
+        document.createElement('br'),
+        document.createTextNode('如问题持续出现，请联系客服。')
+      );
+      previewContent.querySelector('button').addEventListener('click', () => {
+        document.getElementById('generateBtn').click();
+      });
     }
 
     // 显示空结果

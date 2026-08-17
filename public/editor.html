@@ -888,6 +888,19 @@
 
 <script>
 // ============ 全局状态 ============
+function normalizeEditorMediaUrl(value) {
+  if (typeof value !== 'string') return null;
+  if (value.startsWith('/uploads/') && !/["'<>\\]/.test(value)) return value;
+  if (/^data:image\/(?:png|jpeg|webp|gif);base64,[a-z0-9+/=]+$/i.test(value)) return value;
+  if (/^blob:[a-z0-9:/._-]+$/i.test(value)) return value;
+  try {
+    const url = new URL(value, window.location.origin);
+    return ['http:', 'https:'].includes(url.protocol) ? url.href : null;
+  } catch (e) {
+    return null;
+  }
+}
+
 const canvas = document.getElementById('editorCanvas');
 const ctx = canvas.getContext('2d');
 const overlay = document.getElementById('canvasOverlay');
@@ -2277,7 +2290,9 @@ function pollEditorTask(taskId, task, onSuccess, onFail) {
       return;
     }
     try {
-      const data = await apiFetch(`/api/generation/${taskId}`);
+      const data = await apiFetch(
+        `/api/generation/${encodeURIComponent(String(taskId))}`
+      );
       if (!isEditorTaskActive(task)) return;
       if (data.code !== 0) {
         onFail(new Error(data.msg || '任务状态查询失败'));
@@ -2305,6 +2320,11 @@ function pollEditorTask(taskId, task, onSuccess, onFail) {
 }
 
 function loadEditorTaskImage(url, task, onLoad, onError, timeoutMessage) {
+  const mediaUrl = normalizeEditorMediaUrl(url);
+  if (!mediaUrl) {
+    if (isEditorTaskActive(task)) onError();
+    return;
+  }
   const newImg = new Image();
   newImg.crossOrigin = 'anonymous';
   task.imageTimer = setTimeout(() => {
@@ -2325,7 +2345,7 @@ function loadEditorTaskImage(url, task, onLoad, onError, timeoutMessage) {
     task.imageTimer = null;
     onError();
   };
-  newImg.src = url;
+  newImg.src = mediaUrl;
 }
 
 function showLoading(text) {
