@@ -493,22 +493,36 @@
           
           refreshUserInfo();
         } else {
-          $('previewContent').innerHTML = `
-            <div class="extracting-indicator">
-              <div style="font-size:48px;margin-bottom:12px;">❌</div>
-              <p>反推失败</p>
-              <div class="sub-text">${data.msg || data.message || '未知错误'}</div>
-            </div>
-          `;
+          const panel = $('previewContent');
+          panel.replaceChildren();
+          const indicator = document.createElement('div');
+          indicator.className = 'extracting-indicator';
+          const icon = document.createElement('div');
+          icon.style.cssText = 'font-size:48px;margin-bottom:12px;';
+          icon.textContent = '❌';
+          const title = document.createElement('p');
+          title.textContent = '反推失败';
+          const message = document.createElement('div');
+          message.className = 'sub-text';
+          message.textContent = String(data.msg || data.message || '未知错误');
+          indicator.append(icon, title, message);
+          panel.appendChild(indicator);
         }
       } catch (err) {
-        $('previewContent').innerHTML = `
-          <div class="extracting-indicator">
-            <div style="font-size:48px;margin-bottom:12px;">❌</div>
-            <p>请求失败</p>
-            <div class="sub-text">${err.message || '网络错误'}</div>
-          </div>
-        `;
+        const panel = $('previewContent');
+        panel.replaceChildren();
+        const indicator = document.createElement('div');
+        indicator.className = 'extracting-indicator';
+        const icon = document.createElement('div');
+        icon.style.cssText = 'font-size:48px;margin-bottom:12px;';
+        icon.textContent = '❌';
+        const title = document.createElement('p');
+        title.textContent = '请求失败';
+        const message = document.createElement('div');
+        message.className = 'sub-text';
+        message.textContent = String(err.message || '网络错误');
+        indicator.append(icon, title, message);
+        panel.appendChild(indicator);
       } finally {
         btn.classList.remove('loading');
         btn.disabled = false;

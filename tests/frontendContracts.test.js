@@ -17,6 +17,8 @@ const copywriting = fs.readFileSync(path.join(publicDir, 'copywriting.html'), 'u
 const xiaohongshu = fs.readFileSync(path.join(publicDir, 'xiaohongshu.html'), 'utf8');
 const gif = fs.readFileSync(path.join(publicDir, 'gif.html'), 'utf8');
 const videoGen = fs.readFileSync(path.join(publicDir, 'video-gen.html'), 'utf8');
+const developer = fs.readFileSync(path.join(publicDir, 'developer.html'), 'utf8');
+const promptExtract = fs.readFileSync(path.join(publicDir, 'prompt-extract.html'), 'utf8');
 const editor = fs.readFileSync(path.join(publicDir, 'editor.html'), 'utf8');
 const home = fs.readFileSync(path.join(publicDir, 'index.html'), 'utf8');
 const faceSwap = fs.readFileSync(path.join(publicDir, 'video-face-swap.html'), 'utf8');
@@ -277,6 +279,28 @@ test('gif and video generation polling isolates tasks and validates media URLs',
   assert.match(videoGen, /resultVideo'\)\.src = mediaUrl/);
   assert.match(videoGen, /lastVideoUrl = mediaUrl/);
   assert.doesNotMatch(videoGen, /lastGifUrl/);
+});
+test('developer data and prompt errors render with DOM APIs', () => {
+  assert.match(developer, /function renderKeys\(\)[\s\S]*listEl\.replaceChildren\(\)/);
+  assert.match(developer, /copy\.addEventListener\('click', \(\) => copyKey\(keyId\)\)/);
+  assert.match(developer, /toggle\.addEventListener\('click', \(\) => toggleKeyStatus\(keyId\)\)/);
+  assert.match(developer, /function renderLogs\(days\)[\s\S]*logsEl\.replaceChildren\(\)/);
+  assert.match(developer, /statusNode\.textContent = String\(item\.status \|\| '-'\)/);
+  assert.doesNotMatch(developer, /listEl\.innerHTML = g_apiKeys\.map/);
+  assert.doesNotMatch(developer, /logsEl\.innerHTML = list\.map/);
+  assert.match(developer, /function loadWebhooks\(\)[\s\S]*listEl\.replaceChildren\(\)/);
+  assert.match(developer, /toggle\.addEventListener\('click', \(\) => toggleWebhook\(id/);
+  assert.match(developer, /remove\.addEventListener\('click', \(\) => deleteWebhook\(id\)\)/);
+  assert.match(developer, /encodeURIComponent\(String\(taskId\)\)/);
+  assert.match(developer, /pollEl\.replaceChildren\(\)/);
+  assert.doesNotMatch(developer, /onclick="(?:copyKey|toggleKeyStatus|deleteKey|toggleWebhook|deleteWebhook)/);
+  assert.doesNotMatch(developer, /listEl\.innerHTML = html/);
+  assert.match(promptExtract, /message\.textContent = String\(data\.msg \|\| data\.message \|\| '未知错误'\)/);
+  assert.match(promptExtract, /message\.textContent = String\(err\.message \|\| '网络错误'\)/);
+  assert.doesNotMatch(promptExtract, /\$\{data\.msg \|\| data\.message/);
+  assert.doesNotMatch(promptExtract, /\$\{err\.message \|\| '网络错误'/);
+  parseInlineScripts('developer.html', developer);
+  parseInlineScripts('prompt-extract.html', promptExtract);
 });
 test('changed page inline scripts parse', () => {
   parseInlineScripts('avatar.html', avatar);
