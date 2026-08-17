@@ -10,6 +10,12 @@ const ppt = fs.readFileSync(path.join(publicDir, 'ppt.html'), 'utf8');
 const video = fs.readFileSync(path.join(publicDir, 'video.html'), 'utf8');
 const resume = fs.readFileSync(path.join(publicDir, 'resume.html'), 'utf8');
 const audio = fs.readFileSync(path.join(publicDir, 'audio.html'), 'utf8');
+const image = fs.readFileSync(path.join(publicDir, 'image.html'), 'utf8');
+const poster = fs.readFileSync(path.join(publicDir, 'poster.html'), 'utf8');
+const ecommerce = fs.readFileSync(path.join(publicDir, 'ecommerce.html'), 'utf8');
+const copywriting = fs.readFileSync(path.join(publicDir, 'copywriting.html'), 'utf8');
+const xiaohongshu = fs.readFileSync(path.join(publicDir, 'xiaohongshu.html'), 'utf8');
+const editor = fs.readFileSync(path.join(publicDir, 'editor.html'), 'utf8');
 const faceSwap = fs.readFileSync(path.join(publicDir, 'video-face-swap.html'), 'utf8');
 const idphoto = fs.readFileSync(path.join(publicDir, 'idphoto.html'), 'utf8');
 const profile = fs.readFileSync(path.join(publicDir, 'profile.html'), 'utf8');
@@ -170,6 +176,21 @@ test('admin dashboard and business data use DOM APIs', () => {
   assert.doesNotMatch(admin, /onclick="editPackage|onclick="deletePackage|onclick="confirmOrder/);
 });
 
+test('model options use DOM APIs across studios', () => {
+  assert.match(common, /function renderModelOptions\(select, models, formatLabel/);
+  assert.match(common, /select\.replaceChildren\(\)/);
+  assert.match(common, /option\.value = String\(model\.id/);
+  assert.match(common, /option\.textContent = String\(formatLabel\(model\)\)/);
+  for (const page of [avatar, ppt, video, resume, audio, image, poster, ecommerce, copywriting, xiaohongshu]) {
+    assert.doesNotMatch(page, /data\.data\.map\(m\s*=>\s*`<option/);
+    assert.doesNotMatch(page, /optionsHtml\s*=\s*data\.data\.map/);
+  }
+  assert.match(editor, /function renderEditorModelOptions\(select, models\)/);
+  assert.match(editor, /renderEditorModelOptions\(resceneSel, data\.data\)/);
+  assert.match(editor, /renderEditorModelOptions\(dwmSel, data\.data\)/);
+  assert.doesNotMatch(editor, /(?:resceneSel|dwmSel)\.innerHTML\s*=\s*data\.data\.map/);
+});
+
 test('changed page inline scripts parse', () => {
   parseInlineScripts('avatar.html', avatar);
   parseInlineScripts('ppt.html', ppt);
@@ -178,4 +199,10 @@ test('changed page inline scripts parse', () => {
   parseInlineScripts('idphoto.html', idphoto);
   parseInlineScripts('profile.html', profile);
   parseInlineScripts('admin/index.html', admin);
+  parseInlineScripts('image.html', image);
+  parseInlineScripts('poster.html', poster);
+  parseInlineScripts('ecommerce.html', ecommerce);
+  parseInlineScripts('copywriting.html', copywriting);
+  parseInlineScripts('xiaohongshu.html', xiaohongshu);
+  parseInlineScripts('editor.html', editor);
 });

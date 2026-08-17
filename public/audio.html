@@ -587,10 +587,9 @@
         const data = await apiRequest('/api/models?type=audio');
         if (data.code === 0 && data.data && data.data.length > 0) {
           modelList = data.data;
-          const optionsHtml = data.data.map(m =>
-            `<option value="${m.id}">${m.name} - ${m.price_per_call || '--'}积分/次${m.is_default ? ' · 默认' : ''}</option>`
-          ).join('');
-          document.getElementById('modelSelect').innerHTML = optionsHtml;
+          renderModelOptions(document.getElementById('modelSelect'), data.data, model =>
+            `${model.name} - ${model.price_per_call || '--'}积分/次${model.is_default ? ' · 默认' : ''}`
+          );
 
           const defaultModel = data.data.find(m => m.is_default);
           if (defaultModel) {
@@ -598,10 +597,10 @@
           }
           onModelChange();
         } else {
-          document.getElementById('modelSelect').innerHTML = '<option value="">暂无可用模型</option>';
+          renderModelOptions(document.getElementById('modelSelect'), [], () => '');
         }
       } catch (e) {
-        document.getElementById('modelSelect').innerHTML = '<option value="">模型加载失败</option>';
+        renderModelOptions(document.getElementById('modelSelect'), [], () => '', '模型加载失败');
       }
     }
 

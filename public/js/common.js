@@ -16,6 +16,26 @@ function showToast(message, type = 'info') {
   }, 2800);
 }
 
+function renderModelOptions(select, models, formatLabel, emptyText = '暂无可用模型') {
+  if (!select) return;
+  select.replaceChildren();
+  const list = Array.isArray(models) ? models : [];
+  if (list.length === 0) {
+    const option = document.createElement('option');
+    option.value = '';
+    option.textContent = emptyText;
+    select.appendChild(option);
+    return;
+  }
+  list.forEach(model => {
+    const option = document.createElement('option');
+    option.value = String(model.id ?? '');
+    option.textContent = String(formatLabel(model));
+    option.selected = Boolean(model.is_default);
+    select.appendChild(option);
+  });
+}
+
 // Toggle switch
 function setupToggles() {
   document.querySelectorAll('.toggle-switch').forEach(toggle => {

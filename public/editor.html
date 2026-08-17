@@ -2148,6 +2148,18 @@ async function apiFetch(url, options = {}) {
 // ============ AI换场景（侧边栏内联）============
 let imageModels = [];
 
+function renderEditorModelOptions(select, models) {
+  if (!select) return;
+  select.replaceChildren();
+  (Array.isArray(models) ? models : []).forEach(model => {
+    const option = document.createElement('option');
+    option.value = String(model.id ?? '');
+    option.textContent = `${model.name} (${model.price_per_call}积分/张)`;
+    option.selected = Boolean(model.is_default);
+    select.appendChild(option);
+  });
+}
+
 async function loadModels() {
   try {
     const data = await apiFetch('/api/models?type=image');
@@ -2156,14 +2168,14 @@ async function loadModels() {
       // 填充换场景模型下拉
       const resceneSel = document.getElementById('resceneModel');
       if (resceneSel) {
-        resceneSel.innerHTML = data.data.map(m => `<option value="${m.id}">${m.name} (${m.price_per_call}积分/张)</option>`).join('');
+        renderEditorModelOptions(resceneSel, data.data);
         updateResceneCost();
         resceneSel.addEventListener('change', updateResceneCost);
       }
       // 填充去水印模型下拉
       const dwmSel = document.getElementById('dewatermarkModel');
       if (dwmSel) {
-        dwmSel.innerHTML = data.data.map(m => `<option value="${m.id}">${m.name} (${m.price_per_call}积分/张)</option>`).join('');
+        renderEditorModelOptions(dwmSel, data.data);
         updateDewatermarkCost();
         dwmSel.addEventListener('change', updateDewatermarkCost);
       }

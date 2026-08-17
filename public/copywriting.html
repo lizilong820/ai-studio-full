@@ -303,9 +303,9 @@
       if (data.code === 0) {
         const select = document.getElementById('llmModel');
         if (select && data.data.length > 0) {
-          select.innerHTML = data.data.map(m => 
-            `<option value="${m.id}">${m.name} (${m.model_identifier}) - ${m.price_per_call}积分/版本${m.is_default ? ' · 默认' : ''}</option>`
-          ).join('');
+          renderModelOptions(select, data.data, model =>
+            `${model.name} (${model.model_identifier}) - ${model.price_per_call}积分/版本${model.is_default ? ' · 默认' : ''}`
+          );
           updateCost();
         }
       }
