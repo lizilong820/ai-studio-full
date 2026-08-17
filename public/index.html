@@ -476,14 +476,23 @@
     const hotTagsEl = document.getElementById('hotSearchTags');
 
     const hotKeywords = ['电商套图', '小红书笔记', '海报设计', 'PPT生成', '短视频脚本', '简历优化', 'AI头像', 'AI图片生成', '产品文案', '种草文案'];
-    hotTagsEl.innerHTML = hotKeywords.map(k => `<span class="search-hot-tag" onclick="doSearch('${k}')">${k}</span>`).join('');
+    hotTagsEl.replaceChildren();
+    hotKeywords.forEach(keyword => {
+      const tag = document.createElement('span');
+      tag.className = 'search-hot-tag';
+      tag.textContent = keyword;
+      tag.addEventListener('click', () => window.doSearch(keyword));
+      hotTagsEl.appendChild(tag);
+    });
 
     let searchTimer = null;
+    let searchSequence = 0;
     searchInput.addEventListener('input', function() {
       const val = this.value.trim();
       clearTimeout(searchTimer);
       if (!val) {
-        searchResults.innerHTML = '';
+        searchSequence++;
+        searchResults.replaceChildren();
         searchDropdown.classList.add('show');
         hotTagsEl.parentElement.style.display = '';
         return;
@@ -501,35 +510,50 @@
       }
     });
 
+    function createSearchText(className, text) {
+      const element = document.createElement('div');
+      element.className = className;
+      element.textContent = String(text || '');
+      return element;
+    }
+
     async function fetchSearch(keyword) {
+      const sequence = ++searchSequence;
       try {
         const res = await fetch('/api/search/all?keyword=' + encodeURIComponent(keyword));
         const data = await res.json();
-        if (data.code !== 0) return;
+        if (sequence !== searchSequence || data.code !== 0) return;
 
         hotTagsEl.parentElement.style.display = 'none';
+        const studios = Array.isArray(data.data?.studios) ? data.data.studios : [];
+        searchResults.replaceChildren();
+        const title = createSearchText('search-section-title', studios.length === 0 ? '搜索结果' : '工作室');
+        searchResults.appendChild(title);
 
-        if (data.data.studios.length === 0) {
-          searchResults.innerHTML = `
-            <div class="search-section-title">搜索结果</div>
-            <div class="search-empty">未找到相关工作室，换个关键词试试~</div>
-          `;
+        if (studios.length === 0) {
+          searchResults.appendChild(createSearchText('search-empty', '未找到相关工作室，换个关键词试试~'));
           return;
         }
 
-        searchResults.innerHTML = `
-          <div class="search-section-title">工作室</div>
-          ${data.data.studios.map(s => `
-            <div class="search-item" onclick="gotoStudio('${s.type}')">
-              <span class="search-item-icon">${s.icon}</span>
-              <div class="search-item-info">
-                <div class="search-item-name">${s.name}</div>
-                <div class="search-item-desc">${s.desc}</div>
-              </div>
-              <span style="color:var(--text-3);font-size:12px;">进入 →</span>
-            </div>
-          `).join('')}
-        `;
+        studios.forEach(studio => {
+          const item = document.createElement('div');
+          item.className = 'search-item';
+          const icon = document.createElement('span');
+          icon.className = 'search-item-icon';
+          icon.textContent = String(studio.icon || '');
+          const info = document.createElement('div');
+          info.className = 'search-item-info';
+          info.append(
+            createSearchText('search-item-name', studio.name),
+            createSearchText('search-item-desc', studio.desc),
+          );
+          const enter = document.createElement('span');
+          enter.style.cssText = 'color:var(--text-3);font-size:12px;';
+          enter.textContent = '进入 →';
+          item.append(icon, info, enter);
+          item.addEventListener('click', () => window.gotoStudio(String(studio.type || '')));
+          searchResults.appendChild(item);
+        });
         searchDropdown.classList.add('show');
       } catch (e) {}
     }

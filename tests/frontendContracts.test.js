@@ -16,6 +16,7 @@ const ecommerce = fs.readFileSync(path.join(publicDir, 'ecommerce.html'), 'utf8'
 const copywriting = fs.readFileSync(path.join(publicDir, 'copywriting.html'), 'utf8');
 const xiaohongshu = fs.readFileSync(path.join(publicDir, 'xiaohongshu.html'), 'utf8');
 const editor = fs.readFileSync(path.join(publicDir, 'editor.html'), 'utf8');
+const home = fs.readFileSync(path.join(publicDir, 'index.html'), 'utf8');
 const faceSwap = fs.readFileSync(path.join(publicDir, 'video-face-swap.html'), 'utf8');
 const idphoto = fs.readFileSync(path.join(publicDir, 'idphoto.html'), 'utf8');
 const profile = fs.readFileSync(path.join(publicDir, 'profile.html'), 'utf8');
@@ -217,6 +218,17 @@ test('editor tasks stop stale polling and preserve target image', () => {
   assert.doesNotMatch(editor, /loadingCancelled/);
 });
 
+test('home search renders API results as text and ignores stale responses', () => {
+  assert.match(home, /hotTagsEl\.replaceChildren\(\)/);
+  assert.match(home, /searchResults\.replaceChildren\(\)/);
+  assert.match(home, /element\.textContent = String\(text \|\| ''\)/);
+  assert.match(home, /if \(sequence !== searchSequence \|\| data\.code !== 0\) return/);
+  assert.match(home, /item\.addEventListener\('click', \(\) => window\.gotoStudio/);
+  assert.doesNotMatch(home, /searchResults\.innerHTML/);
+  assert.doesNotMatch(home, /hotTagsEl\.innerHTML/);
+  assert.doesNotMatch(home, /onclick="gotoStudio/);
+});
+
 test('changed page inline scripts parse', () => {
   parseInlineScripts('avatar.html', avatar);
   parseInlineScripts('ppt.html', ppt);
@@ -231,4 +243,5 @@ test('changed page inline scripts parse', () => {
   parseInlineScripts('copywriting.html', copywriting);
   parseInlineScripts('xiaohongshu.html', xiaohongshu);
   parseInlineScripts('editor.html', editor);
+  parseInlineScripts('index.html', home);
 });
