@@ -321,7 +321,7 @@
         gender: getActiveOptionText('.form-section:nth-of-type(1) .form-group:nth-of-type(2) .option-item.active') || '不指定',
         age_range: document.getElementById('ageRange').value,
         image_count: count,
-        hair_style: document.getElementById('hairStyle').value,
+        hairstyle: document.getElementById('hairStyle').value,
         expression: document.getElementById('expression').value,
         clothing: document.getElementById('clothing').value,
         background: document.getElementById('background').value,
@@ -385,7 +385,8 @@
       }
       if (params.age_range) document.getElementById('ageRange').value = params.age_range;
       if (params.image_count) document.getElementById('avatarCount').value = params.image_count;
-      if (params.hair_style) document.getElementById('hairStyle').value = params.hair_style;
+      const hairstyle = params.hairstyle ?? params.hair_style;
+      if (hairstyle) document.getElementById('hairStyle').value = hairstyle;
       if (params.expression) document.getElementById('expression').value = params.expression;
       if (params.clothing) document.getElementById('clothing').value = params.clothing;
       if (params.background) document.getElementById('background').value = params.background;
@@ -445,41 +446,28 @@
         startImageGeneration(count, function() {});
         
         // 轮询状态
-        let pollCount = 0;
-        const pollInterval = setInterval(async () => {
-          pollCount++;
-          if (pollCount > 60) {
-            clearInterval(pollInterval);
-            showToast('生成超时，请稍后在个人中心查看结果', 'error');
-            btn.classList.remove('loading');
-            btn.disabled = false;
-            btn.innerHTML = '<span class="btn-icon">✨</span>重新生成';
-            return;
-          }
-          
-          const statusData = await apiRequest('/api/generation/' + taskId);
-          if (statusData.code === 0 && statusData.data.status === 'success') {
-            clearInterval(pollInterval);
-            const images = statusData.data.result?.images || [];
-            displayImageResults(images, {
-              studio_type: 'avatar',
-              params: getFormData(),
-              regenerate_fn: doRegenerate,
-            });
-            btn.classList.remove('loading');
-            btn.disabled = false;
-            btn.innerHTML = '<span class="btn-icon">✨</span>重新生成';
-            showToast('生成成功！共 ' + images.length + ' 张头像', 'success');
-            refreshUserInfo();
-          } else if (statusData.code === 0 && statusData.data.status === 'failed') {
-            clearInterval(pollInterval);
-            showToast('生成失败：' + (statusData.data.error_msg || '未知错误'), 'error');
-            btn.classList.remove('loading');
-            btn.disabled = false;
-            btn.innerHTML = '<span class="btn-icon">✨</span>重新生成';
-            refreshUserInfo();
-          }
-        }, 3000);
+        pollGeneration(taskId, (task) => {
+          const images = task.result?.images || [];
+          displayImageResults(images, {
+            studio_type: 'avatar',
+            params: getFormData(),
+            regenerate_fn: doRegenerate,
+          });
+          btn.classList.remove('loading');
+          btn.disabled = false;
+          btn.innerHTML = '<span class="btn-icon">✨</span>重新生成';
+          showToast('生成成功！共 ' + images.length + ' 张头像', 'success');
+          refreshUserInfo();
+        }, (message) => {
+          const errorMessage = message === 'timeout'
+            ? '生成超时，请稍后在个人中心查看结果'
+            : '生成失败：' + message;
+          showToast(errorMessage, 'error');
+          btn.classList.remove('loading');
+          btn.disabled = false;
+          btn.innerHTML = '<span class="btn-icon">✨</span>重新生成';
+          refreshUserInfo();
+        }, 60);
       });
     }
 

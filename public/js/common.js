@@ -675,28 +675,54 @@ function displayImageResults(images, options) {
   };
 }
 
-// Poll generation task status
+// Poll generation task status without overlapping requests
 function pollGeneration(taskId, onSuccess, onFail, maxPolls) {
   maxPolls = maxPolls || 60;
   let pollCount = 0;
-  const pollInterval = setInterval(async () => {
+  let timer = null;
+  let stopped = false;
+
+  function stop() {
+    stopped = true;
+    if (timer) clearTimeout(timer);
+  }
+
+  async function poll() {
+    if (stopped) return;
     pollCount++;
     if (pollCount > maxPolls) {
-      clearInterval(pollInterval);
+      stop();
       if (onFail) onFail('timeout');
       return;
     }
-    
-    const statusData = await apiRequest('/api/generation/' + taskId);
-    if (statusData.code === 0 && statusData.data.status === 'success') {
-      clearInterval(pollInterval);
-      if (onSuccess) onSuccess(statusData.data);
-    } else if (statusData.code === 0 && statusData.data.status === 'failed') {
-      clearInterval(pollInterval);
-      if (onFail) onFail(statusData.data.error_msg || '生成失败');
+
+    try {
+      const statusData = await apiRequest('/api/generation/' + taskId);
+      if (stopped) return;
+      if (statusData.code !== 0) {
+        stop();
+        if (onFail) onFail(statusData.msg || '任务状态查询失败');
+        return;
+      }
+      if (statusData.data.status === 'success') {
+        stop();
+        if (onSuccess) onSuccess(statusData.data);
+        return;
+      }
+      if (statusData.data.status === 'failed') {
+        stop();
+        if (onFail) onFail(statusData.data.error_msg || '生成失败');
+        return;
+      }
+      timer = setTimeout(poll, 3000);
+    } catch (error) {
+      stop();
+      if (onFail) onFail(error.message || '任务状态查询失败');
     }
-  }, 3000);
-  return pollInterval;
+  }
+
+  timer = setTimeout(poll, 3000);
+  return { stop };
 }
 
 // ===== 结果页灯箱 (图片预览 + 左右切换) =====
