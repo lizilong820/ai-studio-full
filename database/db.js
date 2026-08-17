@@ -119,11 +119,18 @@ db.exec(`
 // 检查是否有管理员
 const adminCount = db.prepare('SELECT COUNT(*) as count FROM users WHERE is_admin = 1').get().count;
 if (adminCount === 0) {
-  const hash = bcrypt.hashSync('admin123', 10);
-  db.prepare(`INSERT INTO users (username, password_hash, email, credits, is_admin, status) 
-              VALUES (?, ?, ?, ?, ?, ?)`)
-    .run('admin', hash, 'admin@example.com', 99999, 1, 1);
-  console.log('✅ 初始管理员已创建: admin / admin123');
+  const adminUsername = process.env.ADMIN_USERNAME;
+  const adminPassword = process.env.ADMIN_PASSWORD;
+
+  if (adminUsername && adminPassword && Array.from(adminPassword).length >= 12) {
+    const hash = bcrypt.hashSync(adminPassword, 10);
+    db.prepare(`INSERT INTO users (username, password_hash, is_admin, status)
+                VALUES (?, ?, ?, ?)`)
+      .run(adminUsername, hash, 1, 1);
+    console.log('初始管理员已创建');
+  } else {
+    console.warn('未创建初始管理员：请同时配置管理员用户名和至少 12 个字符的密码');
+  }
 }
 
 // 默认设置

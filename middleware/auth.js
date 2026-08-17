@@ -1,14 +1,13 @@
 const jwt = require('jsonwebtoken');
 const { db } = require('../database/db');
-
-const JWT_SECRET = process.env.JWT_SECRET || 'ai_studio_jwt_secret_key_change_in_prod';
+const { jwtSecret, jwtAlgorithm } = require('../config/security');
 
 // 生成 token
 function signToken(user) {
   return jwt.sign(
     { id: user.id, username: user.username, is_admin: user.is_admin },
-    JWT_SECRET,
-    { expiresIn: '7d' }
+    jwtSecret,
+    { algorithm: jwtAlgorithm, expiresIn: '7d' }
   );
 }
 
@@ -28,7 +27,7 @@ function authRequired(req, res, next) {
   }
 
   try {
-    const decoded = jwt.verify(req.token, JWT_SECRET);
+    const decoded = jwt.verify(req.token, jwtSecret, { algorithms: [jwtAlgorithm] });
     const user = db.prepare('SELECT id, username, email, credits, is_admin, status FROM users WHERE id = ?').get(decoded.id);
     
     if (!user || user.status !== 1) {
@@ -65,7 +64,7 @@ function authOptional(req, res, next) {
   
   if (token) {
     try {
-      const decoded = jwt.verify(token, JWT_SECRET);
+      const decoded = jwt.verify(token, jwtSecret, { algorithms: [jwtAlgorithm] });
       const user = db.prepare('SELECT id, username, email, credits, is_admin, status FROM users WHERE id = ?').get(decoded.id);
       if (user && user.status === 1) {
         req.user = user;
@@ -77,4 +76,4 @@ function authOptional(req, res, next) {
   next();
 }
 
-module.exports = { signToken, authRequired, adminRequired, authOptional, JWT_SECRET };
+module.exports = { signToken, authRequired, adminRequired, authOptional };
