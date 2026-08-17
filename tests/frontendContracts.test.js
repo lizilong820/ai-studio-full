@@ -12,6 +12,7 @@ const resume = fs.readFileSync(path.join(publicDir, 'resume.html'), 'utf8');
 const audio = fs.readFileSync(path.join(publicDir, 'audio.html'), 'utf8');
 const faceSwap = fs.readFileSync(path.join(publicDir, 'video-face-swap.html'), 'utf8');
 const idphoto = fs.readFileSync(path.join(publicDir, 'idphoto.html'), 'utf8');
+const profile = fs.readFileSync(path.join(publicDir, 'profile.html'), 'utf8');
 const common = fs.readFileSync(path.join(publicDir, 'js', 'common.js'), 'utf8');
 
 function parseInlineScripts(fileName, html) {
@@ -78,10 +79,32 @@ test('dynamic media results use normalized URLs and DOM APIs', () => {
   assert.doesNotMatch(idphoto, /card\.innerHTML = `\s*<div class="result-img-wrap">/);
 });
 
+test('profile work details render untrusted data with DOM APIs', () => {
+  assert.match(profile, /card\.dataset\.workId = String\(id\)/);
+  assert.match(profile, /const coverUrl = normalizeMediaUrl\(item\.cover\)/);
+  assert.match(profile, /function showGenDetailModal\(gen\)/);
+  assert.match(profile, /body\.textContent = content/);
+  assert.match(profile, /tag\.textContent = String\(valueTag\)/);
+  assert.match(profile, /valueNode\.textContent = typeof value === 'object'/);
+  assert.match(profile, /const safeImages = .*\.map\(normalizeMediaUrl\)\.filter\(Boolean\)/);
+  assert.match(profile, /const mediaUrl = normalizeMediaUrl\(url\)/);
+  assert.match(profile, /new URL\(audioUrl, window\.location\.origin\)\.href/);
+  assert.match(profile, /favorite\.disabled = true/);
+  assert.match(profile, /if \(await toggleFav\(generationId, Boolean\(gen\.is_favorite\)\)\) modal\.remove\(\)/);
+  assert.match(profile, /if \(!resultSection && result\.video\)/);
+  assert.match(profile, /暂无可展示结果/);
+  assert.match(profile, /\.slice\(0, 180\)/);
+  assert.match(profile, /\^\(con\|prn\|aux\|nul\|com\[1-9\]\|lpt\[1-9\]\)/i);
+  assert.doesNotMatch(profile, /\bcontentHtml\b|\bparamsHtml\b|work-fav-btn-single/);
+  assert.doesNotMatch(profile, /document\.onkeydown|window\.location\.origin \+ url/);
+  assert.doesNotMatch(profile, /onclick="(?:openLightbox|downloadAllImages|downloadFile|copyAudioUrl|copyText)/);
+});
+
 test('changed page inline scripts parse', () => {
   parseInlineScripts('avatar.html', avatar);
   parseInlineScripts('ppt.html', ppt);
   parseInlineScripts('audio.html', audio);
   parseInlineScripts('video-face-swap.html', faceSwap);
   parseInlineScripts('idphoto.html', idphoto);
+  parseInlineScripts('profile.html', profile);
 });
