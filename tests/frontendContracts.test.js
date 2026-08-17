@@ -260,6 +260,24 @@ test('cost calculation ignores stale responses and duplicate triggers', () => {
   assert.match(videoGen, /updateDurationAvailability\(\);\s*updateCost\(\);/);
   assert.doesNotMatch(videoGen, /currentDuration = parseInt\(items\[i\]\.dataset\.duration\);\s*updateCost\(\);/);
 });
+test('gif and video generation polling isolates tasks and validates media URLs', () => {
+  for (const [fileName, html, endpoint] of [
+    ['gif.html', gif, 'gif'],
+    ['video-gen.html', videoGen, 'video-gen']
+  ]) {
+    assert.match(html, /const sequence = \+\+pollSequence/, fileName);
+    assert.match(html, /if \(sequence !== pollSequence\) return/, fileName);
+    assert.match(html, /pollTimer = setTimeout\(poll, 3000\)/, fileName);
+    assert.match(html, new RegExp("/api/generate/" + endpoint + "/' \\+ encodeURIComponent\\(taskId\\)"), fileName);
+    assert.match(html, /const mediaUrl = normalizeMediaUrl\(/, fileName);
+    assert.doesNotMatch(html, /setInterval\s*\(async/, fileName);
+    assert.doesNotMatch(html, /currentTaskId/, fileName);
+  }
+  assert.match(gif, /resultGif'\)\.src = mediaUrl/);
+  assert.match(videoGen, /resultVideo'\)\.src = mediaUrl/);
+  assert.match(videoGen, /lastVideoUrl = mediaUrl/);
+  assert.doesNotMatch(videoGen, /lastGifUrl/);
+});
 test('changed page inline scripts parse', () => {
   parseInlineScripts('avatar.html', avatar);
   parseInlineScripts('ppt.html', ppt);
