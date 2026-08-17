@@ -13,6 +13,7 @@ const audio = fs.readFileSync(path.join(publicDir, 'audio.html'), 'utf8');
 const faceSwap = fs.readFileSync(path.join(publicDir, 'video-face-swap.html'), 'utf8');
 const idphoto = fs.readFileSync(path.join(publicDir, 'idphoto.html'), 'utf8');
 const profile = fs.readFileSync(path.join(publicDir, 'profile.html'), 'utf8');
+const admin = fs.readFileSync(path.join(publicDir, 'admin', 'index.html'), 'utf8');
 const common = fs.readFileSync(path.join(publicDir, 'js', 'common.js'), 'utf8');
 
 function parseInlineScripts(fileName, html) {
@@ -131,6 +132,28 @@ test('profile account data is rendered without dynamic HTML', () => {
   assert.doesNotMatch(profile, /'<img src="' \+ data\.url_qrcode/);
 });
 
+test('admin users models and generation details use DOM APIs', () => {
+  assert.match(admin, /function normalizeAdminId\(value\)/);
+  assert.match(admin, /typeof value !== 'string' \|\| !\/\^\\d\+\$\/\.test\(value\)/);
+  assert.match(admin, /function createAdminCell\(text/);
+  assert.match(admin, /function createAdminButton\(text, className, onClick\)/);
+  assert.match(admin, /tbody\.replaceChildren\(\)/);
+  assert.match(admin, /username\.appendChild\(document\.createTextNode/);
+  assert.match(admin, /identifier\.textContent = String\(model\.model_identifier/);
+  assert.match(admin, /event => testModel\(id, event\.currentTarget\)/);
+  assert.doesNotMatch(admin, /const btn = event\.target/);
+  assert.match(admin, /checkbox\.addEventListener\('change', updateGenBatchBtn\)/);
+  assert.match(admin, /function viewGenDetail\(id\)/);
+  assert.match(admin, /const urls = result\.images\.map\(normalizeMediaUrl\)\.filter\(Boolean\)/);
+  assert.match(admin, /image\.addEventListener\('click', \(\) => window\.open\(url, '_blank', 'noopener,noreferrer'\)\)/);
+  assert.match(admin, /paramsValue\.textContent = g\.params/);
+  assert.match(admin, /content\.textContent = String\(item\.content/);
+  assert.match(admin, /error\.append\(label, document\.createTextNode\(String\(g\.error_msg\)\)\)/);
+  assert.match(admin, /button\.addEventListener\('click', \(\) => callback\(page\)\)/);
+  assert.doesNotMatch(admin, /usersTbody\.innerHTML|modelsTbody\.innerHTML|gensTbody\.innerHTML|genDetailContent\.innerHTML/);
+  assert.doesNotMatch(admin, /resultHtml|onclick="window\.open|onclick="__pg_/);
+});
+
 test('changed page inline scripts parse', () => {
   parseInlineScripts('avatar.html', avatar);
   parseInlineScripts('ppt.html', ppt);
@@ -138,4 +161,5 @@ test('changed page inline scripts parse', () => {
   parseInlineScripts('video-face-swap.html', faceSwap);
   parseInlineScripts('idphoto.html', idphoto);
   parseInlineScripts('profile.html', profile);
+  parseInlineScripts('admin/index.html', admin);
 });

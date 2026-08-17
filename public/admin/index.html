@@ -825,6 +825,34 @@
       headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }
     }, opts)).then(r => r.json());
 
+    function normalizeAdminId(value) {
+      if (typeof value !== 'number' && (typeof value !== 'string' || !/^\d+$/.test(value))) return null;
+      const id = Number(value);
+      return Number.isSafeInteger(id) && id > 0 ? id : null;
+    }
+
+    function createAdminCell(text, style = '') {
+      const cell = document.createElement('td');
+      if (style) cell.style.cssText = style;
+      cell.textContent = String(text ?? '');
+      return cell;
+    }
+
+    function createAdminBadge(text, className = '') {
+      const badge = document.createElement('span');
+      badge.className = 'badge' + (className ? ' ' + className : '');
+      badge.textContent = String(text);
+      return badge;
+    }
+
+    function createAdminButton(text, className, onClick) {
+      const button = document.createElement('button');
+      button.className = 'btn btn-sm' + (className ? ' ' + className : '');
+      button.textContent = text;
+      button.addEventListener('click', onClick);
+      return button;
+    }
+
     // ============ 视图切换 ============
     function switchView(name) {
       document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
@@ -909,29 +937,46 @@
       if (data.code !== 0) return;
       
       usersPage = page;
-      const list = data.data.list;
+      const list = Array.isArray(data.data.list) ? data.data.list : [];
       const tbody = document.getElementById('usersTbody');
+      tbody.replaceChildren();
+      list.forEach(userItem => {
+        const id = normalizeAdminId(userItem.id);
+        if (!id) return;
+        const row = document.createElement('tr');
+        const username = document.createElement('td');
+        username.appendChild(document.createTextNode(String(userItem.username || '-')));
+        if (userItem.is_admin) {
+          username.append(' ', createAdminBadge('管理员', 'badge-info'));
+        }
+        const status = document.createElement('td');
+        status.appendChild(userItem.status === 1
+          ? createAdminBadge('正常', 'badge-success')
+          : createAdminBadge('禁用', 'badge-danger'));
+        const actions = document.createElement('td');
+        actions.append(
+          createAdminButton('调积分', '', () => showCreditModal(id)),
+          createAdminButton('重置密码', '', () => showPwdModal(id)),
+          createAdminButton(
+            userItem.status === 1 ? '禁用' : '启用',
+            userItem.status === 1 ? 'btn-danger' : 'btn-primary',
+            () => toggleUserStatus(id, userItem.status === 1 ? 0 : 1),
+          ),
+        );
+        row.append(
+          createAdminCell('#' + id),
+          username,
+          createAdminCell(userItem.email || '-'),
+          createAdminCell(userItem.credits ?? 0, 'font-weight:600;color:var(--brand);'),
+          createAdminCell(userItem.is_admin ? '管理员' : '普通用户'),
+          status,
+          createAdminCell(userItem.created_at || '-', 'font-size:12px;color:var(--text-3);'),
+          actions,
+        );
+        tbody.appendChild(row);
+      });
       
-      tbody.innerHTML = list.map(u => `
-        <tr>
-          <td>#${u.id}</td>
-          <td>${u.username}${u.is_admin ? ' <span class="badge badge-info">管理员</span>' : ''}</td>
-          <td>${u.email || '-'}</td>
-          <td style="font-weight:600;color:var(--brand);">${u.credits}</td>
-          <td>${u.is_admin ? '管理员' : '普通用户'}</td>
-          <td>${u.status === 1 ? '<span class="badge badge-success">正常</span>' : '<span class="badge badge-danger">禁用</span>'}</td>
-          <td style="font-size:12px;color:var(--text-3);">${u.created_at}</td>
-          <td>
-            <button class="btn btn-sm" onclick="showCreditModal(${u.id})">调积分</button>
-            <button class="btn btn-sm" onclick="showPwdModal(${u.id})">重置密码</button>
-            <button class="btn btn-sm ${u.status === 1 ? 'btn-danger' : 'btn-primary'}" onclick="toggleUserStatus(${u.id}, ${u.status === 1 ? 0 : 1})">
-              ${u.status === 1 ? '禁用' : '启用'}
-            </button>
-          </td>
-        </tr>
-      `).join('');
-      
-      renderPagination('usersPagination', page, Math.ceil(data.data.total / 10), loadUsers);
+      renderPagination('usersPagination', page, Math.ceil((Number(data.data.total) || 0) / 10), loadUsers);
     }
 
     async function toggleUserStatus(id, status) {
@@ -1010,26 +1055,51 @@
       const data = await api('/api/admin/models');
       if (data.code !== 0) return;
       
-      const list = data.data;
+      const list = Array.isArray(data.data) ? data.data : [];
       const tbody = document.getElementById('modelsTbody');
-      
-      tbody.innerHTML = list.map(m => `
-        <tr>
-          <td>#${m.id}</td>
-          <td style="font-weight:500;">${m.name}</td>
-          <td><span class="badge ${m.type === 'image' ? 'badge-warn' : (m.type === 'video' ? 'badge-purple' : (m.type === 'audio' ? 'badge-success' : 'badge-info'))}">${m.type === 'image' ? '生图' : (m.type === 'video' ? '视频' : (m.type === 'audio' ? '音频' : '文本'))}</span></td>
-          <td><code style="font-size:12px;background:var(--bg-card-soft);padding:2px 6px;border-radius:4px;">${m.model_identifier}</code></td>
-          <td style="font-size:12px;color:var(--text-3);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${m.api_endpoint}">${m.api_endpoint}</td>
-          <td style="font-weight:600;">${m.price_per_call}</td>
-          <td>${m.is_default ? '<span class="badge badge-success">默认</span>' : '-'}</td>
-          <td>${m.status === 1 ? '<span class="badge badge-success">启用</span>' : '<span class="badge badge-danger">禁用</span>'}</td>
-          <td>
-            <button class="btn btn-sm btn-success" onclick="testModel(${m.id})">测试</button>
-            <button class="btn btn-sm" onclick="editModel(${m.id})">编辑</button>
-            <button class="btn btn-sm btn-danger" onclick="deleteModel(${m.id})">删除</button>
-          </td>
-        </tr>
-      `).join('');
+      tbody.replaceChildren();
+      const typeMap = {
+        image: ['生图', 'badge-warn'],
+        video: ['视频', 'badge-purple'],
+        audio: ['音频', 'badge-success'],
+      };
+      list.forEach(model => {
+        const id = normalizeAdminId(model.id);
+        if (!id) return;
+        const row = document.createElement('tr');
+        const type = document.createElement('td');
+        const typeConfig = typeMap[model.type] || ['文本', 'badge-info'];
+        type.appendChild(createAdminBadge(typeConfig[0], typeConfig[1]));
+        const identifierCell = document.createElement('td');
+        const identifier = document.createElement('code');
+        identifier.style.cssText = 'font-size:12px;background:var(--bg-card-soft);padding:2px 6px;border-radius:4px;';
+        identifier.textContent = String(model.model_identifier || '-');
+        identifierCell.appendChild(identifier);
+        const endpoint = createAdminCell(model.api_endpoint || '-', 'font-size:12px;color:var(--text-3);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;');
+        endpoint.title = String(model.api_endpoint || '');
+        const defaultCell = document.createElement('td');
+        defaultCell.appendChild(model.is_default ? createAdminBadge('默认', 'badge-success') : document.createTextNode('-'));
+        const status = document.createElement('td');
+        status.appendChild(model.status === 1 ? createAdminBadge('启用', 'badge-success') : createAdminBadge('禁用', 'badge-danger'));
+        const actions = document.createElement('td');
+        actions.append(
+          createAdminButton('测试', 'btn-success', event => testModel(id, event.currentTarget)),
+          createAdminButton('编辑', '', () => editModel(id)),
+          createAdminButton('删除', 'btn-danger', () => deleteModel(id)),
+        );
+        row.append(
+          createAdminCell('#' + id),
+          createAdminCell(model.name || '-', 'font-weight:500;'),
+          type,
+          identifierCell,
+          endpoint,
+          createAdminCell(model.price_per_call ?? 0, 'font-weight:600;'),
+          defaultCell,
+          status,
+          actions,
+        );
+        tbody.appendChild(row);
+      });
     }
 
     function showModelModal() {
@@ -1110,8 +1180,8 @@
       }
     });
 
-    async function testModel(id) {
-      const btn = event.target;
+    async function testModel(id, btn) {
+      if (!btn) return;
       const originalText = btn.textContent;
       btn.textContent = '测试中...';
       btn.disabled = true;
@@ -1157,31 +1227,51 @@
       gensPage = page;
       const studioMap = { image: 'AI图片生成', 'image-edit': '图片编辑', 'video-gen': '视频生成', gif: 'GIF表情包', audio: '音频合成', 'prompt-extract': '提示词反推', ecommerce: '电商套图', xiaohongshu: '小红书笔记', poster: '海报工厂', copywriting: 'AI文案', idphoto: 'AI证件照', 'face-swap': '视频换人' };
       const statusMap = {
-        success: '<span class="badge badge-success">成功</span>',
-        pending: '<span class="badge badge-warn">处理中</span>',
-        failed: '<span class="badge badge-danger">失败</span>',
+        success: ['成功', 'badge-success'],
+        pending: ['处理中', 'badge-warn'],
+        processing: ['处理中', 'badge-warn'],
+        failed: ['失败', 'badge-danger'],
       };
       
-      let selectedCount = 0;
-      document.getElementById('gensTbody').innerHTML = data.data.list.map(g => `
-        <tr>
-          <td><input type="checkbox" class="gen-checkbox" data-id="${g.id}" onchange="updateGenBatchBtn()"></td>
-          <td>#${g.id}</td>
-          <td>${g.username || '-'}</td>
-          <td>${studioMap[g.studio_type] || g.studio_type}</td>
-          <td>${g.model_name || '-'}</td>
-          <td>${g.credits_used}</td>
-          <td>${statusMap[g.status] || g.status}</td>
-          <td style="font-size:12px;color:var(--text-3);">${g.created_at}</td>
-          <td style="font-size:12px;color:var(--text-3);">${g.completed_at || '-'}</td>
-          <td>
-            <button class="btn btn-sm" onclick="viewGenDetail(${g.id})">详情</button>
-            <button class="btn btn-sm btn-danger" onclick="deleteGen(${g.id})" style="margin-left:4px;">删除</button>
-          </td>
-        </tr>
-      `).join('');
+      const tbody = document.getElementById('gensTbody');
+      tbody.replaceChildren();
+      const list = Array.isArray(data.data.list) ? data.data.list : [];
+      list.forEach(generation => {
+        const id = normalizeAdminId(generation.id);
+        if (!id) return;
+        const row = document.createElement('tr');
+        const selectCell = document.createElement('td');
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'gen-checkbox';
+        checkbox.dataset.id = String(id);
+        checkbox.addEventListener('change', updateGenBatchBtn);
+        selectCell.appendChild(checkbox);
+        const status = document.createElement('td');
+        const statusConfig = statusMap[generation.status];
+        status.appendChild(statusConfig
+          ? createAdminBadge(statusConfig[0], statusConfig[1])
+          : createAdminBadge(String(generation.status || '未知'), 'badge-default'));
+        const actions = document.createElement('td');
+        const remove = createAdminButton('删除', 'btn-danger', () => deleteGen(id));
+        remove.style.marginLeft = '4px';
+        actions.append(createAdminButton('详情', '', () => viewGenDetail(id)), remove);
+        row.append(
+          selectCell,
+          createAdminCell('#' + id),
+          createAdminCell(generation.username || '-'),
+          createAdminCell(studioMap[generation.studio_type] || generation.studio_type || '-'),
+          createAdminCell(generation.model_name || '-'),
+          createAdminCell(generation.credits_used ?? 0),
+          status,
+          createAdminCell(generation.created_at || '-', 'font-size:12px;color:var(--text-3);'),
+          createAdminCell(generation.completed_at || '-', 'font-size:12px;color:var(--text-3);'),
+          actions,
+        );
+        tbody.appendChild(row);
+      });
       
-      renderPagination('gensPagination', page, Math.ceil(data.data.total / 10), loadGenerations);
+      renderPagination('gensPagination', page, Math.ceil((Number(data.data.total) || 0) / 10), loadGenerations);
     }
 
     function toggleGenCheckAll(el) {
@@ -1223,16 +1313,22 @@
     }
 
     async function viewGenDetail(id) {
-      document.getElementById('genDetailModal').classList.add('show');
-      document.getElementById('genDetailContent').innerHTML = '加载中...';
+      const generationId = normalizeAdminId(id);
+      if (!generationId) return;
+      const sequence = (window._genDetailSequence || 0) + 1;
+      window._genDetailSequence = sequence;
+      const modal = document.getElementById('genDetailModal');
+      const container = document.getElementById('genDetailContent');
+      modal.classList.add('show');
+      container.textContent = '加载中...';
       
-      const data = await api(`/api/admin/generations/${id}`);
+      const data = await api(`/api/admin/generations/${generationId}`);
+      if (sequence !== window._genDetailSequence) return;
       if (data.code !== 0) {
-        document.getElementById('genDetailContent').innerHTML = data.msg || '加载失败';
+        container.textContent = String(data.msg || '加载失败');
         return;
       }
-      const g = data.data;
-      
+      const g = data.data || {};
       const studioMap = {
         image: 'AI图片生成',
         'image-edit': '图片编辑',
@@ -1248,55 +1344,112 @@
         'face-swap': '视频换人',
       };
       const statusMap = {
-        pending: '<span class="badge badge-warn">处理中</span>',
-        success: '<span class="badge badge-success">成功</span>',
-        failed: '<span class="badge badge-danger">失败</span>',
+        pending: ['处理中', 'badge-warn'],
+        processing: ['处理中', 'badge-warn'],
+        success: ['成功', 'badge-success'],
+        failed: ['失败', 'badge-danger'],
       };
-      
-      let resultHtml = '';
-      if (g.result) {
-        const r = g.result;
-        if (r.images && r.images.length) {
-          resultHtml = '<div style="margin-top:8px;"><b>生成图片：</b><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px;">' +
-            r.images.map(img => `<img src="${img}" style="width:100%;border-radius:8px;" onclick="window.open('${img}')" />`).join('') +
-            '</div></div>';
-        } else if (r.versions && r.versions.length) {
-          resultHtml = '<div style="margin-top:8px;"><b>生成内容：</b>' +
-            r.versions.map(v => `<div style="background:var(--bg);padding:12px;border-radius:8px;margin-top:8px;"><b>${v.title}</b><div style="white-space:pre-wrap;margin-top:4px;color:var(--text-2);font-size:13px;">${v.content || ''}</div></div>`).join('') +
-            '</div>';
-        } else if (typeof r === 'string') {
-          resultHtml = `<div style="margin-top:8px;white-space:pre-wrap;">${r}</div>`;
-        } else {
-          resultHtml = `<div style="margin-top:8px;"><pre style="background:var(--bg);padding:10px;border-radius:6px;overflow:auto;max-height:200px;font-size:12px;">${JSON.stringify(r, null, 2)}</pre></div>`;
+
+      function addDetailField(parent, label, value) {
+        const field = document.createElement('div');
+        const heading = document.createElement('b');
+        heading.textContent = label + '：';
+        field.append(heading, document.createTextNode(String(value ?? '-')));
+        parent.appendChild(field);
+      }
+
+      container.replaceChildren();
+      const metadata = document.createElement('div');
+      metadata.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:10px 20px;';
+      addDetailField(metadata, '记录ID', '#' + (normalizeAdminId(g.id) || generationId));
+      addDetailField(metadata, '用户', g.username || '-');
+      addDetailField(metadata, '工作室', studioMap[g.studio_type] || g.studio_type || '-');
+      addDetailField(metadata, '模型', g.model_name || '-');
+      addDetailField(metadata, '消耗积分', g.credits_used ?? 0);
+      const statusField = document.createElement('div');
+      const statusLabel = document.createElement('b');
+      statusLabel.textContent = '状态：';
+      const statusConfig = statusMap[g.status];
+      statusField.append(statusLabel, statusConfig
+        ? createAdminBadge(statusConfig[0], statusConfig[1])
+        : createAdminBadge(String(g.status || '未知'), 'badge-default'));
+      metadata.appendChild(statusField);
+      addDetailField(metadata, '创建时间', g.created_at || '-');
+      addDetailField(metadata, '完成时间', g.completed_at || '-');
+      container.appendChild(metadata);
+
+      const params = document.createElement('div');
+      params.style.marginTop = '12px';
+      const paramsLabel = document.createElement('b');
+      paramsLabel.textContent = '请求参数：';
+      const paramsValue = document.createElement('pre');
+      paramsValue.style.cssText = 'background:var(--bg);padding:10px;border-radius:6px;overflow:auto;max-height:200px;font-size:12px;margin-top:6px;';
+      paramsValue.textContent = g.params ? JSON.stringify(g.params, null, 2) : '无';
+      params.append(paramsLabel, paramsValue);
+      container.appendChild(params);
+
+      const result = g.result;
+      if (result) {
+        const resultSection = document.createElement('div');
+        resultSection.style.marginTop = '8px';
+        if (result && Array.isArray(result.images)) {
+          const urls = result.images.map(normalizeMediaUrl).filter(Boolean);
+          if (urls.length > 0) {
+            const heading = document.createElement('b');
+            heading.textContent = '生成图片：';
+            const grid = document.createElement('div');
+            grid.style.cssText = 'display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px;';
+            urls.forEach(url => {
+              const image = document.createElement('img');
+              image.src = url;
+              image.alt = '';
+              image.style.cssText = 'width:100%;border-radius:8px;';
+              image.addEventListener('click', () => window.open(url, '_blank', 'noopener,noreferrer'));
+              grid.appendChild(image);
+            });
+            resultSection.append(heading, grid);
+          }
         }
+        if (!resultSection.hasChildNodes() && result && Array.isArray(result.versions)) {
+          const heading = document.createElement('b');
+          heading.textContent = '生成内容：';
+          resultSection.appendChild(heading);
+          result.versions.forEach((version, index) => {
+            const item = version && typeof version === 'object' ? version : {};
+            const wrapper = document.createElement('div');
+            wrapper.style.cssText = 'background:var(--bg);padding:12px;border-radius:8px;margin-top:8px;';
+            const title = document.createElement('b');
+            title.textContent = String(item.title || `版本 ${index + 1}`);
+            const content = document.createElement('div');
+            content.style.cssText = 'white-space:pre-wrap;margin-top:4px;color:var(--text-2);font-size:13px;';
+            content.textContent = String(item.content || '');
+            wrapper.append(title, content);
+            resultSection.appendChild(wrapper);
+          });
+        }
+        if (!resultSection.hasChildNodes()) {
+          const value = document.createElement(typeof result === 'string' ? 'div' : 'pre');
+          value.style.cssText = typeof result === 'string'
+            ? 'margin-top:8px;white-space:pre-wrap;'
+            : 'background:var(--bg);padding:10px;border-radius:6px;overflow:auto;max-height:200px;font-size:12px;';
+          value.textContent = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
+          resultSection.appendChild(value);
+        }
+        container.appendChild(resultSection);
       }
-      
+
       if (g.error_msg) {
-        resultHtml += `<div style="margin-top:10px;padding:10px;background:#ffe4e4;border-radius:6px;color:#c0392b;"><b>错误信息：</b>${g.error_msg}</div>`;
+        const error = document.createElement('div');
+        error.style.cssText = 'margin-top:10px;padding:10px;background:#ffe4e4;border-radius:6px;color:#c0392b;';
+        const label = document.createElement('b');
+        label.textContent = '错误信息：';
+        error.append(label, document.createTextNode(String(g.error_msg)));
+        container.appendChild(error);
       }
-      
-      const paramsText = g.params ? JSON.stringify(g.params, null, 2) : '无';
-      
-      document.getElementById('genDetailContent').innerHTML = `
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 20px;">
-          <div><b>记录ID：</b>#${g.id}</div>
-          <div><b>用户：</b>${g.username || '-'}</div>
-          <div><b>工作室：</b>${studioMap[g.studio_type] || g.studio_type}</div>
-          <div><b>模型：</b>${g.model_name || '-'}</div>
-          <div><b>消耗积分：</b>${g.credits_used}</div>
-          <div><b>状态：</b>${statusMap[g.status] || g.status}</div>
-          <div><b>创建时间：</b>${g.created_at}</div>
-          <div><b>完成时间：</b>${g.completed_at || '-'}</div>
-        </div>
-        <div style="margin-top:12px;">
-          <b>请求参数：</b>
-          <pre style="background:var(--bg);padding:10px;border-radius:6px;overflow:auto;max-height:200px;font-size:12px;margin-top:6px;">${paramsText}</pre>
-        </div>
-        ${resultHtml}
-      `;
     }
 
     function closeGenDetail() {
+      window._genDetailSequence = (window._genDetailSequence || 0) + 1;
       document.getElementById('genDetailModal').classList.remove('show');
     }
 
@@ -1503,24 +1656,33 @@
     // ============ 分页 ============
     function renderPagination(containerId, current, totalPages, callback) {
       const container = document.getElementById(containerId);
-      if (!container || totalPages <= 1) { 
-        if (container) container.innerHTML = ''; 
-        return; 
+      if (!container) return;
+      container.replaceChildren();
+      if (totalPages <= 1) return;
+
+      function addButton(label, page, disabled = false, active = false) {
+        const button = document.createElement('button');
+        button.className = 'page-btn' + (active ? ' active' : '');
+        button.textContent = String(label);
+        button.disabled = disabled;
+        button.addEventListener('click', () => callback(page));
+        container.appendChild(button);
       }
-      
-      let html = `<button class="page-btn" ${current === 1 ? 'disabled' : ''} onclick="__pg_${containerId}(${current-1})">上一页</button>`;
+
+      addButton('上一页', current - 1, current === 1);
       for (let i = 1; i <= totalPages; i++) {
         if (totalPages > 7 && Math.abs(i - current) > 2 && i !== 1 && i !== totalPages) {
           if (i === 2 || i === totalPages - 1) {
-            html += '<span style="padding:0 4px;color:var(--text-3);">...</span>';
+            const ellipsis = document.createElement('span');
+            ellipsis.style.cssText = 'padding:0 4px;color:var(--text-3);';
+            ellipsis.textContent = '...';
+            container.appendChild(ellipsis);
           }
           continue;
         }
-        html += `<button class="page-btn ${i === current ? 'active' : ''}" onclick="__pg_${containerId}(${i})">${i}</button>`;
+        addButton(i, i, false, i === current);
       }
-      html += `<button class="page-btn" ${current === totalPages ? 'disabled' : ''} onclick="__pg_${containerId}(${current+1})">下一页</button>`;
-      container.innerHTML = html;
-      window['__pg_' + containerId] = callback;
+      addButton('下一页', current + 1, current === totalPages);
     }
 
     // ============ 其他 ============
