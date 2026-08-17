@@ -154,6 +154,22 @@ test('admin users models and generation details use DOM APIs', () => {
   assert.doesNotMatch(admin, /resultHtml|onclick="window\.open|onclick="__pg_/);
 });
 
+test('admin dashboard and business data use DOM APIs', () => {
+  assert.match(admin, /chart\.replaceChildren\(\)/);
+  assert.match(admin, /bar\.style\.height = Math\.max\(8, \(item\.count \/ max\) \* 100\) \+ '%'/);
+  assert.match(admin, /studioStats\.replaceChildren\(\)/);
+  assert.match(admin, /fill\.style\.width = \(item\.count \/ total \* 100\)\.toFixed\(1\) \+ '%'/);
+  assert.match(admin, /packages\.forEach\(pkg =>/);
+  assert.match(admin, /createAdminButton\('编辑', '', \(\) => editPackage\(id\)\)/);
+  assert.match(admin, /ordersTbody/);
+  assert.match(admin, /orderStatus\.appendChild\(statusInfo/);
+  assert.match(admin, /createAdminButton\('确认到账', 'btn-primary', \(\) => confirmOrder\(id\)\)/);
+  assert.match(admin, /creditLogsTbody/);
+  assert.match(admin, /typeMap\[log\.type\] \|\| log\.type \|\| '-'/);
+  assert.doesNotMatch(admin, /chart\.innerHTML|studioStats\.innerHTML|packagesTbody\.innerHTML|ordersTbody\.innerHTML|creditLogsTbody\.innerHTML/);
+  assert.doesNotMatch(admin, /onclick="editPackage|onclick="deletePackage|onclick="confirmOrder/);
+});
+
 test('changed page inline scripts parse', () => {
   parseInlineScripts('avatar.html', avatar);
   parseInlineScripts('ppt.html', ppt);

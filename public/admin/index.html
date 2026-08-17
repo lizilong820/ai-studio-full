@@ -898,35 +898,65 @@
       
       // 趋势图
       const chart = document.getElementById('trendChart');
-      const trend = d.trend_data || [];
+      const trend = (Array.isArray(d.trend_data) ? d.trend_data : []).map(item => ({
+        date: String(item.date || ''),
+        count: Math.max(0, Number.isFinite(Number(item.count)) ? Number(item.count) : 0),
+      }));
+      chart.replaceChildren();
       if (trend.length === 0) {
-        chart.innerHTML = '<div style="text-align:center;flex:1;color:var(--text-3);padding:40px 0;">暂无数据</div>';
+        const empty = document.createElement('div');
+        empty.style.cssText = 'text-align:center;flex:1;color:var(--text-3);padding:40px 0;';
+        empty.textContent = '暂无数据';
+        chart.appendChild(empty);
       } else {
-        const max = Math.max(...trend.map(t => t.count), 1);
-        chart.innerHTML = trend.map(t => {
-          const h = Math.max(8, (t.count / max) * 100);
-          const date = t.date.slice(5); // MM-DD
-          return `<div class="trend-bar" style="height:${h}%;" title="${t.date}: ${t.count}次">
-            <span class="bar-label">${date}</span>
-          </div>`;
-        }).join('');
+        const max = Math.max(...trend.map(item => item.count), 1);
+        trend.forEach(item => {
+          const bar = document.createElement('div');
+          bar.className = 'trend-bar';
+          bar.style.height = Math.max(8, (item.count / max) * 100) + '%';
+          bar.title = item.date + ': ' + item.count + '次';
+          const label = document.createElement('span');
+          label.className = 'bar-label';
+          label.textContent = item.date.slice(5);
+          bar.appendChild(label);
+          chart.appendChild(bar);
+        });
       }
       
       // 工作室分布
       const studioMap = { image: 'AI图片生成', 'image-edit': '图片编辑', 'video-gen': '视频生成', gif: 'GIF表情包', audio: '音频合成', 'prompt-extract': '提示词反推', ecommerce: '电商套图', xiaohongshu: '小红书笔记', poster: '海报工厂', copywriting: 'AI文案', idphoto: 'AI证件照', 'face-swap': '视频换人' };
-      const stats = d.studio_stats || [];
-      const total = stats.reduce((s, t) => s + t.count, 0) || 1;
-      document.getElementById('studioStats').innerHTML = stats.length === 0 
-        ? '<span style="color:var(--text-3);">暂无数据</span>'
-        : stats.map(s => `
-          <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
-            <span style="width:100px;font-size:13px;color:var(--text-2);">${studioMap[s.studio_type] || s.studio_type}</span>
-            <div style="flex:1;height:8px;background:var(--border);border-radius:4px;overflow:hidden;">
-              <div style="height:100%;width:${(s.count/total*100).toFixed(1)}%;background:linear-gradient(90deg,var(--brand-light),var(--brand));border-radius:4px;"></div>
-            </div>
-            <span style="width:50px;text-align:right;font-size:13px;color:var(--text);font-weight:500;">${s.count}</span>
-          </div>
-        `).join('');
+      const stats = (Array.isArray(d.studio_stats) ? d.studio_stats : []).map(item => ({
+        type: String(item.studio_type || ''),
+        count: Math.max(0, Number.isFinite(Number(item.count)) ? Number(item.count) : 0),
+      }));
+      const total = stats.reduce((sum, item) => sum + item.count, 0) || 1;
+      const studioStats = document.getElementById('studioStats');
+      studioStats.replaceChildren();
+      if (stats.length === 0) {
+        const empty = document.createElement('span');
+        empty.style.color = 'var(--text-3)';
+        empty.textContent = '暂无数据';
+        studioStats.appendChild(empty);
+      } else {
+        stats.forEach(item => {
+          const row = document.createElement('div');
+          row.style.cssText = 'display:flex;align-items:center;gap:12px;margin-bottom:10px;';
+          const name = document.createElement('span');
+          name.style.cssText = 'width:100px;font-size:13px;color:var(--text-2);';
+          name.textContent = studioMap[item.type] || item.type;
+          const track = document.createElement('div');
+          track.style.cssText = 'flex:1;height:8px;background:var(--border);border-radius:4px;overflow:hidden;';
+          const fill = document.createElement('div');
+          fill.style.cssText = 'height:100%;background:linear-gradient(90deg,var(--brand-light),var(--brand));border-radius:4px;';
+          fill.style.width = (item.count / total * 100).toFixed(1) + '%';
+          track.appendChild(fill);
+          const count = document.createElement('span');
+          count.style.cssText = 'width:50px;text-align:right;font-size:13px;color:var(--text);font-weight:500;';
+          count.textContent = String(item.count);
+          row.append(name, track, count);
+          studioStats.appendChild(row);
+        });
+      }
     }
 
     // ============ 用户管理 ============
@@ -1458,21 +1488,34 @@
       const data = await api('/api/admin/packages');
       if (data.code !== 0) return;
       
-      document.getElementById('packagesTbody').innerHTML = data.data.map(p => `
-        <tr>
-          <td>#${p.id}</td>
-          <td style="font-weight:500;">${p.name}</td>
-          <td>¥${p.price}</td>
-          <td style="font-weight:600;color:var(--brand);">${p.credits}</td>
-          <td>+${p.bonus}</td>
-          <td>${p.sort}</td>
-          <td>${p.status === 1 ? '<span class="badge badge-success">启用</span>' : '<span class="badge badge-danger">禁用</span>'}</td>
-          <td>
-            <button class="btn btn-sm" onclick="editPackage(${p.id})">编辑</button>
-            <button class="btn btn-sm btn-danger" onclick="deletePackage(${p.id})">删除</button>
-          </td>
-        </tr>
-      `).join('');
+      const packages = Array.isArray(data.data) ? data.data : [];
+      const tbody = document.getElementById('packagesTbody');
+      tbody.replaceChildren();
+      packages.forEach(pkg => {
+        const id = normalizeAdminId(pkg.id);
+        if (!id) return;
+        const row = document.createElement('tr');
+        const status = document.createElement('td');
+        status.appendChild(pkg.status === 1
+          ? createAdminBadge('启用', 'badge-success')
+          : createAdminBadge('禁用', 'badge-danger'));
+        const actions = document.createElement('td');
+        actions.append(
+          createAdminButton('编辑', '', () => editPackage(id)),
+          createAdminButton('删除', 'btn-danger', () => deletePackage(id)),
+        );
+        row.append(
+          createAdminCell('#' + id),
+          createAdminCell(pkg.name || '-', 'font-weight:500;'),
+          createAdminCell('¥' + (pkg.price ?? 0)),
+          createAdminCell(pkg.credits ?? 0, 'font-weight:600;color:var(--brand);'),
+          createAdminCell('+' + (pkg.bonus ?? 0)),
+          createAdminCell(pkg.sort ?? 0),
+          status,
+          actions,
+        );
+        tbody.appendChild(row);
+      });
     }
 
     function showPackageModal() {
@@ -1561,30 +1604,45 @@
       
       ordersPage = page;
       const statusMap = {
-        pending: '<span class="badge badge-warn">待支付</span>',
-        paid: '<span class="badge badge-success">已支付</span>',
-        manual: '<span class="badge badge-info">手动充值</span>',
-        failed: '<span class="badge badge-danger">失败</span>',
-        cancelled: '<span class="badge badge-default">已取消</span>',
+        pending: ['待支付', 'badge-warn'],
+        paid: ['已支付', 'badge-success'],
+        manual: ['手动充值', 'badge-info'],
+        failed: ['失败', 'badge-danger'],
+        cancelled: ['已取消', 'badge-default'],
       };
+      const list = Array.isArray(data.data.list) ? data.data.list : [];
+      const tbody = document.getElementById('ordersTbody');
+      tbody.replaceChildren();
+      list.forEach(order => {
+        const id = normalizeAdminId(order.id);
+        if (!id) return;
+        const row = document.createElement('tr');
+        const orderStatus = document.createElement('td');
+        const statusInfo = statusMap[order.status];
+        orderStatus.appendChild(statusInfo
+          ? createAdminBadge(statusInfo[0], statusInfo[1])
+          : document.createTextNode(String(order.status || '-')));
+        const actions = document.createElement('td');
+        if (order.status === 'pending') {
+          actions.appendChild(createAdminButton('确认到账', 'btn-primary', () => confirmOrder(id)));
+        } else {
+          actions.textContent = '-';
+        }
+        row.append(
+          createAdminCell('#' + id),
+          createAdminCell(order.username || '-'),
+          createAdminCell(order.package_name || '-'),
+          createAdminCell('¥' + (order.amount ?? 0)),
+          createAdminCell(order.credits ?? 0, 'color:var(--brand);font-weight:600;'),
+          createAdminCell(order.pay_method || '-'),
+          orderStatus,
+          createAdminCell(order.created_at || '-', 'font-size:12px;color:var(--text-3);'),
+          actions,
+        );
+        tbody.appendChild(row);
+      });
       
-      document.getElementById('ordersTbody').innerHTML = data.data.list.map(o => `
-        <tr>
-          <td>#${o.id}</td>
-          <td>${o.username || '-'}</td>
-          <td>${o.package_name || '-'}</td>
-          <td>¥${o.amount}</td>
-          <td style="color:var(--brand);font-weight:600;">${o.credits}</td>
-          <td>${o.pay_method || '-'}</td>
-          <td>${statusMap[o.status] || o.status}</td>
-          <td style="font-size:12px;color:var(--text-3);">${o.created_at}</td>
-          <td>
-            ${(o.status === 'pending') ? `<button class="btn btn-sm btn-primary" onclick="confirmOrder(${o.id})">确认到账</button>` : '-'}
-          </td>
-        </tr>
-      `).join('');
-      
-      renderPagination('ordersPagination', page, Math.ceil(data.data.total / 10), loadOrders);
+      renderPagination('ordersPagination', page, Math.ceil((Number(data.data.total) || 0) / 10), loadOrders);
     }
 
     async function confirmOrder(id) {
@@ -1606,22 +1664,30 @@
       
       logsPage = page;
       const typeMap = { recharge: '充值', consume: '消耗', refund: '退款', manual: '手动调整' };
+      const list = Array.isArray(data.data.list) ? data.data.list : [];
+      const tbody = document.getElementById('creditLogsTbody');
+      tbody.replaceChildren();
+      list.forEach(log => {
+        const id = normalizeAdminId(log.id);
+        if (!id) return;
+        const amount = Number(log.amount);
+        const isPositive = Number.isFinite(amount) && amount > 0;
+        const amountCell = createAdminCell((isPositive ? '+' : '') + (Number.isFinite(amount) ? amount : 0),
+          'color:' + (isPositive ? 'var(--success)' : 'var(--danger)') + ';font-weight:600;');
+        const row = document.createElement('tr');
+        row.append(
+          createAdminCell('#' + id),
+          createAdminCell(log.username || '-'),
+          createAdminCell(typeMap[log.type] || log.type || '-'),
+          amountCell,
+          createAdminCell(log.description || '-'),
+          createAdminCell(log.related_id || '-'),
+          createAdminCell(log.created_at || '-', 'font-size:12px;color:var(--text-3);'),
+        );
+        tbody.appendChild(row);
+      });
       
-      document.getElementById('creditLogsTbody').innerHTML = data.data.list.map(l => `
-        <tr>
-          <td>#${l.id}</td>
-          <td>${l.username || '-'}</td>
-          <td>${typeMap[l.type] || l.type}</td>
-          <td style="color:${l.amount > 0 ? 'var(--success)' : 'var(--danger)'};font-weight:600;">
-            ${l.amount > 0 ? '+' : ''}${l.amount}
-          </td>
-          <td>${l.description || '-'}</td>
-          <td>${l.related_id || '-'}</td>
-          <td style="font-size:12px;color:var(--text-3);">${l.created_at}</td>
-        </tr>
-      `).join('');
-      
-      renderPagination('creditLogsPagination', page, Math.ceil(data.data.total / 15), loadCreditLogs);
+      renderPagination('creditLogsPagination', page, Math.ceil((Number(data.data.total) || 0) / 15), loadCreditLogs);
     }
 
     // ============ 系统设置 ============
