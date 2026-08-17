@@ -182,10 +182,7 @@ router.post('/generate/ecommerce', async (req, res) => {
           result: { images }
         });
       } catch (err) {
-        db.prepare(`UPDATE generations SET status = 'failed', error_msg = ?,
-          completed_at = datetime('now','localtime') WHERE id = ?`)
-          .run(err.message, taskId);
-        creditService.addCredits(user.id, cost, 'refund', `API生成失败退款 - 任务${taskId}`, taskId);
+        creditService.failGenerationAndRefund(taskId, err.message);
 
         triggerWebhook(user.id, 'task.failed', {
           task_id: taskId,
@@ -339,10 +336,7 @@ router.post('/generate/poster', async (req, res) => {
           result: { images }
         });
       } catch (err) {
-        db.prepare(`UPDATE generations SET status = 'failed', error_msg = ?,
-          completed_at = datetime('now','localtime') WHERE id = ?`)
-          .run(err.message, taskId);
-        creditService.addCredits(user.id, cost, 'refund', `API生成失败退款 - 任务${taskId}`, taskId);
+        creditService.failGenerationAndRefund(taskId, err.message);
 
         triggerWebhook(user.id, 'task.failed', {
           task_id: taskId,
@@ -686,10 +680,7 @@ router.post('/generate/avatar', async (req, res) => {
           result: { images }
         });
       } catch (err) {
-        db.prepare(`UPDATE generations SET status = 'failed', error_msg = ?,
-          completed_at = datetime('now','localtime') WHERE id = ?`)
-          .run(err.message, taskId);
-        creditService.addCredits(user.id, cost, 'refund', `API生成失败退款 - 任务${taskId}`, taskId);
+        creditService.failGenerationAndRefund(taskId, err.message);
 
         triggerWebhook(user.id, 'task.failed', {
           task_id: taskId,
@@ -793,10 +784,7 @@ router.post('/generate/image', async (req, res) => {
           result: { images: allImages }
         });
       } catch (err) {
-        db.prepare(`UPDATE generations SET status = 'failed', error_msg = ?,
-          completed_at = datetime('now','localtime') WHERE id = ?`)
-          .run(err.message, taskId);
-        creditService.addCredits(user.id, cost, 'refund', `API生成失败退款 - 任务${taskId}`, taskId);
+        creditService.failGenerationAndRefund(taskId, err.message);
 
         triggerWebhook(user.id, 'task.failed', {
           task_id: taskId,
@@ -884,10 +872,7 @@ router.post('/generate/image-edit', async (req, res) => {
           result: { images, mode }
         });
       } catch (err) {
-        db.prepare(`UPDATE generations SET status = 'failed', error_msg = ?,
-          completed_at = datetime('now','localtime') WHERE id = ?`)
-          .run(err.message, taskId);
-        creditService.addCredits(user.id, cost, 'refund', `API图生图失败退款 - 任务${taskId}`, taskId);
+        creditService.failGenerationAndRefund(taskId, err.message);
 
         triggerWebhook(user.id, 'task.failed', {
           task_id: taskId,
@@ -986,10 +971,7 @@ router.post('/generate/audio', async (req, res) => {
         });
       } catch (err) {
         console.error('API音频生成失败:', err);
-        db.prepare(`UPDATE generations SET status = 'failed', error_msg = ?,
-          completed_at = datetime('now','localtime') WHERE id = ?`)
-          .run(err.message, taskId);
-        creditService.addCredits(user.id, cost, 'refund', `API音频合成失败退款 - 任务${taskId}`, taskId);
+        creditService.failGenerationAndRefund(taskId, err.message);
 
         triggerWebhook(user.id, 'task.failed', {
           task_id: taskId,
@@ -1136,10 +1118,7 @@ router.post('/generate/prompt-extract', async (req, res) => {
         });
       } catch (err) {
         console.error('API提示词反推失败:', err);
-        db.prepare(`UPDATE generations SET status = 'failed', error_msg = ?,
-          completed_at = datetime('now','localtime') WHERE id = ?`)
-          .run(err.message, taskId);
-        creditService.addCredits(user.id, cost, 'refund', `API提示词反推失败退款 - 任务${taskId}`, taskId);
+        creditService.failGenerationAndRefund(taskId, err.message);
 
         triggerWebhook(user.id, 'task.failed', {
           task_id: taskId,
@@ -1272,10 +1251,7 @@ router.post('/generate/idphoto', async (req, res) => {
         });
       } catch (err) {
         console.error('API证件照生成失败:', err);
-        db.prepare(`UPDATE generations SET status = 'failed', error_msg = ?,
-          completed_at = datetime('now','localtime') WHERE id = ?`)
-          .run(err.message, taskId);
-        creditService.addCredits(user.id, totalCost, 'refund', `API证件照失败退款 - 任务${taskId}`, taskId);
+        creditService.failGenerationAndRefund(taskId, err.message);
 
         triggerWebhook(user.id, 'task.failed', {
           task_id: taskId,
@@ -1427,10 +1403,7 @@ router.post('/generate/video-gen', async (req, res) => {
         });
       } catch (err) {
         console.error('API视频生成失败:', err);
-        db.prepare(`UPDATE generations SET status = 'failed', error_msg = ?,
-          completed_at = datetime('now','localtime') WHERE id = ?`)
-          .run(err.message, taskId);
-        creditService.addCredits(user.id, cost, 'refund', `API视频生成失败退款 - 任务${taskId}`, taskId);
+        creditService.failGenerationAndRefund(taskId, err.message);
 
         triggerWebhook(user.id, 'task.failed', {
           task_id: taskId,
@@ -1594,10 +1567,7 @@ router.post('/generate/gif', async (req, res) => {
         });
       } catch (err) {
         console.error('API GIF生成失败:', err);
-        db.prepare(`UPDATE generations SET status = 'failed', error_msg = ?,
-          completed_at = datetime('now','localtime') WHERE id = ?`)
-          .run(err.message, taskId);
-        creditService.addCredits(user.id, cost, 'refund', `API GIF生成失败退款 - 任务${taskId}`, taskId);
+        creditService.failGenerationAndRefund(taskId, err.message);
 
         triggerWebhook(user.id, 'task.failed', {
           task_id: taskId,
@@ -1704,10 +1674,7 @@ router.post('/generate/face-swap', async (req, res) => {
         });
       } catch (err) {
         console.error('API换脸生成失败:', err);
-        db.prepare(`UPDATE generations SET status = 'failed', error_msg = ?,
-          completed_at = datetime('now','localtime') WHERE id = ?`)
-          .run(err.message, taskId);
-        creditService.addCredits(user.id, cost, 'refund', `API换脸失败退款 - 任务${taskId}`, taskId);
+        creditService.failGenerationAndRefund(taskId, err.message);
 
         triggerWebhook(user.id, 'task.failed', {
           task_id: taskId,
@@ -2156,9 +2123,6 @@ router.post('/generate/text', async (req, res) => {
     });
 
   } catch (err) {
-    if (cost > 0) {
-      try { creditService.addCredits(user.id, cost, 'refund', 'API文本生成失败退款'); } catch (e) {}
-    }
     recordUsage(user.id, req.apiKeyId, '/api/v1/generate/text', 'text', null, 'failed', 0, Date.now() - startTime, err.message);
     v1Error(res, '生成失败：' + err.message);
   }

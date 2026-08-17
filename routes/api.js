@@ -128,11 +128,7 @@ router.post('/generate/ecommerce', authRequired, async (req, res) => {
           
       } catch (err) {
         console.error('电商套图生成失败:', err);
-        db.prepare(`UPDATE generations SET status = 'failed', error_msg = ?,
-          completed_at = datetime('now','localtime') WHERE id = ?`)
-          .run(err.message, taskId);
-        // 失败退款
-        creditService.addCredits(req.user.id, cost, 'refund', `生成失败退款 - 任务${taskId}`, taskId);
+        creditService.failGenerationAndRefund(taskId, err.message);
       }
     });
     
@@ -309,10 +305,7 @@ CRITICAL REQUIREMENTS:
           
       } catch (err) {
         console.error('海报生成失败:', err);
-        db.prepare(`UPDATE generations SET status = 'failed', error_msg = ?,
-          completed_at = datetime('now','localtime') WHERE id = ?`)
-          .run(err.message, taskId);
-        creditService.addCredits(req.user.id, cost, 'refund', `生成失败退款 - 任务${taskId}`, taskId);
+        creditService.failGenerationAndRefund(taskId, err.message);
       }
     });
     
@@ -713,10 +706,7 @@ router.post('/generate/avatar', authRequired, async (req, res) => {
           
       } catch (err) {
         console.error('头像生成失败:', err);
-        db.prepare(`UPDATE generations SET status = 'failed', error_msg = ?,
-          completed_at = datetime('now','localtime') WHERE id = ?`)
-          .run(err.message, taskId);
-        creditService.addCredits(req.user.id, cost, 'refund', `生成失败退款 - 任务${taskId}`, taskId);
+        creditService.failGenerationAndRefund(taskId, err.message);
       }
     });
     
@@ -794,10 +784,7 @@ router.post('/generate/audio', authRequired, async (req, res) => {
 
       } catch (err) {
         console.error('音频生成失败:', err);
-        db.prepare(`UPDATE generations SET status = 'failed', error_msg = ?,
-          completed_at = datetime('now','localtime') WHERE id = ?`)
-          .run(err.message, taskId);
-        creditService.addCredits(req.user.id, cost, 'refund', '生成失败退款 - 任务' + taskId, taskId);
+        creditService.failGenerationAndRefund(taskId, err.message);
       }
     });
 
@@ -897,10 +884,7 @@ router.post('/generate/image', authRequired, async (req, res) => {
 
       } catch (err) {
         console.error('图片生成失败:', err);
-        db.prepare(`UPDATE generations SET status = 'failed', error_msg = ?,
-          completed_at = datetime('now','localtime') WHERE id = ?`)
-          .run(err.message, taskId);
-        creditService.addCredits(req.user.id, cost, 'refund', `生成失败退款 - 任务${taskId}`, taskId);
+        creditService.failGenerationAndRefund(taskId, err.message);
       }
     });
 
@@ -1198,10 +1182,7 @@ router.post('/editor/dewatermark', authRequired, async (req, res) => {
 
       } catch (err) {
         console.error('AI去水印失败:', err);
-        db.prepare(`UPDATE generations SET status = 'failed', error_msg = ?,
-          completed_at = datetime('now','localtime') WHERE id = ?`)
-          .run(err.message, taskId);
-        creditService.addCredits(req.user.id, cost, 'refund', `去水印失败退款 - 任务${taskId}`, taskId);
+        creditService.failGenerationAndRefund(taskId, err.message);
       }
     });
 
@@ -1477,9 +1458,7 @@ router.post('/generate/gif', authRequired, async (req, res) => {
           task5.error_msg = err.message || '生成失败';
         }
         // 更新记录+退款
-        db.prepare(`UPDATE generations SET status = 'failed', error_msg = ?, completed_at = datetime('now','localtime') WHERE id = ?`)
-          .run(err.message, genId);
-        creditService.addCredits(req.user.id, cost, 'refund', `GIF生成失败退款 - 任务${genId}`, genId);
+        creditService.failGenerationAndRefund(genId, err.message);
       }
     });
 
@@ -1715,10 +1694,7 @@ router.post('/generate/idphoto', authRequired, async (req, res) => {
           created_at: Date.now(),
           error_msg: err.message,
         });
-        db.prepare(`UPDATE generations SET status = 'failed', error_msg = ?,
-          completed_at = datetime('now','localtime') WHERE id = ?`)
-          .run(err.message, taskId);
-        creditService.addCredits(req.user.id, totalCost, 'refund', `证件照生成失败退款 - 任务${taskId}`, taskId);
+        creditService.failGenerationAndRefund(taskId, err.message);
       }
     });
 
@@ -1980,9 +1956,7 @@ router.post('/generate/video-gen', authRequired, async (req, res) => {
           t3.status = 'failed';
           t3.error_msg = err.message || '生成失败';
         }
-        db.prepare(`UPDATE generations SET status = 'failed', error_msg = ?, completed_at = datetime('now','localtime') WHERE id = ?`)
-          .run(err.message, genId);
-        creditService.addCredits(req.user.id, cost, 'refund', `视频生成失败退款 - 任务${genId}`, genId);
+        creditService.failGenerationAndRefund(genId, err.message);
       }
     });
 
@@ -2152,16 +2126,9 @@ router.post('/generate/prompt-extract', authRequired, async (req, res) => {
     console.error('提示词提取失败:', err);
     // 更新为失败并退款
     try {
-      db.prepare(`UPDATE generations SET status = 'failed', error_msg = ?,
-        completed_at = datetime('now','localtime') WHERE id = ?`)
-        .run(err.message, taskId);
+      creditService.failGenerationAndRefund(taskId, err.message);
     } catch (e) {
-      console.error('更新失败记录出错:', e);
-    }
-    try {
-      creditService.addCredits(req.user.id, cost, 'refund', `提示词提取失败退款 - 任务${taskId}`, taskId);
-    } catch (e) {
-      console.error('退款失败:', e);
+      console.error('更新失败记录或退款出错:', e);
     }
     res.error('提取失败：' + err.message);
   }
@@ -2315,9 +2282,7 @@ router.post('/generate/face-swap', authRequired, async (req, res) => {
           t3.status = 'failed';
           t3.error_msg = err.message || '生成失败';
         }
-        db.prepare(`UPDATE generations SET status = 'failed', error_msg = ?, completed_at = datetime('now','localtime') WHERE id = ?`)
-          .run(err.message, genId);
-        creditService.addCredits(req.user.id, finalCost, 'refund', `视频换人失败退款 - 任务${genId}`, genId);
+        creditService.failGenerationAndRefund(genId, err.message);
       }
     });
 
