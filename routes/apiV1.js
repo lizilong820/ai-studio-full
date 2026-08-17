@@ -1211,8 +1211,13 @@ router.post('/generate/idphoto', async (req, res) => {
     const suitConfig = IDPHOTO_SUITS[suit];
     if (!suitConfig) return v1Error(res, '无效的正装选项');
 
-    const baseCost = aiAdapter.calculateCost(model_id, 1);
-    const totalCost = baseCost * Math.max(1, num_photos);
+    const actualCount = Number(num_photos);
+    if (!Number.isSafeInteger(actualCount) || actualCount < 1 || actualCount > 4) {
+      return v1Error(res, '证件照数量必须为1-4张');
+    }
+
+    const totalCost = aiAdapter.calculateCost(model_id, actualCount);
+    if (totalCost === null) return v1Error(res, '无法计算价格');
 
     const deductResult = creditService.deductCredits(
       user.id, totalCost, 'consume', `API-AI证件照(${sizeConfig.name})`
@@ -1226,14 +1231,14 @@ router.post('/generate/idphoto', async (req, res) => {
       (user_id, studio_type, model_id, params, credits_used, status)
       VALUES (?, 'idphoto', ?, ?, ?, 'pending')`)
       .run(user.id, model_id, JSON.stringify({
-        bg_color, size, suit, gender, quality, num_photos, ref_image
+        bg_color, size, suit, gender, quality, num_photos: actualCount, ref_image
       }), totalCost);
     const taskId = result.lastInsertRowid;
 
     setImmediate(async () => {
       try {
         const genResult = await aiAdapter.generateImage(model_id, `ID photo of a person, ${bgConfig.name} background, ${sizeConfig.name} size, professional`, {
-          n: Math.max(1, num_photos),
+          n: actualCount,
           size: `${sizeConfig.width}x${sizeConfig.height}`,
           ref_image: ref_image,
           mode: 'idphoto',
@@ -1243,7 +1248,7 @@ router.post('/generate/idphoto', async (req, res) => {
           idphoto_quality: quality,
         });
 
-        const images = (genResult.images || []).slice(0, Math.max(1, num_photos));
+        const images = (genResult.images || []).slice(0, actualCount);
 
         db.prepare(`UPDATE generations SET result = ?, status = 'success',
           completed_at = datetime('now','localtime') WHERE id = ?`)
@@ -1253,7 +1258,7 @@ router.post('/generate/idphoto', async (req, res) => {
             size,
             suit,
             quality,
-            num_photos
+            num_photos: actualCount
           }), taskId);
 
         triggerWebhook(user.id, 'task.completed', {

@@ -33,7 +33,7 @@ const addCreditsTransaction = db.transaction((userId, amount, type, description,
 // 给用户加积分
 function addCredits(userId, amount, type, description, relatedId = 0) {
   validateAmount(amount);
-  return addCreditsTransaction(userId, amount, type, description, relatedId);
+  return addCreditsTransaction.immediate(userId, amount, type, description, relatedId);
 }
 
 const deductCreditsTransaction = db.transaction((userId, amount, type, description, relatedId) => {

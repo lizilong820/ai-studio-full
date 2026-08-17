@@ -335,7 +335,7 @@ router.post('/generate/copywriting', authRequired, async (req, res) => {
     if (!product_name) return res.error('请填写产品/品牌名称');
     
     const actualCount = parseInt(count) || 3;
-    const cost = aiAdapter.calculateCost(model_id, 1) * actualCount;
+    const cost = aiAdapter.calculateCost(model_id, actualCount);
     
     const deductResult = creditService.deductCredits(
       req.user.id, cost, 'consume', `AI文案生成 (${actualCount}个版本)`
@@ -408,7 +408,7 @@ router.post('/generate/ppt', authRequired, async (req, res) => {
     
     const actualCount = parseInt(count) || 2;
     const slides = parseInt(slide_count) || 12;
-    const cost = aiAdapter.calculateCost(model_id, 1) * actualCount;
+    const cost = aiAdapter.calculateCost(model_id, actualCount);
     
     const deductResult = creditService.deductCredits(
       req.user.id, cost, 'consume', `PPT生成 (${actualCount}份)`
@@ -488,7 +488,7 @@ router.post('/generate/video', authRequired, async (req, res) => {
     if (!topic) return res.error('请填写视频主题');
     
     const actualCount = parseInt(count) || 2;
-    const cost = aiAdapter.calculateCost(model_id, 1) * actualCount;
+    const cost = aiAdapter.calculateCost(model_id, actualCount);
     
     const deductResult = creditService.deductCredits(
       req.user.id, cost, 'consume', `短视频脚本生成 (${actualCount}份)`
@@ -571,7 +571,7 @@ router.post('/generate/resume', authRequired, async (req, res) => {
     if (!work_experience) return res.error('请填写工作经历');
     
     const actualCount = parseInt(count) || 2;
-    const cost = aiAdapter.calculateCost(model_id, 1) * actualCount;
+    const cost = aiAdapter.calculateCost(model_id, actualCount);
     
     const deductResult = creditService.deductCredits(
       req.user.id, cost, 'consume', `简历优化 (${actualCount}份)`
@@ -1596,10 +1596,13 @@ router.post('/generate/idphoto', authRequired, async (req, res) => {
     const suitConfig = IDPHOTO_SUITS[suit];
     if (!suitConfig) return res.error('无效的正装选项');
     
-    // 计算费用：1张基础价 + 额外张数 + 正装加价
-    const baseCost = aiAdapter.calculateCost(model_id, 1);
-    const suitExtra = suit !== 'none' ? 0 : 0; // 正装不加价，都是一次图生图搞定
-    const totalCost = baseCost * Math.max(1, num_photos) + suitExtra;
+    const actualCount = Number(num_photos);
+    if (!Number.isSafeInteger(actualCount) || actualCount < 1 || actualCount > 4) {
+      return res.error('证件照数量必须为1-4张');
+    }
+
+    const totalCost = aiAdapter.calculateCost(model_id, actualCount);
+    if (totalCost === null) return res.error('无法计算价格');
 
     const deductResult = creditService.deductCredits(
       req.user.id, totalCost, 'consume', `AI证件照(${sizeConfig.name})`
@@ -1613,7 +1616,7 @@ router.post('/generate/idphoto', authRequired, async (req, res) => {
       (user_id, studio_type, model_id, params, credits_used, status)
       VALUES (?, 'idphoto', ?, ?, ?, 'pending')`)
       .run(req.user.id, model_id, JSON.stringify({ 
-        bg_color, size, suit, gender, quality, num_photos 
+        bg_color, size, suit, gender, quality, num_photos: actualCount
       }), totalCost);
     const taskId = result.lastInsertRowid;
 
@@ -1665,7 +1668,6 @@ router.post('/generate/idphoto', authRequired, async (req, res) => {
         }
 
         // 生成指定数量的证件照
-        const actualCount = Math.min(Math.max(1, num_photos), 4);
         let allImages = [];
         
         // 分批生成（每次最多2张更稳定）
