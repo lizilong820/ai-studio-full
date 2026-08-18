@@ -1,22 +1,64 @@
 const { db } = require('../database/db');
+const { hashApiKey } = require('../utils/apiKey');
+
+const rateBuckets = new Map();
+
+function enforceApiKeyRateLimit(keyRecord, res) {
+  const now = Date.now();
+  const max = Math.min(600, Math.max(1, Number(keyRecord.rate_limit) || 60));
+  const bucket = rateBuckets.get(keyRecord.id);
+
+  if (!bucket || bucket.resetAt <= now) {
+    rateBuckets.set(keyRecord.id, { count: 1, resetAt: now + 60_000 });
+    return true;
+  }
+  if (bucket.count >= max) {
+    res.setHeader('Retry-After', String(Math.max(1, Math.ceil((bucket.resetAt - now) / 1000))));
+    res.status(429).json({ code: 429, msg: 'API Key 调用频率超过限制' });
+    return false;
+  }
+  bucket.count += 1;
+  return true;
+}
 
 // API Key 鉴权中间件
 function apiKeyAuth(req, res, next) {
   const apiKey = req.headers['x-api-key'] || req.headers['X-API-Key'];
 
-  if (!apiKey) {
+  if (typeof apiKey !== 'string' || apiKey.length < 20 || apiKey.length > 200) {
     return res.status(401).json({
       code: 401,
-      msg: '缺少 API Key，请在请求头中携带 X-API-Key'
+      msg: '缺少或无效的 API Key'
     });
   }
 
-  const keyRecord = db.prepare(`
+  const keyHash = hashApiKey(apiKey);
+  let keyRecord = db.prepare(`
     SELECT ak.*, u.id as user_id, u.username, u.credits, u.status as user_status
     FROM api_keys ak
     JOIN users u ON ak.user_id = u.id
-    WHERE ak.api_key = ?
-  `).get(apiKey);
+    WHERE ak.api_key_hash = ?
+  `).get(keyHash);
+
+  // 一次性兼容迁移历史明文密钥，成功后立即清空明文。
+  if (!keyRecord) {
+    const legacy = db.prepare(`
+      SELECT ak.*, u.id as user_id, u.username, u.credits, u.status as user_status
+      FROM api_keys ak
+      JOIN users u ON ak.user_id = u.id
+      WHERE ak.api_key = ? AND ak.api_key_hash IS NULL
+    `).get(apiKey);
+    if (legacy) {
+      db.prepare('UPDATE api_keys SET api_key = ?, api_key_hash = ?, api_key_prefix = ? WHERE id = ? AND api_key_hash IS NULL')
+        .run(keyHash, keyHash, apiKey.slice(0, 10), legacy.id);
+      keyRecord = db.prepare(`
+        SELECT ak.*, u.id as user_id, u.username, u.credits, u.status as user_status
+        FROM api_keys ak
+        JOIN users u ON ak.user_id = u.id
+        WHERE ak.id = ? AND ak.api_key_hash = ?
+      `).get(legacy.id, keyHash);
+    }
+  }
 
   if (!keyRecord) {
     return res.status(401).json({
@@ -38,6 +80,8 @@ function apiKeyAuth(req, res, next) {
       msg: '账号已被禁用'
     });
   }
+
+  if (!enforceApiKeyRateLimit(keyRecord, res)) return;
 
   // 挂载用户和密钥信息到 req
   req.apiUser = {

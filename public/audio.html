@@ -312,7 +312,7 @@
           <div class="form-fields">
             <div class="form-group">
               <label class="form-label">选择模型 <span class="required">*</span></label>
-              <select class="form-select model-select" id="modelSelect" onchange="onModelChange()">
+              <select class="form-select model-select" id="modelSelect">
                 <option value="">加载中...</option>
               </select>
               <div class="model-info-card" id="modelInfoCard" style="display:none;"></div>
@@ -557,7 +557,7 @@
     initCommonComponents();
 
     let selectedFormat = 'wav';
-    let currentPollInterval = null;
+    let currentPollController = null;
     let modelList = [];
 
     const modelInfo = {
@@ -587,10 +587,9 @@
         const data = await apiRequest('/api/models?type=audio');
         if (data.code === 0 && data.data && data.data.length > 0) {
           modelList = data.data;
-          const optionsHtml = data.data.map(m =>
-            `<option value="${m.id}">${m.name} - ${m.price_per_call || '--'}积分/次${m.is_default ? ' · 默认' : ''}</option>`
-          ).join('');
-          document.getElementById('modelSelect').innerHTML = optionsHtml;
+          renderModelOptions(document.getElementById('modelSelect'), data.data, model =>
+            `${model.name} - ${model.price_per_call || '--'}积分/次${model.is_default ? ' · 默认' : ''}`
+          );
 
           const defaultModel = data.data.find(m => m.is_default);
           if (defaultModel) {
@@ -598,10 +597,10 @@
           }
           onModelChange();
         } else {
-          document.getElementById('modelSelect').innerHTML = '<option value="">暂无可用模型</option>';
+          renderModelOptions(document.getElementById('modelSelect'), [], () => '');
         }
       } catch (e) {
-        document.getElementById('modelSelect').innerHTML = '<option value="">模型加载失败</option>';
+        renderModelOptions(document.getElementById('modelSelect'), [], () => '', '模型加载失败');
       }
     }
 
@@ -693,7 +692,10 @@
     }
 
     // ===== 费用计算 =====
+    let costRequestSeq = 0;
+
     function updateCost() {
+      const requestSeq = ++costRequestSeq;
       const modelId = document.getElementById('modelSelect')?.value;
       if (!modelId || isNaN(parseInt(modelId))) {
         document.getElementById('costDisplay').textContent = '💎 -- 积分';
@@ -704,6 +706,7 @@
         method: 'POST',
         body: JSON.stringify({ model_id: parseInt(modelId), count: 1 })
       }).then(data => {
+        if (requestSeq !== costRequestSeq) return;
         if (data.code === 0) {
           document.getElementById('costDisplay').textContent = '💎 ' + data.data.cost + ' 积分';
         } else {
@@ -713,6 +716,7 @@
           }
         }
       }).catch(() => {
+        if (requestSeq !== costRequestSeq) return;
         const model = modelList.find(m => m.id == modelId);
         if (model && model.price_per_call) {
           document.getElementById('costDisplay').textContent = '💎 ' + model.price_per_call + ' 积分';
@@ -837,46 +841,27 @@
       }).catch(err => {
         btn.disabled = false;
         btn.innerHTML = '<span class="btn-icon">✨</span>立即合成';
-        document.getElementById('resultPanel').innerHTML = `
-          <div class="preview-empty">
-            <div class="empty-icon">❌</div>
-            <h3>生成失败</h3>
-            <p style="color: var(--danger);">${err.message}</p>
-          </div>
-        `;
+        showFailed(err.message, false);
       });
     }
 
     // ===== 轮询结果 =====
     function startPolling(taskId) {
-      let attempts = 0;
-      const maxAttempts = 120;
-
-      if (currentPollInterval) clearInterval(currentPollInterval);
-
-      currentPollInterval = setInterval(() => {
-        attempts++;
-        if (attempts > maxAttempts) {
-          clearInterval(currentPollInterval);
+      if (currentPollController) currentPollController.stop();
+      currentPollController = pollGeneration(taskId, data => {
+        showResult(data);
+        loadHistory();
+        currentPollController = null;
+      }, error => {
+        if (error === 'timeout') {
           showTimeout();
-          return;
+        } else {
+          showFailed(error);
+          loadHistory();
+          refreshUserInfo();
         }
-
-        apiRequest('/api/generation/' + taskId).then(res => {
-          if (res.code === 0 && res.data) {
-            if (res.data.status === 'success') {
-              clearInterval(currentPollInterval);
-              showResult(res.data);
-              loadHistory();
-            } else if (res.data.status === 'failed') {
-              clearInterval(currentPollInterval);
-              showFailed(res.data.error_msg);
-              loadHistory();
-              refreshUserInfo();
-            }
-          }
-        }).catch(() => {});
-      }, 2000);
+        currentPollController = null;
+      }, 120);
     }
 
     function showResult(data) {
@@ -889,43 +874,60 @@
         try { result = JSON.parse(result); } catch(e) { result = {}; }
       }
 
-      const audioUrl = result.audio_url;
+      const audioUrl = normalizeMediaUrl(result.audio_url);
+      if (!audioUrl) {
+        showFailed('音频地址无效', false);
+        return;
+      }
       const sizeKb = result.size ? (result.size / 1024).toFixed(1) + ' KB' : '';
-      const fileName = result.file_name || 'audio.wav';
+      const fileName = String(result.file_name || 'audio.wav');
       const perf = result.perf || {};
       let perfText = '';
       if (perf.generate_seconds) perfText += '推理' + parseFloat(perf.generate_seconds).toFixed(1) + 's';
       if (perf.audio_seconds) perfText += ' · 时长' + parseFloat(perf.audio_seconds).toFixed(1) + 's';
       if (perf.rtf) perfText += ' · RTF ' + parseFloat(perf.rtf).toFixed(2);
 
-      document.getElementById('resultPanel').innerHTML = `
-        <div class="audio-result-card">
-          <div class="audio-result-info">
-            <span class="file-name">🎵 ${fileName}</span>
-            <span style="color: var(--text-3); font-size: 12.5px;">${sizeKb}${perfText ? ' · ' + perfText : ''}</span>
-          </div>
-          <audio controls src="${audioUrl}"></audio>
-          <div class="audio-result-actions">
-            <button class="btn-primary-sm" onclick="downloadAudio('${audioUrl}', '${fileName}')">⬇️ 下载音频</button>
-            <button class="btn-outline-sm" onclick="copyAudioLink('${audioUrl}')">🔗 复制链接</button>
-          </div>
-        </div>
-      `;
+      const panel = document.getElementById('resultPanel');
+      panel.replaceChildren();
+      const card = document.createElement('div');
+      card.className = 'audio-result-card';
+      const info = document.createElement('div');
+      info.className = 'audio-result-info';
+      const name = document.createElement('span');
+      name.className = 'file-name';
+      name.textContent = '🎵 ' + fileName;
+      const meta = document.createElement('span');
+      meta.style.cssText = 'color:var(--text-3);font-size:12.5px;';
+      meta.textContent = sizeKb + (perfText ? ' · ' + perfText : '');
+      info.append(name, meta);
+
+      const audio = document.createElement('audio');
+      audio.controls = true;
+      audio.src = audioUrl;
+      const actions = document.createElement('div');
+      actions.className = 'audio-result-actions';
+      const download = document.createElement('button');
+      download.className = 'btn-primary-sm';
+      download.textContent = '⬇️ 下载音频';
+      download.addEventListener('click', () => downloadAudio(audioUrl, fileName));
+      const copy = document.createElement('button');
+      copy.className = 'btn-outline-sm';
+      copy.textContent = '🔗 复制链接';
+      copy.addEventListener('click', () => copyAudioLink(audioUrl));
+      actions.append(download, copy);
+      card.append(info, audio, actions);
+      panel.appendChild(card);
     }
 
-    function showFailed(errorMsg) {
+    function showFailed(errorMsg, refunded = true) {
       const btn = document.getElementById('generateBtn');
       btn.disabled = false;
       btn.innerHTML = '<span class="btn-icon">✨</span>立即合成';
 
-      document.getElementById('resultPanel').innerHTML = `
-        <div class="preview-empty">
-          <div class="empty-icon">❌</div>
-          <h3>生成失败</h3>
-          <p style="color: var(--danger);">${errorMsg || '未知错误'}</p>
-          <p style="font-size: 12.5px; margin-top: 6px;">积分已退还</p>
-        </div>
-      `;
+      const panel = document.getElementById('resultPanel');
+      panel.innerHTML = '<div class="preview-empty"><div class="empty-icon">❌</div><h3>生成失败</h3><p class="error-message" style="color:var(--danger);"></p><p class="refund-message" style="font-size:12.5px;margin-top:6px;"></p></div>';
+      panel.querySelector('.error-message').textContent = String(errorMsg || '未知错误');
+      panel.querySelector('.refund-message').textContent = refunded ? '积分已退还' : '';
     }
 
     function showTimeout() {
@@ -952,7 +954,7 @@
     }
 
     function copyAudioLink(url) {
-      const fullUrl = window.location.origin + url;
+      const fullUrl = new URL(url, window.location.origin).href;
       if (navigator.clipboard && window.isSecureContext) {
         navigator.clipboard.writeText(fullUrl).then(() => {
           showToast('链接已复制到剪贴板', 'success');
@@ -1030,36 +1032,62 @@
       apiRequest('/api/user/generations?studio=audio&page=1&pageSize=20').then(function(res) {
         var list = document.getElementById('historyList');
         if (res.code === 0 && res.data && res.data.list && res.data.list.length > 0) {
-          list.innerHTML = res.data.list.map(function(item) {
-            var statusText = { success: '成功', failed: '失败', pending: '生成中' }[item.status] || item.status;
-            var title = '音频作品 #' + item.id;
-            var audioUrl = '';
-            var result = item.result || {};
-            if (result.audio_url) {
-              audioUrl = result.audio_url;
-              title = result.file_name || title;
-            }
-            var sizeText = result.size ? (result.size / 1024).toFixed(1) + ' KB' : '';
-            var html = '<div class="history-item-card" onclick="loadHistoryItem(' + item.id + ')">';
-            html += '<div class="history-item-text">' + title + '</div>';
-            html += '<div class="history-item-meta">';
-            html += '<span>' + item.created_at + ' · ' + item.credits_used + '积分' + (sizeText ? ' · ' + sizeText : '') + '</span>';
-            html += '<span class="status-pill ' + item.status + '">' + statusText + '</span>';
-            html += '</div>';
+          list.replaceChildren();
+          res.data.list.forEach(function(item) {
+            const id = Number(item.id);
+            if (!Number.isSafeInteger(id) || id < 1) return;
+            const allowedStatus = ['success', 'failed', 'pending', 'processing'].includes(item.status)
+              ? item.status
+              : 'pending';
+            const statusText = { success: '成功', failed: '失败', pending: '生成中', processing: '生成中' }[allowedStatus];
+            const result = item.result && typeof item.result === 'object' ? item.result : {};
+            const audioUrl = normalizeMediaUrl(result.audio_url);
+            const title = String(result.file_name || ('音频作品 #' + id));
+            const sizeText = result.size ? (result.size / 1024).toFixed(1) + ' KB' : '';
+
+            const card = document.createElement('div');
+            card.className = 'history-item-card';
+            card.addEventListener('click', () => loadHistoryItem(id));
+            const titleNode = document.createElement('div');
+            titleNode.className = 'history-item-text';
+            titleNode.textContent = title;
+            const meta = document.createElement('div');
+            meta.className = 'history-item-meta';
+            const details = document.createElement('span');
+            details.textContent = String(item.created_at || '') + ' · ' + Number(item.credits_used || 0) + '积分' + (sizeText ? ' · ' + sizeText : '');
+            const status = document.createElement('span');
+            status.className = 'status-pill ' + allowedStatus;
+            status.textContent = statusText;
+            meta.append(details, status);
+            card.append(titleNode, meta);
             if (audioUrl) {
-              html += '<audio controls style="width:100%;margin-top:8px;height:32px;" src="' + audioUrl + '" onclick="event.stopPropagation()"></audio>';
+              const audio = document.createElement('audio');
+              audio.controls = true;
+              audio.style.cssText = 'width:100%;margin-top:8px;height:32px;';
+              audio.src = audioUrl;
+              audio.addEventListener('click', event => event.stopPropagation());
+              card.appendChild(audio);
             }
-            html += '</div>';
-            return html;
-          }).join('');
+            list.appendChild(card);
+          });
         } else {
           list.innerHTML = '<div style="text-align: center; padding: 60px 0; color: var(--text-3);">暂无历史记录</div>';
         }
       }).catch(function() {});
     }
 
-    function loadHistoryItem(id) {
-      apiRequest('/api/generation/' + id).then(res => {
+    let historyItemRequestSeq = 0;
+
+    async function loadHistoryItem(id) {
+      const requestSeq = ++historyItemRequestSeq;
+      const normalizedId = String(id ?? '');
+      if (!/^\d+$/.test(normalizedId) || Number(normalizedId) < 1) return;
+
+      try {
+        const res = await apiRequest(
+          '/api/generation/' + encodeURIComponent(normalizedId)
+        );
+        if (requestSeq !== historyItemRequestSeq) return;
         if (res.code === 0 && res.data) {
           switchTab('result', document.querySelectorAll('.preview-tab')[0]);
           if (res.data.status === 'success') {
@@ -1076,7 +1104,7 @@
             `;
           }
         }
-      }).catch(() => {});
+      } catch (error) {}
     }
 
     // ===== 初始化 =====
@@ -1084,7 +1112,7 @@
     loadHistory();
 
     // 监听模型变化
-    document.getElementById('modelSelect').addEventListener('change', updateCost);
+    document.getElementById('modelSelect').addEventListener('change', onModelChange);
   </script>
 </body>
 </html>

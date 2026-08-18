@@ -628,9 +628,9 @@
     let currentDuration = 4;
     let currentRatio = '16:9';
     let uploadedImageBase64 = '';
-    let currentTaskId = '';
     let pollTimer = null;
-    let lastGifUrl = '';
+    let pollSequence = 0;
+    let lastVideoUrl = '';
 
     // 初始化模型列表
     async function loadModels() {
@@ -646,9 +646,9 @@
             if (m.is_default) opt.selected = true;
             select.appendChild(opt);
           });
-          updateCost();
           updateModeAvailability();
           updateDurationAvailability();
+          updateCost();
         } else {
           select.innerHTML = '<option value="">暂无可用视频模型</option>';
         }
@@ -657,9 +657,13 @@
       }
     }
 
+    let costRequestSeq = 0;
+
     // 更新价格
     async function updateCost() {
+      const requestSeq = ++costRequestSeq;
       const modelId = document.getElementById('modelSelect').value;
+      const duration = currentDuration;
       if (!modelId) {
         document.getElementById('costDisplay').textContent = '💎 -- 积分';
         return;
@@ -667,8 +671,9 @@
       try {
         const data = await apiRequest('/api/calculate-cost', {
           method: 'POST',
-          body: JSON.stringify({ model_id: modelId, count: 1, duration: currentDuration })
+          body: JSON.stringify({ model_id: modelId, count: 1, duration })
         });
+        if (requestSeq !== costRequestSeq) return;
         if (data.code === 0) {
           document.getElementById('costDisplay').textContent = '💎 ' + data.data.cost + ' 积分';
         }
@@ -807,7 +812,6 @@
           if (items[i].style.pointerEvents !== 'none') {
             items[i].classList.add('active');
             currentDuration = parseInt(items[i].dataset.duration);
-            updateCost();
             break;
           }
         }
@@ -834,8 +838,11 @@
     });
 
     // 模型切换
-    document.getElementById('modelSelect').addEventListener('change', function() { updateCost(); updateModeAvailability();
-          updateDurationAvailability(); });
+    document.getElementById('modelSelect').addEventListener('change', function() {
+      updateModeAvailability();
+      updateDurationAvailability();
+      updateCost();
+    });
 
     // 描述字数统计
     const promptInput = document.getElementById('promptInput');
@@ -1052,7 +1059,8 @@
           throw new Error(res.msg || '生成失败');
         }
 
-        currentTaskId = res.data.task_id;
+        const taskId = String(res.data.task_id || '');
+        if (!taskId) throw new Error('生成任务编号无效');
         if (res.data.new_balance != null) {
           const user = getUser();
           user.credits = res.data.new_balance;
@@ -1061,7 +1069,7 @@
         }
 
         // 开始轮询
-        startPolling();
+        startPolling(taskId);
 
       } catch (err) {
         showToast(err.message || '生成失败', 'error');
@@ -1071,15 +1079,16 @@
       }
     }
 
-    function startPolling() {
-      if (pollTimer) clearInterval(pollTimer);
+    function startPolling(taskId) {
+      if (pollTimer) clearTimeout(pollTimer);
+      const sequence = ++pollSequence;
       let elapsed = 0;
       const maxWait = 120 * 60 * 1000; // 最多等120分钟
 
-      pollTimer = setInterval(async () => {
+      const poll = async () => {
+        if (sequence !== pollSequence) return;
         elapsed += 3000;
         if (elapsed > maxWait) {
-          clearInterval(pollTimer);
           pollTimer = null;
           showToast('生成超时，请稍后在个人中心查看', 'error');
           resetBtn();
@@ -1087,7 +1096,8 @@
         }
 
         try {
-          const res = await apiRequest('/api/generate/video-gen/' + currentTaskId);
+          const res = await apiRequest('/api/generate/video-gen/' + encodeURIComponent(taskId));
+          if (sequence !== pollSequence) return;
           if (res.code !== 0) {
             throw new Error(res.msg || '查询失败');
           }
@@ -1107,28 +1117,39 @@
             document.getElementById('progressStatus').textContent = '处理中';
             document.getElementById('genStatusText').textContent = '正在处理视频...';
           } else if (data.status === 'success') {
-            clearInterval(pollTimer);
             pollTimer = null;
             showResult(data.video_url);
+            return;
           } else if (data.status === 'failed') {
-            clearInterval(pollTimer);
             pollTimer = null;
             showToast('生成失败：' + (data.error_msg || '未知错误'), 'error');
             resetBtn();
             document.getElementById('emptyState').style.display = '';
             document.getElementById('generatingState').style.display = 'none';
+            return;
           }
         } catch (e) {
-          // 查询失败不中断，继续等
+          if (sequence !== pollSequence) return;
         }
-      }, 3000);
+        if (sequence === pollSequence) pollTimer = setTimeout(poll, 3000);
+      };
+
+      pollTimer = setTimeout(poll, 3000);
     }
 
-    function showResult(gifUrl) {
-      lastGifUrl = gifUrl;
+    function showResult(videoUrl) {
+      const mediaUrl = normalizeMediaUrl(videoUrl);
+      if (!mediaUrl) {
+        showToast('生成结果地址无效', 'error');
+        resetBtn();
+        document.getElementById('emptyState').style.display = '';
+        document.getElementById('generatingState').style.display = 'none';
+        return;
+      }
+      lastVideoUrl = mediaUrl;
       document.getElementById('generatingState').style.display = 'none';
       document.getElementById('resultState').style.display = 'flex';
-      document.getElementById('resultVideo').src = gifUrl;
+      document.getElementById('resultVideo').src = mediaUrl;
       resetBtn();
       showToast('生成成功！', 'success');
       // 刷新用户信息
@@ -1143,9 +1164,9 @@
 
     // 下载视频
     document.getElementById('downloadBtn').addEventListener('click', () => {
-      if (!lastGifUrl) return;
+      if (!lastVideoUrl) return;
       const a = document.createElement('a');
-      a.href = lastGifUrl;
+      a.href = lastVideoUrl;
       a.download = 'ai_video_' + Date.now() + '.mp4';
       document.body.appendChild(a);
       a.click();

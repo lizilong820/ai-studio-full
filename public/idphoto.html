@@ -511,6 +511,7 @@
     let numPhotos = 1;
     let currentTaskId = null;
     let pollTimer = null;
+    let pollSequence = 0;
     let resultImages = [];
     let currentLayout = 'single';
     let selectedResultIndex = 0;
@@ -727,7 +728,10 @@
           throw new Error(res.msg || '生成失败');
         }
 
-        currentTaskId = res.data.task_id;
+        currentTaskId = String(res.data?.task_id ?? '');
+        if (!currentTaskId || currentTaskId.length > 128) {
+          throw new Error('任务编号无效');
+        }
         if (typeof updateNavAuth === 'function') updateNavAuth();
 
         // 开始轮询
@@ -753,32 +757,57 @@
 
     // ===== 轮询任务状态 =====
     function pollTaskStatus() {
-      if (pollTimer) clearInterval(pollTimer);
+      const sequence = ++pollSequence;
+      if (pollTimer) clearTimeout(pollTimer);
       let progress = 5;
+      let pollCount = 0;
+      let consecutiveErrors = 0;
 
-      pollTimer = setInterval(async () => {
+      const poll = async () => {
+        if (sequence !== pollSequence) return;
+        pollCount++;
+        if (pollCount > 150) {
+          pollSequence++;
+          showToast('任务查询超时，请稍后在历史记录查看结果', 'error');
+          resetGenerateBtn();
+          document.getElementById('generatingState').style.display = 'none';
+          document.getElementById('emptyState').style.display = resultImages.length === 0 ? '' : 'none';
+          return;
+        }
         try {
-          const res = await apiRequest('/api/generate/idphoto/' + currentTaskId);
-          if (res.code !== 0) throw new Error(res.msg);
+          const res = await apiRequest(
+            '/api/generate/idphoto/' + encodeURIComponent(String(currentTaskId))
+          );
+          if (res.code !== 0) throw new Error(res.msg || '任务状态查询失败');
+          consecutiveErrors = 0;
 
           const data = res.data;
           progress = Math.min(95, progress + Math.random() * 8);
           document.getElementById('genProgressFill').style.width = progress + '%';
 
           if (data.status === 'success') {
-            clearInterval(pollTimer);
+            pollSequence++;
             pollTimer = null;
             document.getElementById('genProgressFill').style.width = '100%';
             document.getElementById('genStatus').textContent = '生成完成！';
             
-            resultImages = data.images || [];
+            resultImages = (Array.isArray(data.images) ? data.images : [])
+              .map(normalizeMediaUrl)
+              .filter(Boolean);
+            if (resultImages.length === 0) {
+              showToast('生成结果未包含有效图片', 'error');
+              resetGenerateBtn();
+              document.getElementById('generatingState').style.display = 'none';
+              document.getElementById('emptyState').style.display = '';
+              return;
+            }
             selectedResultIndex = 0;
             
             setTimeout(() => {
               showResults();
             }, 500);
           } else if (data.status === 'failed') {
-            clearInterval(pollTimer);
+            pollSequence++;
             pollTimer = null;
             showToast('生成失败：' + (data.error_msg || '未知错误'), 'error');
             resetGenerateBtn();
@@ -790,9 +819,20 @@
             }
           }
         } catch (err) {
-          console.error('轮询失败:', err);
+          consecutiveErrors++;
+          console.error('轮询失败:', err.message);
+          if (consecutiveErrors >= 5) {
+            pollSequence++;
+            showToast('任务查询失败，请稍后在历史记录查看结果', 'error');
+            resetGenerateBtn();
+            document.getElementById('generatingState').style.display = 'none';
+            document.getElementById('emptyState').style.display = resultImages.length === 0 ? '' : 'none';
+            return;
+          }
         }
-      }, 2000);
+        if (sequence === pollSequence) pollTimer = setTimeout(poll, 2000);
+      };
+      pollTimer = setTimeout(poll, 2000);
     }
 
     // ===== 展示结果 =====
@@ -807,35 +847,35 @@
       resultImages.forEach((img, idx) => {
         const card = document.createElement('div');
         card.className = 'result-card';
-        card.innerHTML = `
-          <div class="result-img-wrap">
-            <img src="${img}" alt="证件照${idx + 1}" loading="lazy">
-          </div>
-          <div class="result-actions">
-            <button class="result-action-btn" data-idx="${idx}" data-action="download">下载</button>
-            <button class="result-action-btn" data-idx="${idx}" data-action="select">选这张</button>
-          </div>
-        `;
-        grid.appendChild(card);
-      });
+        const imageWrap = document.createElement('div');
+        imageWrap.className = 'result-img-wrap';
+        const image = document.createElement('img');
+        image.src = img;
+        image.alt = '证件照' + (idx + 1);
+        image.loading = 'lazy';
+        imageWrap.appendChild(image);
 
-      grid.querySelectorAll('.result-action-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          const idx = parseInt(e.target.dataset.idx);
-          const action = e.target.dataset.action;
-          if (action === 'download') {
-            downloadImage(resultImages[idx], `证件照_${idx + 1}.png`);
-          } else if (action === 'select') {
-            selectedResultIndex = idx;
-            showToast('已选择第' + (idx + 1) + '张用于排版', 'success');
-            renderLayout();
-            // 高亮选中
-            grid.querySelectorAll('.result-card').forEach((c, i) => {
-              c.style.outline = i === idx ? '3px solid var(--brand)' : 'none';
-              c.style.outlineOffset = '2px';
-            });
-          }
+        const actions = document.createElement('div');
+        actions.className = 'result-actions';
+        const download = document.createElement('button');
+        download.className = 'result-action-btn';
+        download.textContent = '下载';
+        download.addEventListener('click', () => downloadImage(img, `证件照_${idx + 1}.png`));
+        const select = document.createElement('button');
+        select.className = 'result-action-btn';
+        select.textContent = '选这张';
+        select.addEventListener('click', () => {
+          selectedResultIndex = idx;
+          showToast('已选择第' + (idx + 1) + '张用于排版', 'success');
+          renderLayout();
+          grid.querySelectorAll('.result-card').forEach((item, itemIndex) => {
+            item.style.outline = itemIndex === idx ? '3px solid var(--brand)' : 'none';
+            item.style.outlineOffset = '2px';
+          });
         });
+        actions.append(download, select);
+        card.append(imageWrap, actions);
+        grid.appendChild(card);
       });
 
       // 默认选中第一张

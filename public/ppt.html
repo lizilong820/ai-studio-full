@@ -292,15 +292,18 @@
       if (data.code === 0) {
         const select = document.getElementById('llmModel');
         if (select && data.data.length > 0) {
-          select.innerHTML = data.data.map(m => 
-            `<option value="${m.id}">${m.name} (${m.model_identifier}) - ${m.price_per_call}积分/版本${m.is_default ? ' · 默认' : ''}</option>`
-          ).join('');
+          renderModelOptions(select, data.data, model =>
+            `${model.name} (${model.model_identifier}) - ${model.price_per_call}积分/版本${model.is_default ? ' · 默认' : ''}`
+          );
           updateCost();
         }
       }
     }
 
+    let costRequestSeq = 0;
+
     function updateCost() {
+      const requestSeq = ++costRequestSeq;
       const count = parseInt(document.getElementById('pptCount').value) || 1;
       const modelId = document.getElementById('llmModel')?.value;
       if (!modelId || isNaN(modelId)) {
@@ -313,6 +316,7 @@
         method: 'POST',
         body: JSON.stringify({ model_id: parseInt(modelId), count })
       }).then(data => {
+        if (requestSeq !== costRequestSeq) return;
         if (data.code === 0) {
           document.getElementById('costDisplay').textContent = '💎 ' + data.data.cost + ' 积分';
         }
@@ -337,11 +341,11 @@
         topic: theme,
         audience: Array.from(document.querySelectorAll('#audienceTags .tag-item')).map(t => t.textContent.replace('×','').trim()),
         duration: document.getElementById('duration').value,
-        core_points: corePoints,
-        page_count: parseInt(document.getElementById('pageCount').value) || 12,
+        key_points: corePoints,
+        slide_count: parseInt(document.getElementById('pageCount').value) || 12,
         count: count,
         style: getActiveOptionText('.form-section:nth-of-type(3) .option-item.active') || '商务简约',
-        color: document.querySelector('.form-section:nth-of-type(3) .color-option.active .color-label')?.textContent || '蓝色系',
+        color_scheme: document.querySelector('.form-section:nth-of-type(3) .color-option.active .color-label')?.textContent || '蓝色系',
         density: getActiveOptionText('.form-section:nth-of-type(3) .form-group:nth-of-type(3) .option-item.active') || '适中',
         creativity: document.querySelector('.form-section:nth-of-type(4) .slider')?.value || 50,
       };
@@ -374,19 +378,10 @@
         </div>
       `;
       const tplList = modal.querySelector('#tplList');
-      tplList.innerHTML = templates.map(t => `
-        <div data-id="${t.id}" style="padding:12px 14px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--brand)'" onmouseout="this.style.borderColor='var(--border)'">
-          <div style="font-size:14px;font-weight:500;color:var(--text);">${t.name}</div>
-          <div style="font-size:11.5px;color:var(--text-3);margin-top:3px;">${new Date(t.created_at).toLocaleString()}</div>
-        </div>
-      `).join('');
-      tplList.querySelectorAll('[data-id]').forEach(item => {
-        item.onclick = function() {
-          const tpl = templates.find(t => t.id == this.dataset.id);
-          if (tpl && tpl.params) applyTemplate(tpl.params);
-          modal.remove();
-          showToast('模板已加载', 'success');
-        };
+      renderTemplateList(tplList, templates, tpl => {
+        if (tpl.params) applyTemplate(tpl.params);
+        modal.remove();
+        showToast('模板已加载', 'success');
       });
       modal.querySelector('#tplClose').onclick = () => modal.remove();
       modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
@@ -398,10 +393,12 @@
       if (params.ppt_type) document.getElementById('pptType').value = params.ppt_type;
       if (params.theme) document.getElementById('pptTheme').value = params.theme;
       if (params.duration) document.getElementById('duration').value = params.duration;
-      if (params.core_points) document.getElementById('corePoints').value = params.core_points;
-      if (params.page_count) {
-        document.getElementById('pageCount').value = params.page_count;
-        document.querySelector('#pageCount + .slider-value').textContent = params.page_count + '页';
+      const keyPoints = params.key_points ?? params.core_points;
+      if (keyPoints) document.getElementById('corePoints').value = keyPoints;
+      const slideCount = params.slide_count ?? params.page_count;
+      if (slideCount) {
+        document.getElementById('pageCount').value = slideCount;
+        document.querySelector('#pageCount + .slider-value').textContent = slideCount + '页';
       }
       if (params.count) document.getElementById('pptCount').value = params.count;
       updateCost();

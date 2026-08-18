@@ -888,6 +888,19 @@
 
 <script>
 // ============ 全局状态 ============
+function normalizeEditorMediaUrl(value) {
+  if (typeof value !== 'string') return null;
+  if (value.startsWith('/uploads/') && !/["'<>\\]/.test(value)) return value;
+  if (/^data:image\/(?:png|jpeg|webp|gif);base64,[a-z0-9+/=]+$/i.test(value)) return value;
+  if (/^blob:[a-z0-9:/._-]+$/i.test(value)) return value;
+  try {
+    const url = new URL(value, window.location.origin);
+    return ['http:', 'https:'].includes(url.protocol) ? url.href : null;
+  } catch (e) {
+    return null;
+  }
+}
+
 const canvas = document.getElementById('editorCanvas');
 const ctx = canvas.getContext('2d');
 const overlay = document.getElementById('canvasOverlay');
@@ -1817,12 +1830,15 @@ function startAIDewatermark() {
     }
     return;
   }
-  
+
+  const task = startEditorTask(currentIndex);
+  task.elements = elements;
+  task.history = historyStack;
   showLoading('AI去水印中，请稍候...');
-  
+
   const modelId = document.getElementById('dewatermarkModel')?.value;
   const refDataUrl = canvas.toDataURL('image/jpeg', 0.9);
-  
+
   (async () => {
     try {
       const data = await apiFetch('/api/generate/image', {
@@ -1835,7 +1851,7 @@ function startAIDewatermark() {
           ref_image: refDataUrl,
         })
       });
-      
+      if (!isEditorTaskActive(task)) return;
       if (data.code !== 0) {
         if (data.code === 401) {
           localStorage.removeItem('token');
@@ -1843,94 +1859,46 @@ function startAIDewatermark() {
           if (confirm('登录已过期，是否重新登录？')) {
             window.location.href = '/login.html?redirect=' + encodeURIComponent(window.location.pathname + window.location.search);
           }
+          finishEditorTask(task);
+          hideLoading();
           return;
         }
         throw new Error(data.msg || '生成失败');
       }
-      
-      const taskId = data.data.task_id;
-      await pollDewatermarkTask(taskId);
-      
+
+      pollEditorTask(data.data.task_id, task, imgUrl => {
+        loadEditorTaskImage(imgUrl, task, newImg => {
+          newImg._elements = task.elements;
+          newImg._history = task.history;
+          images[task.targetIndex] = newImg;
+          if (currentIndex === task.targetIndex) {
+            baseImage = newImg;
+            canvas.width = newImg.width;
+            canvas.height = newImg.height;
+            ctx.drawImage(newImg, 0, 0);
+            drawElements();
+          }
+          initThumbs();
+          finishEditorTask(task);
+          hideLoading();
+          showToast('AI去水印完成！', 'success');
+        }, () => {
+          finishEditorTask(task);
+          hideLoading();
+          showToast('AI去水印成功，但图片加载失败（可能是跨域），请刷新后重试', 'error');
+        }, 'AI去水印完成，但图片加载较慢，已关闭弹窗');
+      }, error => {
+        finishEditorTask(task);
+        hideLoading();
+        showToast('AI去水印失败：' + error.message, 'error');
+      });
     } catch (err) {
+      if (!isEditorTaskActive(task)) return;
+      finishEditorTask(task);
       hideLoading();
       showToast('AI去水印失败：' + err.message, 'error');
     }
   })();
-}
-
-async function pollDewatermarkTask(taskId) {
-  return new Promise((resolve, reject) => {
-    let pollCount = 0;
-    const maxPolls = 60;
-    const timer = setInterval(async () => {
-      pollCount++;
-      if (pollCount > maxPolls) {
-        clearInterval(timer);
-        reject(new Error('生成超时（已等待2分钟），可稍后在历史记录查看结果'));
-        return;
-      }
-      try {
-        const data = await apiFetch(`/api/generation/${taskId}`);
-        if (data.code !== 0) {
-          clearInterval(timer);
-          reject(new Error(data.msg));
-          return;
-        }
-        if (data.data.status === 'success') {
-          clearInterval(timer);
-          const result = data.data.result;
-          if (result.images && result.images.length > 0) {
-            const imgUrl = result.images[0];
-            const newImg = new Image();
-            newImg.crossOrigin = 'anonymous';
-            let imgTimedOut = false;
-            const imgTimer = setTimeout(() => {
-              imgTimedOut = true;
-              hideLoading();
-              showToast('AI去水印完成，但图片加载较慢，已关闭弹窗', 'info');
-              resolve();
-            }, 15000);
-            newImg.onload = () => {
-              if (imgTimedOut) return;
-              clearTimeout(imgTimer);
-              // 替换底图
-              baseImage = newImg;
-              images[currentIndex] = newImg;
-              newImg._elements = elements;
-              newImg._history = historyStack;
-              // 重新绘制
-              canvas.width = newImg.width;
-              canvas.height = newImg.height;
-              ctx.drawImage(newImg, 0, 0);
-              drawElements();
-              initThumbs();
-              hideLoading();
-              showToast('AI去水印完成！', 'success');
-              resolve();
-            };
-            newImg.onerror = () => {
-              if (imgTimedOut) return;
-              clearTimeout(imgTimer);
-              hideLoading();
-              showToast('AI去水印成功，但图片加载失败（可能是跨域），请刷新后重试', 'error');
-              resolve();
-            };
-            newImg.src = imgUrl;
-          } else {
-            hideLoading();
-            reject(new Error('返回结果异常'));
-          }
-        } else if (data.data.status === 'failed') {
-          clearInterval(timer);
-          hideLoading();
-          reject(new Error(data.data.error_msg || '生成失败'));
-        }
-      } catch (err) {
-        clearInterval(timer);
-        reject(err);
-      }
-    }, 2000);
-  });
 }
 
 // ============ 撤销/重做 ============
@@ -2148,6 +2116,18 @@ async function apiFetch(url, options = {}) {
 // ============ AI换场景（侧边栏内联）============
 let imageModels = [];
 
+function renderEditorModelOptions(select, models) {
+  if (!select) return;
+  select.replaceChildren();
+  (Array.isArray(models) ? models : []).forEach(model => {
+    const option = document.createElement('option');
+    option.value = String(model.id ?? '');
+    option.textContent = `${model.name} (${model.price_per_call}积分/张)`;
+    option.selected = Boolean(model.is_default);
+    select.appendChild(option);
+  });
+}
+
 async function loadModels() {
   try {
     const data = await apiFetch('/api/models?type=image');
@@ -2156,14 +2136,14 @@ async function loadModels() {
       // 填充换场景模型下拉
       const resceneSel = document.getElementById('resceneModel');
       if (resceneSel) {
-        resceneSel.innerHTML = data.data.map(m => `<option value="${m.id}">${m.name} (${m.price_per_call}积分/张)</option>`).join('');
+        renderEditorModelOptions(resceneSel, data.data);
         updateResceneCost();
         resceneSel.addEventListener('change', updateResceneCost);
       }
       // 填充去水印模型下拉
       const dwmSel = document.getElementById('dewatermarkModel');
       if (dwmSel) {
-        dwmSel.innerHTML = data.data.map(m => `<option value="${m.id}">${m.name} (${m.price_per_call}积分/张)</option>`).join('');
+        renderEditorModelOptions(dwmSel, data.data);
         updateDewatermarkCost();
         dwmSel.addEventListener('change', updateDewatermarkCost);
       }
@@ -2204,13 +2184,12 @@ async function doRescene() {
     }
     return;
   }
-  
+
+  const task = startEditorTask(currentIndex);
   showLoading('AI生成中，请稍候...');
-  
+
   try {
-    // 先把当前canvas导出为base64作为ref_image（用jpeg压缩减小请求体积）
     const refDataUrl = canvas.toDataURL('image/jpeg', 0.9);
-    
     const data = await apiFetch('/api/generate/image', {
       method: 'POST',
       body: JSON.stringify({
@@ -2221,7 +2200,7 @@ async function doRescene() {
         ref_image: refDataUrl,
       })
     });
-    
+    if (!isEditorTaskActive(task)) return;
     if (data.code !== 0) {
       if (data.code === 401) {
         localStorage.removeItem('token');
@@ -2229,97 +2208,147 @@ async function doRescene() {
         if (confirm('登录已过期，是否重新登录？')) {
           window.location.href = '/login.html?redirect=' + encodeURIComponent(window.location.pathname + window.location.search);
         }
+        finishEditorTask(task);
+        hideLoading();
         return;
       }
       throw new Error(data.msg || '生成失败');
     }
-    
-    const taskId = data.data.task_id;
-    // 轮询结果
-    await pollTask(taskId);
-    
+
+    pollEditorTask(data.data.task_id, task, imgUrl => {
+      loadEditorTaskImage(imgUrl, task, newImg => {
+        if (currentIndex === task.targetIndex) saveHistory();
+        images[task.targetIndex] = newImg;
+        newImg._elements = [];
+        newImg._history = [];
+        if (currentIndex === task.targetIndex) {
+          baseImage = null;
+          switchImage(task.targetIndex);
+        }
+        initThumbs();
+        finishEditorTask(task);
+        hideLoading();
+        showToast('换场景成功！', 'success');
+      }, () => {
+        finishEditorTask(task);
+        hideLoading();
+        showToast('换场景成功，但图片加载失败（可能是跨域），请刷新后重试', 'error');
+      }, '图片加载较慢，已关闭弹窗，稍后可重试或查看历史记录');
+    }, error => {
+      finishEditorTask(task);
+      hideLoading();
+      showToast('生成失败：' + error.message, 'error');
+    });
   } catch (err) {
+    if (!isEditorTaskActive(task)) return;
+    finishEditorTask(task);
     hideLoading();
     showToast('生成失败：' + err.message, 'error');
   }
 }
 
-async function pollTask(taskId) {
-  return new Promise((resolve, reject) => {
-    let pollCount = 0;
-    const maxPolls = 60; // 最多等2分钟 (60*2s)
-    const timer = setInterval(async () => {
-      pollCount++;
-      if (pollCount > maxPolls) {
-        clearInterval(timer);
-        reject(new Error('生成超时（已等待2分钟），可稍后在历史记录查看结果'));
-        return;
-      }
-      try {
-        const data = await apiFetch(`/api/generation/${taskId}`);
-        if (data.code !== 0) {
-          clearInterval(timer);
-          reject(new Error(data.msg));
-          return;
-        }
-        if (data.data.status === 'success') {
-          clearInterval(timer);
-          const result = data.data.result;
-          if (result.images && result.images.length > 0) {
-            const imgUrl = result.images[0];
-            const newImg = new Image();
-            newImg.crossOrigin = 'anonymous';
-            let imgTimedOut = false;
-            const imgTimer = setTimeout(() => {
-              imgTimedOut = true;
-              hideLoading();
-              showToast('图片加载较慢，已关闭弹窗，稍后可重试或查看历史记录', 'info');
-              resolve(); // 不让reject弹错误，优雅结束
-            }, 15000);
-            newImg.onload = () => {
-              if (imgTimedOut) return;
-              clearTimeout(imgTimer);
-              saveHistory();
-              images[currentIndex] = newImg;
-              newImg._elements = [];
-              newImg._history = [];
-              baseImage = null;
-              switchImage(currentIndex);
-              initThumbs();
-              hideLoading();
-              showToast('换场景成功！', 'success');
-              resolve();
-            };
-            newImg.onerror = () => {
-              if (imgTimedOut) return;
-              clearTimeout(imgTimer);
-              hideLoading();
-              showToast('换场景成功，但图片加载失败（可能是跨域），请刷新后重试', 'error');
-              resolve();
-            };
-            newImg.src = imgUrl;
-          } else {
-            hideLoading();
-            reject(new Error('返回结果异常'));
-          }
-        } else if (data.data.status === 'failed') {
-          clearInterval(timer);
-          hideLoading();
-          reject(new Error(data.data.error_msg || '生成失败'));
-        }
-      } catch (e) {
-        clearInterval(timer);
-        reject(e);
-      }
-    }, 2000);
-  });
+// ============ Loading ============
+let activeEditorTask = null;
+let editorTaskSequence = 0;
+
+function startEditorTask(targetIndex) {
+  if (activeEditorTask) stopEditorTask(activeEditorTask);
+  const task = {
+    sequence: ++editorTaskSequence,
+    targetIndex,
+    timer: null,
+    imageTimer: null,
+    stopped: false,
+  };
+  activeEditorTask = task;
+  return task;
 }
 
-// ============ Loading ============
-let loadingCancelled = false;
+function isEditorTaskActive(task) {
+  return activeEditorTask === task && !task.stopped && task.sequence === editorTaskSequence;
+}
+
+function stopEditorTask(task) {
+  if (!task) return;
+  task.stopped = true;
+  if (task.timer) clearTimeout(task.timer);
+  if (task.imageTimer) clearTimeout(task.imageTimer);
+  if (activeEditorTask === task) activeEditorTask = null;
+}
+
+function finishEditorTask(task) {
+  stopEditorTask(task);
+}
+
+function pollEditorTask(taskId, task, onSuccess, onFail) {
+  let pollCount = 0;
+  const poll = async () => {
+    if (!isEditorTaskActive(task)) return;
+    pollCount++;
+    if (pollCount > 60) {
+      onFail(new Error('生成超时（已等待2分钟），可稍后在历史记录查看结果'));
+      return;
+    }
+    try {
+      const data = await apiFetch(
+        `/api/generation/${encodeURIComponent(String(taskId))}`
+      );
+      if (!isEditorTaskActive(task)) return;
+      if (data.code !== 0) {
+        onFail(new Error(data.msg || '任务状态查询失败'));
+        return;
+      }
+      if (data.data.status === 'success') {
+        const result = data.data.result;
+        if (result && Array.isArray(result.images) && result.images.length > 0) {
+          onSuccess(result.images[0]);
+        } else {
+          onFail(new Error('返回结果异常'));
+        }
+        return;
+      }
+      if (data.data.status === 'failed') {
+        onFail(new Error(data.data.error_msg || '生成失败'));
+        return;
+      }
+      task.timer = setTimeout(poll, 2000);
+    } catch (error) {
+      if (isEditorTaskActive(task)) onFail(error);
+    }
+  };
+  task.timer = setTimeout(poll, 2000);
+}
+
+function loadEditorTaskImage(url, task, onLoad, onError, timeoutMessage) {
+  const mediaUrl = normalizeEditorMediaUrl(url);
+  if (!mediaUrl) {
+    if (isEditorTaskActive(task)) onError();
+    return;
+  }
+  const newImg = new Image();
+  newImg.crossOrigin = 'anonymous';
+  task.imageTimer = setTimeout(() => {
+    if (!isEditorTaskActive(task)) return;
+    finishEditorTask(task);
+    hideLoading();
+    showToast(timeoutMessage, 'info');
+  }, 15000);
+  newImg.onload = () => {
+    if (!isEditorTaskActive(task)) return;
+    clearTimeout(task.imageTimer);
+    task.imageTimer = null;
+    onLoad(newImg);
+  };
+  newImg.onerror = () => {
+    if (!isEditorTaskActive(task)) return;
+    clearTimeout(task.imageTimer);
+    task.imageTimer = null;
+    onError();
+  };
+  newImg.src = mediaUrl;
+}
 
 function showLoading(text) {
-  loadingCancelled = false;
   document.getElementById('loadingText').textContent = text || '处理中...';
   document.getElementById('loadingModal').classList.add('show');
 }
@@ -2327,7 +2356,8 @@ function hideLoading() {
   document.getElementById('loadingModal').classList.remove('show');
 }
 function cancelLoading() {
-  loadingCancelled = true;
+  editorTaskSequence++;
+  stopEditorTask(activeEditorTask);
   hideLoading();
   showToast('已关闭弹窗，稍后可在作品中心查看结果', 'info');
 }

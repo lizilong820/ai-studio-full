@@ -5,7 +5,14 @@
   "main": "app.js",
   "scripts": {
     "start": "node app.js",
-    "dev": "node app.js"
+    "dev": "node app.js",
+    "test": "node scripts/run-tests.js",
+    "check:syntax": "node scripts/check-syntax.js",
+    "backup:database": "node scripts/backup-database.js",
+    "report:storage": "node scripts/storage-report.js",
+    "preflight:release": "node scripts/release-preflight.js",
+    "plan:rollback": "node scripts/rollback-plan.js",
+    "check": "npm run check:syntax && npm test"
   },
   "dependencies": {
     "express": "^4.19.2",

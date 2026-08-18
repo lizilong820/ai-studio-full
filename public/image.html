@@ -451,7 +451,7 @@
     // 当前模式
     let currentMode = 'text2img';
     // 当前生成任务ID
-    let currentPollInterval = null;
+    let currentPoll = null;
     // 模型列表缓存
     let modelList = [];
 
@@ -503,12 +503,10 @@
         const data = await apiRequest('/api/models?type=image');
         if (data.code === 0 && data.data && data.data.length > 0) {
           modelList = data.data;
-          const optionsHtml = data.data.map(m => 
-            `<option value="${m.id}">${m.name} - ${m.price_per_call || '--'}积分/张${m.is_default ? ' · 默认' : ''}</option>`
-          ).join('');
-          
-          document.getElementById('modelSelect').innerHTML = optionsHtml;
-          document.getElementById('img2imgModelSelect').innerHTML = optionsHtml;
+          const formatLabel = model =>
+            `${model.name} - ${model.price_per_call || '--'}积分/张${model.is_default ? ' · 默认' : ''}`;
+          renderModelOptions(document.getElementById('modelSelect'), data.data, formatLabel);
+          renderModelOptions(document.getElementById('img2imgModelSelect'), data.data, formatLabel);
           
           // 选默认模型
           const defaultModel = data.data.find(m => m.is_default);
@@ -519,12 +517,12 @@
           updateCost();
           updateQualityOptions();
         } else {
-          document.getElementById('modelSelect').innerHTML = '<option value="">暂无可用模型</option>';
-          document.getElementById('img2imgModelSelect').innerHTML = '<option value="">暂无可用模型</option>';
+          renderModelOptions(document.getElementById('modelSelect'), [], () => '');
+          renderModelOptions(document.getElementById('img2imgModelSelect'), [], () => '');
         }
       } catch (e) {
-        document.getElementById('modelSelect').innerHTML = '<option value="">模型加载失败</option>';
-        document.getElementById('img2imgModelSelect').innerHTML = '<option value="">模型加载失败</option>';
+        renderModelOptions(document.getElementById('modelSelect'), [], () => '', '模型加载失败');
+        renderModelOptions(document.getElementById('img2imgModelSelect'), [], () => '', '模型加载失败');
       }
     }
 
@@ -581,7 +579,10 @@
       updateCost();
     });
 
-        function updateCost() {
+    let costRequestSeq = 0;
+
+    function updateCost() {
+      const requestSeq = ++costRequestSeq;
       const count = parseInt(document.getElementById('imageCount').value) || 1;
       const modelSel = currentMode === 'text2img' ? 'modelSelect' : 'img2imgModelSelect';
       const modelId = document.getElementById(modelSel)?.value;
@@ -595,6 +596,7 @@
         method: 'POST',
         body: JSON.stringify({ model_id: parseInt(modelId), count })
       }).then(data => {
+        if (requestSeq !== costRequestSeq) return;
         if (data.code === 0) {
           document.getElementById('costDisplay').textContent = '💎 ' + data.data.cost + ' 积分';
         } else {
@@ -605,6 +607,7 @@
           }
         }
       }).catch(() => {
+        if (requestSeq !== costRequestSeq) return;
         const model = modelList.find(m => m.id == modelId);
         if (model && model.price_per_call) {
           document.getElementById('costDisplay').textContent = '💎 ' + (model.price_per_call * count) + ' 积分';
@@ -621,8 +624,6 @@
       updateCost();
       updateQualityOptions();
     });
-    document.getElementById('img2imgModelSelect')?.addEventListener('change', updateCost);
-    document.getElementById('imageCount')?.addEventListener('change', updateCost);
     document.getElementById('imageCount')?.addEventListener('input', updateCost);
 
     // ===== 获取选中比例 =====
@@ -716,9 +717,9 @@
       btn.innerHTML = '<span class="btn-icon">⏳</span>生成中...';
       
       // 停止之前的轮询
-      if (currentPollInterval) {
-        clearInterval(currentPollInterval);
-        currentPollInterval = null;
+      if (currentPoll) {
+        currentPoll.stop();
+        currentPoll = null;
       }
       
       // 提交生成
@@ -756,70 +757,50 @@
         // 显示生成动画
         showGeneratingState(formData.count);
         
-        // 轮询任务状态 (每2秒)
-        let pollCount = 0;
-        const maxPolls = 120; // 最多轮询4分钟
-        
-        currentPollInterval = setInterval(async () => {
-          pollCount++;
-          
-          if (pollCount > maxPolls) {
-            clearInterval(currentPollInterval);
-            currentPollInterval = null;
-            showToast('生成超时，请稍后在个人中心查看结果', 'error');
-            resetGenerateBtn();
-            return;
-          }
-          
-          try {
-            const statusData = await apiRequest('/api/generation/' + taskId);
-            
-            if (statusData.code === 0 && statusData.data.status === 'success') {
-              clearInterval(currentPollInterval);
-              currentPollInterval = null;
-              
-              // 解析结果
-              let images = [];
-              if (statusData.data.result) {
-                try {
-                  const result = typeof statusData.data.result === 'string' 
-                    ? JSON.parse(statusData.data.result) 
-                    : statusData.data.result;
-                  images = result.images || [];
-                } catch (e) {
-                  console.error('解析结果失败', e);
-                }
+        // 轮询任务状态，确保请求不会重叠
+        currentPoll = pollGeneration(
+          taskId,
+          statusData => {
+            currentPoll = null;
+            let images = [];
+            if (statusData.result) {
+              try {
+                const result = typeof statusData.result === 'string'
+                  ? JSON.parse(statusData.result)
+                  : statusData.result;
+                images = result.images || [];
+              } catch (e) {
+                console.error('解析结果失败', e);
               }
-              
-              if (images.length > 0) {
-                displayImageResults(images, {
-                  studio_type: 'image',
-                  params: getFormData(),
-                  regenerate_fn: doRegenerate,
-                  save_template: true,
-                });
-                showToast('生成成功！共 ' + images.length + ' 张图片', 'success');
-              } else {
-                showToast('生成成功，但未获取到图片', 'warn');
-                showEmptyResult();
-              }
-              
-              resetGenerateBtn();
-              refreshUserInfo();
-              
-            } else if (statusData.code === 0 && statusData.data.status === 'failed') {
-              clearInterval(currentPollInterval);
-              currentPollInterval = null;
-              showToast('生成失败：' + (statusData.data.error_msg || '未知错误'), 'error');
-              resetGenerateBtn();
-              showFailedState(statusData.data.error_msg || '未知错误');
-              refreshUserInfo();
             }
-            // pending状态继续轮询
-          } catch (e) {
-            console.error('轮询出错', e);
-          }
-        }, 2000);
+            if (images.length > 0) {
+              displayImageResults(images, {
+                studio_type: 'image',
+                params: getFormData(),
+                regenerate_fn: doRegenerate,
+                save_template: true,
+              });
+              showToast('生成成功！共 ' + images.length + ' 张图片', 'success');
+            } else {
+              showToast('生成成功，但未获取到图片', 'warn');
+              showEmptyResult();
+            }
+            resetGenerateBtn();
+            refreshUserInfo();
+          },
+          error => {
+            currentPoll = null;
+            if (error === 'timeout') {
+              showToast('生成超时，请稍后在个人中心查看结果', 'error');
+            } else {
+              showToast('生成失败：' + error, 'error');
+              showFailedState(error);
+            }
+            resetGenerateBtn();
+            refreshUserInfo();
+          },
+          120,
+        );
       }).catch(err => {
         showToast('网络错误，请稍后重试', 'error');
         resetGenerateBtn();
@@ -903,10 +884,19 @@
         <div class="preview-empty" style="max-width: 400px;">
           <div class="empty-icon">😔</div>
           <h3>生成失败</h3>
-          <p>${errorMsg || '生成过程中出现了错误，请稍后重试。'}<br>如问题持续出现，请联系客服。</p>
-          <button class="action-btn primary" style="margin-top: 20px; padding: 10px 24px;" onclick="document.getElementById('generateBtn').click()">🔄 重新生成</button>
+          <p class="error-message"></p>
+          <button class="action-btn primary" style="margin-top: 20px; padding: 10px 24px;">🔄 重新生成</button>
         </div>
       `;
+      const errorMessage = previewContent.querySelector('.error-message');
+      errorMessage.replaceChildren(
+        document.createTextNode(String(errorMsg || '生成过程中出现了错误，请稍后重试。')),
+        document.createElement('br'),
+        document.createTextNode('如问题持续出现，请联系客服。')
+      );
+      previewContent.querySelector('button').addEventListener('click', () => {
+        document.getElementById('generateBtn').click();
+      });
     }
 
     // 显示空结果

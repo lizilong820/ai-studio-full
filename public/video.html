@@ -280,15 +280,18 @@
       if (data.code === 0) {
         const select = document.getElementById('llmModel');
         if (select && data.data.length > 0) {
-          select.innerHTML = data.data.map(m => 
-            `<option value="${m.id}">${m.name} (${m.model_identifier}) - ${m.price_per_call}积分/版本${m.is_default ? ' · 默认' : ''}</option>`
-          ).join('');
+          renderModelOptions(select, data.data, model =>
+            `${model.name} (${model.model_identifier}) - ${model.price_per_call}积分/版本${model.is_default ? ' · 默认' : ''}`
+          );
           updateCost();
         }
       }
     }
 
+    let costRequestSeq = 0;
+
     function updateCost() {
+      const requestSeq = ++costRequestSeq;
       const count = parseInt(document.getElementById('videoCount').value) || 1;
       const modelId = document.getElementById('llmModel')?.value;
       if (!modelId || isNaN(modelId)) {
@@ -300,6 +303,7 @@
         method: 'POST',
         body: JSON.stringify({ model_id: parseInt(modelId), count })
       }).then(data => {
+        if (requestSeq !== costRequestSeq) return;
         if (data.code === 0) {
           document.getElementById('costDisplay').textContent = '💎 ' + data.data.cost + ' 积分';
         }
@@ -366,19 +370,10 @@
         </div>
       `;
       const tplList = modal.querySelector('#tplList');
-      tplList.innerHTML = templates.map(t => `
-        <div data-id="${t.id}" style="padding:12px 14px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--brand)'" onmouseout="this.style.borderColor='var(--border)'">
-          <div style="font-size:14px;font-weight:500;color:var(--text);">${t.name}</div>
-          <div style="font-size:11.5px;color:var(--text-3);margin-top:3px;">${new Date(t.created_at).toLocaleString()}</div>
-        </div>
-      `).join('');
-      tplList.querySelectorAll('[data-id]').forEach(item => {
-        item.onclick = function() {
-          const tpl = templates.find(t => t.id == this.dataset.id);
-          if (tpl && tpl.params) applyTemplate(tpl.params);
-          modal.remove();
-          showToast('模板已加载', 'success');
-        };
+      renderTemplateList(tplList, templates, tpl => {
+        if (tpl.params) applyTemplate(tpl.params);
+        modal.remove();
+        showToast('模板已加载', 'success');
       });
       modal.querySelector('#tplClose').onclick = () => modal.remove();
       modal.onclick = (e) => { if (e.target === modal) modal.remove(); };

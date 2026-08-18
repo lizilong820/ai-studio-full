@@ -2,11 +2,15 @@ const Database = require('better-sqlite3');
 const path = require('path');
 const bcrypt = require('bcryptjs');
 
-const dbPath = path.join(__dirname, 'ai_studio.db');
+const dbPath = process.env.AI_STUDIO_DB_PATH
+  ? path.resolve(process.env.AI_STUDIO_DB_PATH)
+  : path.join(__dirname, 'ai_studio.db');
 const db = new Database(dbPath);
 
 // 启用外键
 db.pragma('foreign_keys = ON');
+db.pragma('busy_timeout = 10000');
+db.pragma('journal_mode = WAL');
 
 // ============ 建表 ============
 
@@ -119,11 +123,18 @@ db.exec(`
 // 检查是否有管理员
 const adminCount = db.prepare('SELECT COUNT(*) as count FROM users WHERE is_admin = 1').get().count;
 if (adminCount === 0) {
-  const hash = bcrypt.hashSync('admin123', 10);
-  db.prepare(`INSERT INTO users (username, password_hash, email, credits, is_admin, status) 
-              VALUES (?, ?, ?, ?, ?, ?)`)
-    .run('admin', hash, 'admin@example.com', 99999, 1, 1);
-  console.log('✅ 初始管理员已创建: admin / admin123');
+  const adminUsername = process.env.ADMIN_USERNAME;
+  const adminPassword = process.env.ADMIN_PASSWORD;
+
+  if (adminUsername && adminPassword && Array.from(adminPassword).length >= 12) {
+    const hash = bcrypt.hashSync(adminPassword, 10);
+    db.prepare(`INSERT INTO users (username, password_hash, is_admin, status)
+                VALUES (?, ?, ?, ?)`)
+      .run(adminUsername, hash, 1, 1);
+    console.log('初始管理员已创建');
+  } else {
+    console.warn('未创建初始管理员：请同时配置管理员用户名和至少 12 个字符的密码');
+  }
 }
 
 // 默认设置
@@ -203,7 +214,7 @@ function setSetting(key, value) {
   }
 }
 
-module.exports = { db, getSetting, setSetting };
+module.exports = { db, dbPath, getSetting, setSetting };
 
 // ============ 数据库迁移 (新增列/表) ============
 
@@ -297,13 +308,24 @@ db.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
     name TEXT NOT NULL DEFAULT '默认密钥',
-    api_key TEXT NOT NULL UNIQUE,
+    api_key TEXT,
+    api_key_hash TEXT,
+    api_key_prefix TEXT DEFAULT '',
     status INTEGER DEFAULT 1,
     last_used_at TEXT,
     created_at TEXT DEFAULT (datetime('now','localtime')),
     FOREIGN KEY (user_id) REFERENCES users(id)
   )
 `);
+
+try {
+  db.prepare('ALTER TABLE api_keys ADD COLUMN api_key_hash TEXT').run();
+} catch (e) {}
+try {
+  db.prepare('ALTER TABLE api_keys ADD COLUMN api_key_prefix TEXT DEFAULT ""').run();
+} catch (e) {}
+
+db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(api_key_hash) WHERE api_key_hash IS NOT NULL');
 
 // API调用记录表
 db.exec(`
@@ -361,3 +383,123 @@ try {
   db.prepare('ALTER TABLE generations ADD COLUMN webhook_notified INTEGER DEFAULT 0').run();
   console.log('✅ generations 表已添加 webhook_notified 字段');
 } catch (e) {}
+
+// ============ 持久化生成任务与 Webhook 投递 ============
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS generation_jobs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    generation_id INTEGER NOT NULL UNIQUE,
+    public_id TEXT NOT NULL UNIQUE,
+    job_type TEXT NOT NULL,
+    payload TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'queued'
+      CHECK (status IN ('queued', 'processing', 'retry', 'succeeded', 'failed')),
+    phase TEXT DEFAULT '',
+    provider_task_id TEXT DEFAULT '',
+    progress INTEGER NOT NULL DEFAULT 0,
+    run_count INTEGER NOT NULL DEFAULT 0,
+    failure_count INTEGER NOT NULL DEFAULT 0,
+    max_attempts INTEGER NOT NULL DEFAULT 3 CHECK (max_attempts >= 1),
+    next_run_at TEXT NOT NULL DEFAULT (datetime('now')),
+    lease_owner TEXT DEFAULT '',
+    lease_expires_at TEXT,
+    last_error TEXT DEFAULT '',
+    started_at TEXT,
+    finished_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (generation_id) REFERENCES generations(id) ON DELETE CASCADE
+  )
+`);
+
+db.exec(`CREATE INDEX IF NOT EXISTS idx_generation_jobs_claim
+  ON generation_jobs(status, next_run_at, lease_expires_at, id)`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS batch_download_tasks (
+    public_id TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    generation_ids JSON NOT NULL CHECK (json_valid(generation_ids)),
+    status TEXT NOT NULL DEFAULT 'queued'
+      CHECK (status IN ('queued', 'processing', 'retry', 'done', 'failed')),
+    total INTEGER NOT NULL DEFAULT 0 CHECK (total >= 0),
+    done_count INTEGER NOT NULL DEFAULT 0 CHECK (done_count >= 0),
+    file_path TEXT DEFAULT '',
+    error_msg TEXT DEFAULT '',
+    attempt_count INTEGER NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
+    max_attempts INTEGER NOT NULL DEFAULT 3 CHECK (max_attempts >= 1),
+    next_run_at TEXT NOT NULL DEFAULT (datetime('now')),
+    lease_owner TEXT DEFAULT '',
+    lease_expires_at TEXT,
+    expires_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  )
+`);
+
+db.exec(`CREATE INDEX IF NOT EXISTS idx_batch_download_tasks_claim
+  ON batch_download_tasks(status, next_run_at, lease_expires_at, created_at)`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS webhook_subscriptions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    webhook_url TEXT NOT NULL,
+    event_type TEXT NOT NULL DEFAULT '',
+    secret TEXT DEFAULT '',
+    status INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE(user_id, webhook_url)
+  )
+`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS webhook_deliveries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    subscription_id INTEGER NOT NULL,
+    generation_id INTEGER NOT NULL,
+    event_type TEXT NOT NULL,
+    payload TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'queued'
+      CHECK (status IN ('queued', 'processing', 'retry', 'delivered', 'failed')),
+    attempt INTEGER NOT NULL DEFAULT 0,
+    next_run_at TEXT NOT NULL DEFAULT (datetime('now')),
+    lease_owner TEXT DEFAULT '',
+    lease_expires_at TEXT,
+    last_error TEXT DEFAULT '',
+    delivered_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (subscription_id) REFERENCES webhook_subscriptions(id) ON DELETE CASCADE,
+    FOREIGN KEY (generation_id) REFERENCES generations(id) ON DELETE CASCADE,
+    UNIQUE(subscription_id, generation_id, event_type)
+  )
+`);
+
+db.exec(`CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_claim
+  ON webhook_deliveries(status, next_run_at, lease_expires_at, id)`);
+
+// ============ 查询与租户隔离索引 ============
+
+db.exec('CREATE INDEX IF NOT EXISTS idx_users_invite_code ON users(invite_code)');
+db.exec('CREATE INDEX IF NOT EXISTS idx_users_invited_by ON users(invited_by)');
+db.exec('CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at)');
+db.exec('CREATE INDEX IF NOT EXISTS idx_generations_user_id_id ON generations(user_id, id DESC)');
+db.exec('CREATE INDEX IF NOT EXISTS idx_generations_user_studio_id ON generations(user_id, studio_type, id DESC)');
+db.exec('CREATE INDEX IF NOT EXISTS idx_generations_user_status_id ON generations(user_id, status, id DESC)');
+db.exec('CREATE INDEX IF NOT EXISTS idx_generations_status_created_at ON generations(status, created_at)');
+db.exec('CREATE INDEX IF NOT EXISTS idx_favorites_generation_id ON favorites(generation_id)');
+db.exec('CREATE INDEX IF NOT EXISTS idx_credit_logs_user_created_at ON credit_logs(user_id, created_at DESC, id DESC)');
+db.exec('CREATE INDEX IF NOT EXISTS idx_credit_logs_related_type ON credit_logs(user_id, related_id, type)');
+db.exec('CREATE INDEX IF NOT EXISTS idx_orders_user_id_id ON orders(user_id, id DESC)');
+db.exec('CREATE INDEX IF NOT EXISTS idx_orders_remark_pay_method ON orders(remark, pay_method)');
+db.exec('CREATE INDEX IF NOT EXISTS idx_orders_status_id ON orders(status, id DESC)');
+db.exec('CREATE INDEX IF NOT EXISTS idx_param_templates_user_studio_id ON param_templates(user_id, studio_type, id DESC)');
+db.exec('CREATE INDEX IF NOT EXISTS idx_search_history_user_updated_at ON search_history(user_id, updated_at DESC)');
+db.exec('CREATE INDEX IF NOT EXISTS idx_search_history_user_keyword ON search_history(user_id, keyword)');
+db.exec('CREATE INDEX IF NOT EXISTS idx_api_usage_user_created_at ON api_usage(user_id, created_at DESC)');
+db.exec('CREATE INDEX IF NOT EXISTS idx_api_usage_user_endpoint_created_at ON api_usage(user_id, endpoint, created_at DESC)');

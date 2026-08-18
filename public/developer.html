@@ -2075,10 +2075,10 @@ curl -X POST <span class="code-string" id="quickStartUrl">/api/v1/generate/ecomm
       }
     }
 
-    // 获取第一个可用的API Key（用于文档在线调试）
+    // 获取当前页面内仍可用的API Key（仅新建后的一次性值）
     function getFirstApiKey() {
-      const active = g_apiKeys.find(k => k.status === 1);
-      return active ? (active.api_key || active._revealed || '') : '';
+      const active = g_apiKeys.find(k => k.status === 1 && k._revealed);
+      return active ? active._revealed : '';
     }
 
     // ===== 侧边栏切换 =====
@@ -2162,91 +2162,93 @@ curl -X POST <span class="code-string" id="quickStartUrl">/api/v1/generate/ecomm
       const countEl = document.getElementById('keyCountNum');
       
       countEl.textContent = g_apiKeys.length;
+      listEl.replaceChildren();
       
       if (g_apiKeys.length === 0) {
-        listEl.innerHTML = `
-          <div class="empty-keys">
-            <div class="empty-icon">🔐</div>
-            <div class="empty-text">还没有 API 密钥</div>
-            <div class="empty-desc">创建你的第一个 API 密钥，开始调用 AI 工作室接口</div>
-            <button class="btn-primary" onclick="openCreateKeyModal()">+ 创建密钥</button>
-          </div>
-        `;
+        const empty = document.createElement('div');
+        empty.className = 'empty-keys';
+        const icon = document.createElement('div');
+        icon.className = 'empty-icon';
+        icon.textContent = '🔐';
+        const text = document.createElement('div');
+        text.className = 'empty-text';
+        text.textContent = '还没有 API 密钥';
+        const desc = document.createElement('div');
+        desc.className = 'empty-desc';
+        desc.textContent = '创建你的第一个 API 密钥，开始调用 AI 工作室接口';
+        const create = document.createElement('button');
+        create.className = 'btn-primary';
+        create.textContent = '+ 创建密钥';
+        create.addEventListener('click', openCreateKeyModal);
+        empty.append(icon, text, desc, create);
+        listEl.appendChild(empty);
         return;
       }
 
-      listEl.innerHTML = g_apiKeys.map((key, index) => {
-        const isRevealed = key._revealed !== null;
-        const displayKey = isRevealed ? key._revealed : key.api_key_masked;
-        return `
-          <div class="key-item">
-            <div class="key-info">
-              <div class="key-name">${escapeHtml(key.name)}</div>
-              <div class="key-value">
-                <code>${escapeHtml(displayKey)}</code>
-                <button class="eye-btn" onclick="toggleKeyVisibility(${key.id})" title="${isRevealed ? '隐藏' : '显示'}">
-                  ${isRevealed ? '🙈' : '👁️'}
-                </button>
-                <button class="copy-btn" onclick="copyKey(${key.id})" title="复制">📋</button>
-              </div>
-              <div class="key-meta">
-                <span class="key-status ${key.status === 1 ? 'status-active' : 'status-disabled'}">
-                  ${key.status === 1 ? '● 启用' : '○ 禁用'}
-                </span>
-                <span>创建：${formatDate(key.created_at)}</span>
-                <span>最后使用：${formatDate(key.last_used_at)}</span>
-              </div>
-            </div>
-            <div class="key-actions">
-              <button class="key-action-btn" onclick="toggleKeyStatus(${key.id})" title="${key.status === 1 ? '禁用' : '启用'}">
-                ${key.status === 1 ? '⏸️ 禁用' : '▶️ 启用'}
-              </button>
-              <button class="key-action-btn danger" onclick="deleteKey(${key.id})" title="删除">🗑️ 删除</button>
-            </div>
-          </div>
-        `;
-      }).join('');
+      g_apiKeys.forEach(key => {
+        const keyId = Number(key.id);
+        if (!Number.isSafeInteger(keyId) || keyId < 1) return;
+        const hasOneTimeKey = Boolean(key._revealed);
+        const displayKey = hasOneTimeKey ? key._revealed : key.api_key_masked;
+        const item = document.createElement('div');
+        item.className = 'key-item';
+        const info = document.createElement('div');
+        info.className = 'key-info';
+        const name = document.createElement('div');
+        name.className = 'key-name';
+        name.textContent = String(key.name || '未命名密钥');
+        const value = document.createElement('div');
+        value.className = 'key-value';
+        const code = document.createElement('code');
+        code.textContent = String(displayKey || '');
+        value.appendChild(code);
+        if (hasOneTimeKey) {
+          const copy = document.createElement('button');
+          copy.className = 'copy-btn';
+          copy.title = '复制';
+          copy.textContent = '📋';
+          copy.addEventListener('click', () => copyKey(keyId));
+          value.appendChild(copy);
+        }
+        const meta = document.createElement('div');
+        meta.className = 'key-meta';
+        const status = document.createElement('span');
+        const active = key.status === 1;
+        status.className = 'key-status ' + (active ? 'status-active' : 'status-disabled');
+        status.textContent = active ? '● 启用' : '○ 禁用';
+        const created = document.createElement('span');
+        created.textContent = '创建：' + formatDate(key.created_at);
+        const used = document.createElement('span');
+        used.textContent = '最后使用：' + formatDate(key.last_used_at);
+        meta.append(status, created, used);
+        info.append(name, value, meta);
+        const actions = document.createElement('div');
+        actions.className = 'key-actions';
+        const toggle = document.createElement('button');
+        toggle.className = 'key-action-btn';
+        toggle.title = active ? '禁用' : '启用';
+        toggle.textContent = active ? '⏸️ 禁用' : '▶️ 启用';
+        toggle.addEventListener('click', () => toggleKeyStatus(keyId));
+        const remove = document.createElement('button');
+        remove.className = 'key-action-btn danger';
+        remove.title = '删除';
+        remove.textContent = '🗑️ 删除';
+        remove.addEventListener('click', () => deleteKey(keyId));
+        actions.append(toggle, remove);
+        item.append(info, actions);
+        listEl.appendChild(item);
+      });
     }
 
-    // 显示/隐藏密钥
-    async function toggleKeyVisibility(keyId) {
-      const key = g_apiKeys.find(k => k.id === keyId);
-      if (!key) return;
-
-      if (key._revealed) {
-        key._revealed = null;
-        renderKeys();
-        return;
-      }
-
-      const res = await apiRequest(`/api/user/api-keys/${keyId}/reveal`);
-      if (res.code === 0 && res.data) {
-        key._revealed = res.data.api_key;
-        renderKeys();
-      } else {
-        showToast(res.msg || '获取密钥失败', 'error');
-      }
-    }
-
-    // 复制密钥
+    // 复制当前页面内的一次性密钥
     async function copyKey(keyId) {
       const key = g_apiKeys.find(k => k.id === keyId);
-      if (!key) return;
-
-      let textToCopy = key._revealed;
-      if (!textToCopy) {
-        // 没显示的话先获取
-        const res = await apiRequest(`/api/user/api-keys/${keyId}/reveal`);
-        if (res.code === 0 && res.data) {
-          textToCopy = res.data.api_key;
-          key._revealed = res.data.api_key;
-          renderKeys();
-        } else {
-          showToast(res.msg || '获取密钥失败', 'error');
-          return;
-        }
+      if (!key || !key._revealed) {
+        showToast('密钥只在创建时显示一次，无法恢复', 'error');
+        return;
       }
 
+      const textToCopy = key._revealed;
       try {
         await navigator.clipboard.writeText(textToCopy);
         showToast('已复制到剪贴板', 'success');
@@ -2365,7 +2367,7 @@ curl -X POST <span class="code-string" id="quickStartUrl">/api/v1/generate/ecomm
         document.getElementById('createdKeyName').textContent = res.data.name;
         document.getElementById('createdKeyValue').textContent = res.data.api_key;
 
-        // 把新密钥加入列表（带_revealed因为刚创建显示了完整key）
+        // 仅在当前页面会话中保留一次性密钥值
         g_apiKeys.unshift({
           id: res.data.id,
           name: res.data.name,
@@ -2448,8 +2450,11 @@ curl -X POST <span class="code-string" id="quickStartUrl">/api/v1/generate/ecomm
 
 
     // ===== 调用统计图表 =====
-    async function renderBarChart(days) {
+    let statsRangeSeq = 0;
+
+    async function renderBarChart(days, sequence = statsRangeSeq) {
       const res = await apiRequest(`/api/user/api-usage/trend?days=${days}`);
+      if (sequence !== statsRangeSeq) return;
       const chartEl = document.getElementById('usageBarChart');
       if (!chartEl) return;
 
@@ -2463,21 +2468,29 @@ curl -X POST <span class="code-string" id="quickStartUrl">/api/v1/generate/ecomm
         return;
       }
 
-      const maxCalls = Math.max(...data.map(d => d.calls), 1);
+      const maxCalls = Math.max(...data.map(d => Number(d.calls) || 0), 1);
+      chartEl.replaceChildren();
 
-      chartEl.innerHTML = data.map(d => {
-        const h = Math.max((d.calls / maxCalls) * 100, 2);
-        return `
-          <div class="bar-col">
-            <div class="bar" style="height: ${h}%;" title="${d.date}: ${d.calls}次"></div>
-            <div class="bar-label">${d.date.slice(5)}</div>
-          </div>
-        `;
-      }).join('');
+      data.forEach(d => {
+        const calls = Number(d.calls) || 0;
+        const date = String(d.date || '-');
+        const col = document.createElement('div');
+        col.className = 'bar-col';
+        const bar = document.createElement('div');
+        bar.className = 'bar';
+        bar.style.height = Math.max((calls / maxCalls) * 100, 2) + '%';
+        bar.title = date + ': ' + calls + '次';
+        const label = document.createElement('div');
+        label.className = 'bar-label';
+        label.textContent = date.slice(5);
+        col.append(bar, label);
+        chartEl.appendChild(col);
+      });
     }
 
-    async function renderDonutLegend(days = 1) {
+    async function renderDonutLegend(days = 1, sequence = statsRangeSeq) {
       const res = await apiRequest('/api/user/api-usage/by-endpoint?days=' + days);
+      if (sequence !== statsRangeSeq) return;
       const legendEl = document.getElementById('donutLegend');
       const donutEl = document.getElementById('usageDonut');
       if (!legendEl) return;
@@ -2523,44 +2536,76 @@ curl -X POST <span class="code-string" id="quickStartUrl">/api/v1/generate/ecomm
       }
 
       // 更新图例（CSS class 用 .dot / .name / .pct 跟样式表对应）
-      legendEl.innerHTML = data.map((d, i) => `
-        <div class="donut-legend-item">
-          <span class="dot" style="background: ${colors[i % colors.length]}"></span>
-          <span class="name">${d.endpoint.split('/').pop()}</span>
-          <span class="pct">${d.calls} (${((d.calls/total)*100).toFixed(1)}%)</span>
-        </div>
-      `).join('');
+      legendEl.replaceChildren();
+      data.forEach((d, i) => {
+        const item = document.createElement('div');
+        item.className = 'donut-legend-item';
+        const dot = document.createElement('span');
+        dot.className = 'dot';
+        dot.style.background = colors[i % colors.length];
+        const name = document.createElement('span');
+        name.className = 'name';
+        name.textContent = String(d.endpoint || '').split('/').pop();
+        const pct = document.createElement('span');
+        pct.className = 'pct';
+        const calls = Number(d.calls) || 0;
+        pct.textContent = calls + ' (' + ((calls / total) * 100).toFixed(1) + '%)';
+        item.append(dot, name, pct);
+        legendEl.appendChild(item);
+      });
     }
 
     let _statsDays = 7;
-    async function renderLogs(days) {
+    function renderLogs(days, sequence = statsRangeSeq) {
       if (days) _statsDays = days;
       const d = _statsDays;
-      const res = await apiRequest('/api/user/api-usage?page=1&pageSize=50&days=' + d);
-      const logsEl = document.getElementById('usageLogsTable');
-      if (!logsEl) return;
+      return apiRequest('/api/user/api-usage?page=1&pageSize=50&days=' + d).then(res => {
+        if (sequence !== statsRangeSeq) return;
+        const logsEl = document.getElementById('usageLogsTable');
+        if (!logsEl) return;
 
-      let list = [];
-      if (res.code === 0 && res.data && res.data.list) {
-        // 过滤掉 task 轮询接口，避免占满列表
-        list = res.data.list.filter(item => !item.endpoint.startsWith('/api/v1/task/'));
-      }
+        let list = [];
+        if (res.code === 0 && res.data && res.data.list) {
+          list = res.data.list.filter(item => !String(item.endpoint || '').startsWith('/api/v1/task/'));
+        }
 
-      if (list.length === 0) {
-        logsEl.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-secondary);padding:30px;">暂无调用记录</td></tr>';
-        return;
-      }
+        logsEl.replaceChildren();
+        if (list.length === 0) {
+          const row = document.createElement('tr');
+          const cell = document.createElement('td');
+          cell.colSpan = 6;
+          cell.style.cssText = 'text-align:center;color:var(--text-secondary);padding:30px;';
+          cell.textContent = '暂无调用记录';
+          row.appendChild(cell);
+          logsEl.appendChild(row);
+          return;
+        }
 
-      logsEl.innerHTML = list.map(item => `
-        <tr>
-          <td>${item.created_at || '-'}</td>
-          <td><code>${item.endpoint || '-'}</code></td>
-          <td><span class="log-status ${item.status}">${item.status}</span></td>
-          <td>${item.response_time || 0}ms</td>
-          <td>${item.cost || 0}</td>
-          <td>${item.task_id ? item.task_id : '-'}</td>
-        </tr>
-      `).join('');
+        list.forEach(item => {
+          const row = document.createElement('tr');
+          const created = document.createElement('td');
+          created.textContent = String(item.created_at || '-');
+          const endpoint = document.createElement('td');
+          const endpointCode = document.createElement('code');
+          endpointCode.textContent = String(item.endpoint || '-');
+          endpoint.appendChild(endpointCode);
+          const status = document.createElement('td');
+          const statusNode = document.createElement('span');
+          const allowedStatus = ['success', 'failed', 'pending', 'processing'].includes(String(item.status))
+            ? String(item.status) : 'unknown';
+          statusNode.className = 'log-status ' + allowedStatus;
+          statusNode.textContent = String(item.status || '-');
+          status.appendChild(statusNode);
+          const responseTime = document.createElement('td');
+          responseTime.textContent = String(item.response_time || 0) + 'ms';
+          const cost = document.createElement('td');
+          cost.textContent = String(item.cost || 0);
+          const task = document.createElement('td');
+          task.textContent = String(item.task_id || '-');
+          row.append(created, endpoint, status, responseTime, cost, task);
+          logsEl.appendChild(row);
+        });
+      });
     }
 
     // 统计时间范围切换
@@ -2570,9 +2615,10 @@ curl -X POST <span class="code-string" id="quickStartUrl">/api/v1/generate/ecomm
         btn.classList.toggle('active', btn.dataset.range === range);
       });
       _statsDays = days;
-      renderBarChart(days);
-      renderDonutLegend(days);
-      renderLogs(days);
+      const sequence = ++statsRangeSeq;
+      renderBarChart(days, sequence);
+      renderDonutLegend(days, sequence);
+      renderLogs(days, sequence);
     }
 
     function bindStatsFilters() {
@@ -3165,12 +3211,12 @@ const API_DOCS = {
     method: 'POST',
     endpoint: '/api/v1/generate/text',
     async: false,
-    desc: '调用文本模型进行对话生成，兼容 OpenAI Chat Completions 消息格式。同步接口，直接返回生成结果。按 token 计费（price_per_1k_tokens 积分 / 1k tokens）。',
+    desc: '调用文本模型进行对话生成，兼容 OpenAI Chat Completions 消息格式。同步接口，直接返回生成结果。文本模型的 price_per_call 表示每千 token 积分单价。',
     params: [
       { name: 'model_id', type: 'number', required: true, desc: '文本模型ID，通过 /models?type=text 获取' },
       { name: 'messages', type: 'array', required: true, desc: '对话消息数组，格式 [{role: user/system/assistant, content: 消息内容}]' },
       { name: 'temperature', type: 'number', required: false, desc: '采样温度，0-2之间，默认 0.7' },
-      { name: 'max_tokens', type: 'number', required: false, desc: '最大生成 token 数，默认 2000' }
+      { name: 'max_tokens', type: 'number', required: false, desc: '最大生成 token 数，1-32000，默认 2000' }
     ],
     example: `{
   "model_id": 7,
@@ -3681,10 +3727,15 @@ async function runDebug(apiKey) {
       const taskId = res.data.task_id;
       const extra = document.createElement('div');
       extra.style.marginTop = '12px';
-      extra.innerHTML = `
-        <div style="color:var(--text-2);margin-bottom:8px">💡 这是异步任务，10秒后自动查询状态...</div>
-        <div id="pollStatus" style="color:var(--text-2)">等待中...</div>
-      `;
+      const hint = document.createElement('div');
+      hint.style.cssText = 'color:var(--text-2);margin-bottom:8px';
+      hint.textContent = '💡 这是异步任务，10秒后自动查询状态...';
+      const pollStatus = document.createElement('div');
+      pollStatus.id = 'pollStatus';
+      pollStatus.style.color = 'var(--text-2)';
+      pollStatus.textContent = '等待中...';
+      extra.appendChild(hint);
+      extra.appendChild(pollStatus);
       responseEl.appendChild(extra);
       pollTaskStatus(taskId, apiKeyVal);
     }
@@ -3705,15 +3756,22 @@ async function pollTaskStatus(taskId, apiKey) {
   const poll = async () => {
     attempts++;
     try {
-      const res = await apiV1Request(`/api/v1/task/${taskId}`, {
+      const res = await apiV1Request('/api/v1/task/' + encodeURIComponent(String(taskId)), {
         method: 'GET',
         headers: {}
       });
       if (res.code === 0 && res.data) {
-        const status = res.data.status;
-        pollEl.innerHTML = `状态：<strong>${status}</strong>（第${attempts}次查询）`;
+        const status = String(res.data.status || 'unknown');
+        pollEl.replaceChildren();
+        const statusText = document.createTextNode('状态：');
+        const strong = document.createElement('strong');
+        strong.textContent = status;
+        pollEl.append(statusText, strong, document.createTextNode('（第' + attempts + '次查询）'));
         if (status === 'completed' || status === 'failed') {
-          pollEl.innerHTML += `<pre style="margin-top:8px">${escapeHtml(JSON.stringify(res.data, null, 2))}</pre>`;
+          const result = document.createElement('pre');
+          result.style.marginTop = '8px';
+          result.textContent = JSON.stringify(res.data, null, 2);
+          pollEl.appendChild(result);
           return;
         }
       }
@@ -3747,37 +3805,57 @@ function updateDebugKeyDisplay() {
       const res = await apiV1Request('/api/v1/webhooks', { method: 'GET' });
       if (res.code === 0 && res.data) {
         const webhooks = res.data.webhooks || [];
+        listEl.replaceChildren();
         if (webhooks.length === 0) {
-          listEl.innerHTML = '<div class="webhook-empty">暂无 Webhook 订阅，创建后异步任务完成时会自动推送</div>';
+          const empty = document.createElement('div');
+          empty.className = 'webhook-empty';
+          empty.textContent = '暂无 Webhook 订阅，创建后异步任务完成时会自动推送';
+          listEl.appendChild(empty);
           return;
         }
 
-        let html = '';
         webhooks.forEach(wh => {
-          const statusText = wh.status === 1 ? '已启用' : '已禁用';
-          const statusClass = wh.status === 1 ? 'active' : 'disabled';
-          html += `
-            <div class="webhook-item">
-              <div class="webhook-item-info">
-                <div class="webhook-item-url">${escapeHtml(wh.webhook_url)}</div>
-                <div class="webhook-item-meta">
-                  <span>事件: ${escapeHtml(wh.event_type)}</span>
-                  <span>创建: ${wh.created_at}</span>
-                </div>
-              </div>
-              <span class="webhook-status ${statusClass}">${statusText}</span>
-              <div class="webhook-actions">
-                <button class="btn btn-sm" onclick="toggleWebhook(${wh.id}, ${wh.status === 1 ? 0 : 1})">
-                  ${wh.status === 1 ? '禁用' : '启用'}
-                </button>
-                <button class="btn btn-sm btn-danger" onclick="deleteWebhook(${wh.id})">删除</button>
-              </div>
-            </div>
-          `;
+          const id = Number(wh.id);
+          if (!Number.isSafeInteger(id) || id < 1) return;
+          const active = wh.status === 1;
+          const item = document.createElement('div');
+          item.className = 'webhook-item';
+          const info = document.createElement('div');
+          info.className = 'webhook-item-info';
+          const url = document.createElement('div');
+          url.className = 'webhook-item-url';
+          url.textContent = String(wh.webhook_url || '');
+          const meta = document.createElement('div');
+          meta.className = 'webhook-item-meta';
+          const event = document.createElement('span');
+          event.textContent = '事件: ' + String(wh.event_type || '-');
+          const created = document.createElement('span');
+          created.textContent = '创建: ' + String(wh.created_at || '-');
+          meta.append(event, created);
+          info.append(url, meta);
+          const status = document.createElement('span');
+          status.className = 'webhook-status ' + (active ? 'active' : 'disabled');
+          status.textContent = active ? '已启用' : '已禁用';
+          const actions = document.createElement('div');
+          actions.className = 'webhook-actions';
+          const toggle = document.createElement('button');
+          toggle.className = 'btn btn-sm';
+          toggle.textContent = active ? '禁用' : '启用';
+          toggle.addEventListener('click', () => toggleWebhook(id, active ? 0 : 1));
+          const remove = document.createElement('button');
+          remove.className = 'btn btn-sm btn-danger';
+          remove.textContent = '删除';
+          remove.addEventListener('click', () => deleteWebhook(id));
+          actions.append(toggle, remove);
+          item.append(info, status, actions);
+          listEl.appendChild(item);
         });
-        listEl.innerHTML = html;
       } else {
-        listEl.innerHTML = `<div class="webhook-empty">加载失败: ${res.msg || '未知错误'}</div>`;
+        listEl.replaceChildren();
+        const empty = document.createElement('div');
+        empty.className = 'webhook-empty';
+        empty.textContent = '加载失败: ' + String(res.msg || '未知错误');
+        listEl.appendChild(empty);
       }
     }
 

@@ -16,6 +16,26 @@ function showToast(message, type = 'info') {
   }, 2800);
 }
 
+function renderModelOptions(select, models, formatLabel, emptyText = '暂无可用模型') {
+  if (!select) return;
+  select.replaceChildren();
+  const list = Array.isArray(models) ? models : [];
+  if (list.length === 0) {
+    const option = document.createElement('option');
+    option.value = '';
+    option.textContent = emptyText;
+    select.appendChild(option);
+    return;
+  }
+  list.forEach(model => {
+    const option = document.createElement('option');
+    option.value = String(model.id ?? '');
+    option.textContent = String(formatLabel(model));
+    option.selected = Boolean(model.is_default);
+    select.appendChild(option);
+  });
+}
+
 // Toggle switch
 function setupToggles() {
   document.querySelectorAll('.toggle-switch').forEach(toggle => {
@@ -108,11 +128,15 @@ function setupTagInputs() {
 function addTag(wrapper, text) {
   const input = wrapper.querySelector('.tag-input');
   const tag = document.createElement('span');
+  const close = document.createElement('span');
   tag.className = 'tag-item';
-  tag.innerHTML = `${text}<span class="tag-close">×</span>`;
-  tag.querySelector('.tag-close').addEventListener('click', function() {
+  tag.appendChild(document.createTextNode(text));
+  close.className = 'tag-close';
+  close.textContent = '×';
+  close.addEventListener('click', function() {
     tag.remove();
   });
+  tag.appendChild(close);
   wrapper.insertBefore(tag, input);
 }
 
@@ -130,7 +154,6 @@ function setupSteppers() {
       if (val > min) {
         input.value = val - 1;
         input.dispatchEvent(new Event('change'));
-        updateCost();
       }
     });
     
@@ -139,7 +162,6 @@ function setupSteppers() {
       if (val < max) {
         input.value = val + 1;
         input.dispatchEvent(new Event('change'));
-        updateCost();
       }
     });
     
@@ -541,32 +563,69 @@ function updateCost() {
 function displayTextResults(versions, typeLabel) {
   const previewContent = document.querySelector('.preview-content');
   if (!previewContent) return;
-  
-  let html = '<div class="results-grid fade-in">';
+
+  const grid = document.createElement('div');
+  grid.className = 'results-grid fade-in';
   versions.forEach((item, i) => {
-    const tagsHtml = (item.tags || []).map(t => `<span class="result-tag">${t}</span>`).join('');
-    html += `
-      <div class="result-item result-text-card">
-        <h4>${item.title || '版本 ' + (i+1)}</h4>
-        <div class="result-meta">${typeLabel || 'AI生成'} · 约${(item.content || '').length}字</div>
-        <div class="result-content">${(item.content || '').replace(/\n/g, '<br>')}</div>
-        <div class="result-tags">${tagsHtml}</div>
-      </div>
-    `;
+    const content = String(item.content || '');
+    const card = document.createElement('div');
+    const title = document.createElement('h4');
+    const meta = document.createElement('div');
+    const body = document.createElement('div');
+    const tags = document.createElement('div');
+
+    card.className = 'result-item result-text-card';
+    title.textContent = item.title || '版本 ' + (i + 1);
+    meta.className = 'result-meta';
+    meta.textContent = `${typeLabel || 'AI生成'} · 约${content.length}字`;
+    body.className = 'result-content';
+    body.textContent = content;
+    body.style.whiteSpace = 'pre-wrap';
+    tags.className = 'result-tags';
+    (Array.isArray(item.tags) ? item.tags : []).forEach(value => {
+      const tag = document.createElement('span');
+      tag.className = 'result-tag';
+      tag.textContent = String(value);
+      tags.appendChild(tag);
+    });
+
+    card.append(title, meta, body, tags);
+    grid.appendChild(card);
   });
-  html += '</div>';
-  
+
   previewContent.style.display = "block";
   previewContent.style.alignItems = "stretch";
   previewContent.style.justifyContent = "flex-start";
   previewContent.style.padding = '24px';
-  previewContent.innerHTML = html;
+  previewContent.replaceChildren(grid);
+}
+
+function escapeHtmlAttribute(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function normalizeMediaUrl(value) {
+  if (typeof value !== 'string') return null;
+  if (value.startsWith('/uploads/') && !/["'<>\\]/.test(value)) return value;
+  if (/^data:image\/(?:png|jpeg|webp|gif);base64,[a-z0-9+/=]+$/i.test(value)) return value;
+  if (/^blob:[a-z0-9:/._-]+$/i.test(value)) return value;
+  try {
+    const url = new URL(value, window.location.origin);
+    return ['http:', 'https:'].includes(url.protocol) ? url.href : null;
+  } catch (e) {
+    return null;
+  }
 }
 
 function displayImageResults(images, options) {
   const previewContent = document.querySelector('.preview-content');
   if (!previewContent) return;
   options = options || {};
+  images = (Array.isArray(images) ? images : []).map(normalizeMediaUrl).filter(Boolean);
   const studioType = options.studio_type || 'ecommerce';
   const params = options.params || {};
   const regenerateFn = options.regenerate_fn || null;
@@ -585,9 +644,10 @@ function displayImageResults(images, options) {
   </div>`;
   html += '<div class="results-grid fade-in">';
   images.forEach((img, i) => {
+    const safeImg = escapeHtmlAttribute(img);
     html += `
       <div class="result-item result-image-item" style="aspect-ratio: 1/1;" onclick="__openLb(${i})">
-        <img src="${img}" alt="生成结果 ${i+1}" style="width:100%;height:100%;object-fit:cover;border-radius:12px;" loading="lazy">
+        <img src="${safeImg}" alt="生成结果 ${i+1}" style="width:100%;height:100%;object-fit:cover;border-radius:12px;" loading="lazy">
         <div class="result-item-overlay">
           <div class="result-item-badge">#${i+1}</div>
           <div class="result-item-actions">
@@ -633,28 +693,61 @@ function displayImageResults(images, options) {
   };
 }
 
-// Poll generation task status
+// Poll generation task status without overlapping requests
 function pollGeneration(taskId, onSuccess, onFail, maxPolls) {
+  const normalizedTaskId = String(taskId ?? '');
+  if (!normalizedTaskId || normalizedTaskId.length > 128) {
+    if (onFail) onFail('任务编号无效');
+    return { stop() {} };
+  }
   maxPolls = maxPolls || 60;
   let pollCount = 0;
-  const pollInterval = setInterval(async () => {
+  let timer = null;
+  let stopped = false;
+
+  function stop() {
+    stopped = true;
+    if (timer) clearTimeout(timer);
+  }
+
+  async function poll() {
+    if (stopped) return;
     pollCount++;
     if (pollCount > maxPolls) {
-      clearInterval(pollInterval);
+      stop();
       if (onFail) onFail('timeout');
       return;
     }
-    
-    const statusData = await apiRequest('/api/generation/' + taskId);
-    if (statusData.code === 0 && statusData.data.status === 'success') {
-      clearInterval(pollInterval);
-      if (onSuccess) onSuccess(statusData.data);
-    } else if (statusData.code === 0 && statusData.data.status === 'failed') {
-      clearInterval(pollInterval);
-      if (onFail) onFail(statusData.data.error_msg || '生成失败');
+
+    try {
+      const statusData = await apiRequest(
+        '/api/generation/' + encodeURIComponent(normalizedTaskId)
+      );
+      if (stopped) return;
+      if (statusData.code !== 0) {
+        stop();
+        if (onFail) onFail(statusData.msg || '任务状态查询失败');
+        return;
+      }
+      if (statusData.data.status === 'success') {
+        stop();
+        if (onSuccess) onSuccess(statusData.data);
+        return;
+      }
+      if (statusData.data.status === 'failed') {
+        stop();
+        if (onFail) onFail(statusData.data.error_msg || '生成失败');
+        return;
+      }
+      timer = setTimeout(poll, 3000);
+    } catch (error) {
+      stop();
+      if (onFail) onFail(error.message || '任务状态查询失败');
     }
-  }, 3000);
-  return pollInterval;
+  }
+
+  timer = setTimeout(poll, 3000);
+  return { stop };
 }
 
 // ===== 结果页灯箱 (图片预览 + 左右切换) =====
@@ -667,7 +760,7 @@ function openImageLightbox(images, startIndex) {
   lb.innerHTML = `
     <button style="position:absolute;top:20px;right:20px;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,0.15);color:#fff;border:none;font-size:26px;cursor:pointer;display:flex;align-items:center;justify-content:center;" class="lb-close">×</button>
     <button style="position:absolute;left:24px;top:50%;transform:translateY(-50%);width:52px;height:52px;border-radius:50%;background:rgba(255,255,255,0.15);color:#fff;border:none;font-size:30px;cursor:pointer;display:flex;align-items:center;justify-content:center;" class="lb-prev">‹</button>
-    <img src="${images[cur]}" style="max-width:90%;max-height:90%;border-radius:8px;object-fit:contain;" alt="">
+    <img src="${escapeHtmlAttribute(normalizeMediaUrl(images[cur]) || '')}" style="max-width:90%;max-height:90%;border-radius:8px;object-fit:contain;" alt="">
     <button style="position:absolute;right:24px;top:50%;transform:translateY(-50%);width:52px;height:52px;border-radius:50%;background:rgba(255,255,255,0.15);color:#fff;border:none;font-size:30px;cursor:pointer;display:flex;align-items:center;justify-content:center;" class="lb-next">›</button>
     <div style="position:absolute;bottom:24px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,0.8);font-size:13px;" class="lb-counter"></div>
     <button style="position:absolute;bottom:24px;right:24px;padding:10px 18px;background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:10px;font-size:13px;cursor:pointer;" class="lb-download">📥 下载</button>
@@ -742,6 +835,38 @@ async function loadTemplates(studioType) {
   const res = await apiRequest('/api/user/templates?studio=' + studioType);
   if (res.code === 0) return res.data;
   return [];
+}
+
+function renderTemplateList(container, templates, onSelect) {
+  container.replaceChildren();
+  (Array.isArray(templates) ? templates : []).forEach(template => {
+    const item = document.createElement('div');
+    item.style.cssText = 'padding:12px 14px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;cursor:pointer;transition:all 0.2s;';
+    item.tabIndex = 0;
+    item.setAttribute('role', 'button');
+
+    const name = document.createElement('div');
+    name.style.cssText = 'font-size:14px;font-weight:500;color:var(--text);';
+    name.textContent = String(template.name || '未命名模板');
+
+    const createdAt = document.createElement('div');
+    createdAt.style.cssText = 'font-size:11.5px;color:var(--text-3);margin-top:3px;';
+    const date = new Date(template.created_at);
+    createdAt.textContent = Number.isNaN(date.getTime()) ? '' : date.toLocaleString();
+
+    const select = () => { if (onSelect) onSelect(template); };
+    item.addEventListener('click', select);
+    item.addEventListener('keydown', event => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        select();
+      }
+    });
+    item.addEventListener('mouseenter', () => { item.style.borderColor = 'var(--brand)'; });
+    item.addEventListener('mouseleave', () => { item.style.borderColor = 'var(--border)'; });
+    item.append(name, createdAt);
+    container.appendChild(item);
+  });
 }
 
 // ===== 批量下载 =====

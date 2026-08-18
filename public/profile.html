@@ -1260,74 +1260,152 @@
       const grid = document.getElementById('worksGrid');
 
       if (list.length === 0) {
-        grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;">
-          <div class="icon">🖼️</div>
-          <div class="text">暂无作品，去创作你的第一个作品吧</div>
-        </div>`;
+        const empty = document.createElement('div');
+        empty.className = 'empty-state';
+        empty.style.gridColumn = '1/-1';
+        const icon = document.createElement('div');
+        icon.className = 'icon';
+        icon.textContent = '🖼️';
+        const text = document.createElement('div');
+        text.className = 'text';
+        text.textContent = '暂无作品，去创作你的第一个作品吧';
+        empty.append(icon, text);
+        grid.replaceChildren(empty);
       } else {
         const studioMap = { image: 'AI图片生成', 'image-edit': '图片编辑', 'video-gen': 'AI视频生成', gif: 'GIF表情包', audio: '音频合成', 'prompt-extract': '提示词反推', ecommerce: '电商套图', xiaohongshu: '小红书', poster: '海报工厂', copywriting: 'AI文案', idphoto: 'AI证件照', 'face-swap': '视频换人' };
         const studioIcon = { image: '🖼️', 'image-edit': '✏️', 'video-gen': '🎬', gif: '🎞️', audio: '🎙️', 'prompt-extract': '🔍', ecommerce: '🏪', xiaohongshu: '📕', poster: '🎨', copywriting: '✍️', idphoto: '📷', 'face-swap': '🎭' };
-        grid.innerHTML = list.map(item => {
-          const isImage = !!item.cover;
-          const isVideo = item.cover && /\.(mp4|webm|mov|avi)(\?|$)/i.test(item.cover);
-          const isAudio = item.studio_type === 'audio' && item.cover;
-          let coverHtml = '';
+        grid.replaceChildren();
+        list.forEach(item => {
+          const id = Number(item.id);
+          if (!Number.isSafeInteger(id) || id < 1) return;
+          const studioName = studioMap[item.studio_type] || String(item.studio_type || 'AI作品');
+          const icon = studioIcon[item.studio_type] || '🎨';
+          const selected = selectedWorkIds.has(id);
+          const coverUrl = normalizeMediaUrl(item.cover);
+          const thumbnailUrl = normalizeMediaUrl(item.thumbnail);
+          const isVideo = coverUrl && /\.(mp4|webm|mov|avi)(\?|$)/i.test(coverUrl);
+          const isAudio = item.studio_type === 'audio' && coverUrl;
+
+          const card = document.createElement('div');
+          card.className = 'work-card' + (selectMode ? ' select-mode' : '') + (selected ? ' selected' : '');
+          card.dataset.workId = String(id);
+          card.addEventListener('click', event => selectMode ? toggleWorkSelect(id, event) : openWorkDetail(id));
+
+          const cover = document.createElement('div');
+          cover.className = 'work-cover';
+          const checkbox = document.createElement('div');
+          checkbox.className = 'work-checkbox' + (selected ? ' checked' : '');
+          cover.appendChild(checkbox);
+
           if (isAudio) {
-            coverHtml = `<div class="work-cover-audio">
-                <div class="work-audio-icon">🎵</div>
-                <div class="work-audio-name">${item.title || '音频作品'}</div>
-              </div>`;
-          } else if (isImage && !isVideo) {
-            const thumbSrc = item.thumbnail || item.cover;
-            coverHtml = `<img src="${thumbSrc}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
-              <div class="work-cover-icon" style="display:none;">${studioIcon[item.studio_type] || '🎨'}</div>`;
+            const audioCover = document.createElement('div');
+            audioCover.className = 'work-cover-audio';
+            const audioIcon = document.createElement('div');
+            audioIcon.className = 'work-audio-icon';
+            audioIcon.textContent = '🎵';
+            const audioName = document.createElement('div');
+            audioName.className = 'work-audio-name';
+            audioName.textContent = String(item.title || '音频作品');
+            audioCover.append(audioIcon, audioName);
+            cover.appendChild(audioCover);
+          } else if (coverUrl && !isVideo) {
+            const fallback = document.createElement('div');
+            fallback.className = 'work-cover-icon';
+            fallback.style.display = 'none';
+            fallback.textContent = icon;
+            const image = document.createElement('img');
+            image.src = thumbnailUrl || coverUrl;
+            image.alt = '';
+            image.loading = 'lazy';
+            image.addEventListener('error', () => {
+              image.style.display = 'none';
+              fallback.style.display = 'flex';
+            });
+            cover.append(image, fallback);
           } else if (isVideo) {
-            const thumbSrc = item.thumbnail || '';
-            if (thumbSrc) {
-              coverHtml = `<div class="work-cover-video">
-                <img src="${thumbSrc}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;">
-                <div class="work-video-play">▶</div>
-              </div>`;
+            const videoCover = document.createElement('div');
+            videoCover.className = 'work-cover-video';
+            if (thumbnailUrl) {
+              const image = document.createElement('img');
+              image.src = thumbnailUrl;
+              image.alt = '';
+              image.loading = 'lazy';
+              image.style.cssText = 'width:100%;height:100%;object-fit:cover;';
+              videoCover.appendChild(image);
             } else {
-              coverHtml = `<div class="work-cover-video">
-                <video src="${item.cover}" muted playsinline preload="metadata"></video>
-                <div class="work-video-play">▶</div>
-              </div>`;
+              const video = document.createElement('video');
+              video.src = coverUrl;
+              video.muted = true;
+              video.playsInline = true;
+              video.preload = 'metadata';
+              videoCover.appendChild(video);
             }
-          } else if (item.title) {
-            coverHtml = `<div class="work-cover-text">${item.title}</div>`;
+            const play = document.createElement('div');
+            play.className = 'work-video-play';
+            play.textContent = '▶';
+            videoCover.appendChild(play);
+            cover.appendChild(videoCover);
           } else {
-            coverHtml = `<div class="work-cover-icon">${studioIcon[item.studio_type] || '🎨'}</div>`;
+            const fallback = document.createElement('div');
+            fallback.className = item.title ? 'work-cover-text' : 'work-cover-icon';
+            fallback.textContent = String(item.title || icon);
+            cover.appendChild(fallback);
           }
-          return `
-          <div class="work-card ${selectMode ? 'select-mode' : ''} ${selectedWorkIds.has(item.id) ? 'selected' : ''}" 
-               onclick="${selectMode ? `toggleWorkSelect(${item.id}, event)` : `openWorkDetail(${item.id})`}">
-            <div class="work-cover">
-              <div class="work-checkbox ${selectedWorkIds.has(item.id) ? 'checked' : ''}"></div>
-              ${coverHtml}
-              <span class="work-studio-tag">${studioMap[item.studio_type] || item.studio_type}</span>
-              <button class="work-fav-btn ${item.is_favorite ? 'active' : ''}"
-                onclick="event.stopPropagation();toggleFav(${item.id}, ${item.is_favorite})">
-                ${item.is_favorite ? '❤️' : '🤍'}
-              </button>
-              ${item.item_count > 1 ? `<span class="work-count-badge">${item.item_count}张</span>` : ''}
-              <div class="work-actions">
-                <button class="work-action-btn" onclick="event.stopPropagation();openWorkDetail(${item.id})">查看</button>
-                <button class="work-action-btn danger" onclick="event.stopPropagation();deleteWork(${item.id})">删除</button>
-              </div>
-            </div>
-            <div class="work-info">
-              <div class="work-title">${item.title || studioMap[item.studio_type] + '作品 #' + item.id}</div>
-              <div class="work-meta">
-                <span class="work-status">
-                  <span class="status-dot ${item.status}"></span>
-                  ${item.status === 'success' ? '成功' : item.status === 'pending' ? '处理中' : '失败'}
-                </span>
-                <span>-${item.credits_used}分</span>
-              </div>
-            </div>
-          </div>`;
-        }).join('');
+
+          const studioTag = document.createElement('span');
+          studioTag.className = 'work-studio-tag';
+          studioTag.textContent = studioName;
+          const favorite = document.createElement('button');
+          favorite.className = 'work-fav-btn' + (item.is_favorite ? ' active' : '');
+          favorite.textContent = item.is_favorite ? '❤️' : '🤍';
+          favorite.addEventListener('click', event => {
+            event.stopPropagation();
+            toggleFav(id, Boolean(item.is_favorite));
+          });
+          cover.append(studioTag, favorite);
+
+          const itemCount = Number(item.item_count);
+          if (Number.isSafeInteger(itemCount) && itemCount > 1) {
+            const badge = document.createElement('span');
+            badge.className = 'work-count-badge';
+            badge.textContent = itemCount + '张';
+            cover.appendChild(badge);
+          }
+
+          const actions = document.createElement('div');
+          actions.className = 'work-actions';
+          const view = document.createElement('button');
+          view.className = 'work-action-btn';
+          view.textContent = '查看';
+          view.addEventListener('click', event => { event.stopPropagation(); openWorkDetail(id); });
+          const remove = document.createElement('button');
+          remove.className = 'work-action-btn danger';
+          remove.textContent = '删除';
+          remove.addEventListener('click', event => { event.stopPropagation(); deleteWork(id); });
+          actions.append(view, remove);
+          cover.appendChild(actions);
+
+          const info = document.createElement('div');
+          info.className = 'work-info';
+          const title = document.createElement('div');
+          title.className = 'work-title';
+          title.textContent = String(item.title || studioName + '作品 #' + id);
+          const meta = document.createElement('div');
+          meta.className = 'work-meta';
+          const status = ['success', 'pending', 'processing', 'failed'].includes(item.status) ? item.status : 'failed';
+          const statusNode = document.createElement('span');
+          statusNode.className = 'work-status';
+          const dot = document.createElement('span');
+          dot.className = 'status-dot ' + status;
+          statusNode.appendChild(dot);
+          statusNode.appendChild(document.createTextNode(status === 'success' ? '成功' : ['pending', 'processing'].includes(status) ? '处理中' : '失败'));
+          const credits = document.createElement('span');
+          credits.textContent = '-' + Number(item.credits_used || 0) + '分';
+          meta.append(statusNode, credits);
+          info.append(title, meta);
+          card.append(cover, info);
+          grid.appendChild(card);
+        });
       }
 
       renderPagination('worksPagination', page, Math.ceil(worksTotal / 12), loadWorks);
@@ -1353,15 +1431,12 @@
       }
       updateSelectedCount();
       // 只更新当前卡片样式，不全刷
-      const cards = document.querySelectorAll('.work-card');
-      cards.forEach(card => {
-        const onClick = card.getAttribute('onclick') || '';
-        if (onClick.includes(`toggleWorkSelect(${id}`)) {
-          card.classList.toggle('selected', selectedWorkIds.has(id));
-          const cb = card.querySelector('.work-checkbox');
-          if (cb) cb.classList.toggle('checked', selectedWorkIds.has(id));
-        }
-      });
+      const card = document.querySelector(`.work-card[data-work-id="${id}"]`);
+      if (card) {
+        card.classList.toggle('selected', selectedWorkIds.has(id));
+        const cb = card.querySelector('.work-checkbox');
+        if (cb) cb.classList.toggle('checked', selectedWorkIds.has(id));
+      }
     }
 
     function updateSelectedCount() {
@@ -1382,15 +1457,12 @@
       } else {
         // 全选本页
         cards.forEach(card => {
-          const onClick = card.getAttribute('onclick') || '';
-          const match = onClick.match(/toggleWorkSelect\((\d+)/);
-          if (match) {
-            const id = parseInt(match[1]);
-            selectedWorkIds.add(id);
-            card.classList.add('selected');
-            const cb = card.querySelector('.work-checkbox');
-            if (cb) cb.classList.add('checked');
-          }
+          const id = Number(card.dataset.workId);
+          if (!Number.isSafeInteger(id) || id < 1) return;
+          selectedWorkIds.add(id);
+          card.classList.add('selected');
+          const cb = card.querySelector('.work-checkbox');
+          if (cb) cb.classList.add('checked');
         });
       }
       updateSelectedCount();
@@ -1444,7 +1516,11 @@
           return;
         }
 
-        const taskId = res.data.taskId;
+        const taskId = String(res.data.taskId || '');
+        if (!taskId || taskId.length > 128) {
+          showToast('下载任务无效', 'error');
+          return;
+        }
         showDownloadProgress(taskId);
       } catch(e) {
         showToast('操作失败', 'error');
@@ -1454,8 +1530,10 @@
     // 显示下载进度弹窗
     function showDownloadProgress(taskId) {
       // 先清理旧的轮询，防止叠加
-      if (window._dlInterval) { clearInterval(window._dlInterval); window._dlInterval = null; }
+      if (window._dlTimer) { clearTimeout(window._dlTimer); window._dlTimer = null; }
       if (window._zipAnimTimer) { clearInterval(window._zipAnimTimer); window._zipAnimTimer = null; }
+      const sequence = (window._dlPollSequence || 0) + 1;
+      window._dlPollSequence = sequence;
       window._autoDownloadTriggered = false;
       window._downloading = false;
 
@@ -1465,7 +1543,41 @@
         modal = document.createElement('div');
         modal.id = 'downloadProgressModal';
         modal.className = 'download-progress-modal';
-        modal.innerHTML = '<div class="progress-box"><h3>📦 正在打包</h3><p class="progress-tip">后台正在为您打包图片，请稍候...</p><div class="progress-bar-wrap"><div class="progress-bar" id="dlProgressBar"></div></div><p class="progress-text" id="dlProgressText">准备中...</p><div class="progress-actions"><button class="batch-btn" onclick="closeDownloadProgress()">关闭</button><button class="batch-btn primary download-btn" id="dlDownloadBtn" style="display:none;">⬇ 下载文件</button></div><p class="progress-notice">💡 打包在后台进行，您可以离开此页面继续操作，稍后回来下载即可。文件保留30分钟。</p></div>';
+        const box = document.createElement('div');
+        box.className = 'progress-box';
+        const heading = document.createElement('h3');
+        heading.textContent = '📦 正在打包';
+        const tip = document.createElement('p');
+        tip.className = 'progress-tip';
+        tip.textContent = '后台正在为您打包图片，请稍候...';
+        const barWrap = document.createElement('div');
+        barWrap.className = 'progress-bar-wrap';
+        const bar = document.createElement('div');
+        bar.className = 'progress-bar';
+        bar.id = 'dlProgressBar';
+        barWrap.appendChild(bar);
+        const progress = document.createElement('p');
+        progress.className = 'progress-text';
+        progress.id = 'dlProgressText';
+        progress.textContent = '准备中...';
+        const actions = document.createElement('div');
+        actions.className = 'progress-actions';
+        const close = document.createElement('button');
+        close.className = 'batch-btn';
+        close.textContent = '关闭';
+        close.addEventListener('click', closeDownloadProgress);
+        const download = document.createElement('button');
+        download.className = 'batch-btn primary download-btn';
+        download.id = 'dlDownloadBtn';
+        download.style.display = 'none';
+        download.textContent = '⬇ 下载文件';
+        download.addEventListener('click', () => downloadZipFile(download._downloadUrl));
+        actions.append(close, download);
+        const notice = document.createElement('p');
+        notice.className = 'progress-notice';
+        notice.textContent = '💡 打包在后台进行，您可以离开此页面继续操作，稍后回来下载即可。文件保留30分钟。';
+        box.append(heading, tip, barWrap, progress, actions, notice);
+        modal.appendChild(box);
         document.body.appendChild(modal);
       }
       modal.style.display = 'flex';
@@ -1476,39 +1588,36 @@
       dlBtn.textContent = '⬇ 下载文件';
       dlBtn.disabled = false;
 
-      let currentDownloadUrl = null;
-
       // 轮询进度
       let pollCount = 0;
       const maxPoll = 180; // 最多轮询3分钟
-      const interval = setInterval(async function() {
+      async function poll() {
+        if (sequence !== window._dlPollSequence) return;
         pollCount++;
         if (pollCount > maxPoll) {
-          clearInterval(interval);
           document.getElementById('dlProgressText').textContent = '打包超时，请稍后重试';
           return;
         }
 
+        let shouldContinue = true;
         try {
-          const res = await apiRequest('/api/user/works/batch-download/' + taskId);
+          const res = await apiRequest('/api/user/works/batch-download/' + encodeURIComponent(taskId));
+          if (sequence !== window._dlPollSequence) return;
           if (res.code !== 0) {
-            clearInterval(interval);
             document.getElementById('dlProgressText').textContent = res.msg || '打包失败';
             return;
           }
 
           const data = res.data;
-
           if (data.status === 'processing') {
             const percent = data.total > 0 ? Math.round((data.done / data.total) * 80) : 0;
             document.getElementById('dlProgressBar').style.width = percent + '%';
             document.getElementById('dlProgressText').textContent = '正在整理图片... ' + data.done + '/' + data.total;
           } else if (data.status === 'done') {
+            shouldContinue = false;
             if (window._autoDownloadTriggered) return; // 防止重复触发
             window._autoDownloadTriggered = true;
-            clearInterval(interval);
-
-            currentDownloadUrl = data.downloadUrl;
+            const currentDownloadUrl = data.downloadUrl;
 
             // 进度条动画：80% -> 100%，模拟zip压缩阶段
             let curPct = 80;
@@ -1526,32 +1635,49 @@
 
             // 绑定下载按钮
             const btn = document.getElementById('dlDownloadBtn');
+            btn._downloadUrl = currentDownloadUrl;
             btn.style.display = 'inline-block';
-            btn.onclick = function() { downloadZipFile(currentDownloadUrl); };
             showToast('打包完成，准备下载', 'success');
             // 自动触发下载（只触发一次）
-            setTimeout(function() { downloadZipFile(currentDownloadUrl); }, 500);
+            setTimeout(function() {
+              if (sequence === window._dlPollSequence) downloadZipFile(currentDownloadUrl);
+            }, 500);
           } else if (data.status === 'failed') {
-            clearInterval(interval);
+            shouldContinue = false;
             document.getElementById('dlProgressText').textContent = '打包失败：' + (data.error || '未知错误');
           }
         } catch(e) {
           // 忽略网络错误，继续轮询
         }
-      }, 1000);
-
-      window._dlInterval = interval;
+        if (shouldContinue && sequence === window._dlPollSequence) {
+          window._dlTimer = setTimeout(poll, 1000);
+        }
+      }
+      poll();
     }
 
     function closeDownloadProgress() {
       const modal = document.getElementById('downloadProgressModal');
       if (modal) modal.style.display = 'none';
-      if (window._dlInterval) clearInterval(window._dlInterval);
+      window._dlPollSequence = (window._dlPollSequence || 0) + 1;
+      if (window._dlTimer) {
+        clearTimeout(window._dlTimer);
+        window._dlTimer = null;
+      }
+      if (window._zipAnimTimer) {
+        clearInterval(window._zipAnimTimer);
+        window._zipAnimTimer = null;
+      }
     }
 
     // 带token下载zip文件
     async function downloadZipFile(url) {
       if (window._downloading) return; // 防止重复点击
+      const downloadUrl = normalizeExternalUrl(url);
+      if (!downloadUrl || new URL(downloadUrl).origin !== window.location.origin) {
+        showToast('下载链接无效', 'error');
+        return;
+      }
       window._downloading = true;
 
       const btn = document.getElementById('dlDownloadBtn');
@@ -1561,7 +1687,7 @@
 
       try {
         const token = localStorage.getItem('token');
-        const res = await fetch(url, {
+        const res = await fetch(downloadUrl, {
           headers: { 'Authorization': 'Bearer ' + token }
         });
         if (!res.ok) {
@@ -1645,9 +1771,10 @@
       if (res.code === 0) {
         showToast(res.msg, 'success');
         loadWorks(worksPage);
-      } else {
-        showToast(res.msg, 'error');
+        return true;
       }
+      showToast(res.msg, 'error');
+      return false;
     }
 
     // 删除作品
@@ -1674,16 +1801,37 @@
     async function loadPackages() {
       const res = await apiRequest('/api/user/recharge/packages');
       if (res.code !== 0) return;
-      const list = res.data;
+      const list = Array.isArray(res.data) ? res.data : [];
       const grid = document.getElementById('packageGrid');
-      grid.innerHTML = list.map((pkg, i) => `
-        <div class="package-card ${i === 1 ? 'hot' : ''}" data-id="${pkg.id}" onclick="selectPackage(${pkg.id}, this)">
-          <div class="package-name">${pkg.name}</div>
-          <div class="package-credits">${pkg.credits}<small> 积分</small></div>
-          <div class="package-bonus">${pkg.bonus > 0 ? '🎁 赠送 ' + pkg.bonus + ' 积分' : ''}</div>
-          <div class="package-price"><small>￥</small>${pkg.price}</div>
-        </div>
-      `).join('');
+      grid.replaceChildren();
+      list.forEach((pkg, index) => {
+        const id = Number(pkg.id);
+        if (!Number.isSafeInteger(id) || id < 1) return;
+        const card = document.createElement('div');
+        card.className = 'package-card' + (index === 1 ? ' hot' : '');
+        card.dataset.id = String(id);
+        card.addEventListener('click', () => selectPackage(id, card));
+        const name = document.createElement('div');
+        name.className = 'package-name';
+        name.textContent = String(pkg.name || '充值套餐');
+        const credits = document.createElement('div');
+        credits.className = 'package-credits';
+        credits.textContent = String(Number(pkg.credits) || 0);
+        const unit = document.createElement('small');
+        unit.textContent = ' 积分';
+        credits.appendChild(unit);
+        const bonus = document.createElement('div');
+        bonus.className = 'package-bonus';
+        const bonusAmount = Number(pkg.bonus);
+        bonus.textContent = Number.isFinite(bonusAmount) && bonusAmount > 0 ? `🎁 赠送 ${bonusAmount} 积分` : '';
+        const price = document.createElement('div');
+        price.className = 'package-price';
+        const currency = document.createElement('small');
+        currency.textContent = '￥';
+        price.append(currency, document.createTextNode(String(pkg.price ?? 0)));
+        card.append(name, credits, bonus, price);
+        grid.appendChild(card);
+      });
     }
 
     function selectPackage(id, el) {
@@ -1706,6 +1854,16 @@
     const PAY_POLL_MAX = 60; // 最多轮询60次=3分钟
     let currentPayUrl = '';
 
+    function normalizeExternalUrl(value) {
+      if (typeof value !== 'string' || !value.trim()) return '';
+      try {
+        const url = new URL(value, window.location.origin);
+        return ['http:', 'https:'].includes(url.protocol) ? url.href : '';
+      } catch (error) {
+        return '';
+      }
+    }
+
     async function confirmRecharge() {
       if (!selectedPkgId) return;
 
@@ -1722,7 +1880,10 @@
       document.getElementById('payModalSub').textContent = pkgName;
       document.getElementById('payStatus').textContent = '正在创建订单...';
       document.getElementById('payStatus').className = 'pay-status';
-      document.getElementById('payQrcodeWrap').innerHTML = '<div class="pay-qrcode-loading"></div>';
+      const qrcodeWrap = document.getElementById('payQrcodeWrap');
+      const loading = document.createElement('div');
+      loading.className = 'pay-qrcode-loading';
+      qrcodeWrap.replaceChildren(loading);
       document.getElementById('payMobileBtn').style.display = 'none';
       document.getElementById('payModalMask').classList.add('show');
 
@@ -1741,19 +1902,24 @@
 
         const data = res.data;
         currentPayOrderId = data.order_id;
-        currentPayUrl = data.url || '';
+        currentPayUrl = normalizeExternalUrl(data.url);
 
         // 显示二维码
-        if (data.url_qrcode) {
-          document.getElementById('payQrcodeWrap').innerHTML =
-            '<img src="' + data.url_qrcode + '" alt="支付二维码" />';
+        const qrcodeUrl = normalizeMediaUrl(data.url_qrcode);
+        if (qrcodeUrl) {
+          const image = document.createElement('img');
+          image.src = qrcodeUrl;
+          image.alt = '支付二维码';
+          qrcodeWrap.replaceChildren(image);
         } else {
-          document.getElementById('payQrcodeWrap').innerHTML =
-            '<p style="font-size:13px;color:var(--text-2)">请使用手机端支付</p>';
+          const notice = document.createElement('p');
+          notice.style.cssText = 'font-size:13px;color:var(--text-2)';
+          notice.textContent = '请使用手机端支付';
+          qrcodeWrap.replaceChildren(notice);
         }
 
         // 手机端显示跳转按钮
-        if (data.url && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)) {
+        if (currentPayUrl && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)) {
           document.getElementById('payMobileBtn').style.display = 'block';
         }
 
@@ -1770,34 +1936,37 @@
     }
 
     function jumpToPay() {
-      if (currentPayUrl) window.open(currentPayUrl, '_blank');
+      if (currentPayUrl) window.open(currentPayUrl, '_blank', 'noopener,noreferrer');
     }
 
     function startPayPolling() {
-      if (payPollTimer) clearInterval(payPollTimer);
+      if (payPollTimer) clearTimeout(payPollTimer);
       payPollCount = 0;
-      payPollTimer = setInterval(async () => {
-        if (!currentPayOrderId) {
-          clearInterval(payPollTimer);
-          return;
-        }
+      const orderId = String(currentPayOrderId || '');
+      const sequence = (window._payPollSequence || 0) + 1;
+      window._payPollSequence = sequence;
+
+      async function poll() {
+        if (!orderId || sequence !== window._payPollSequence) return;
         payPollCount++;
         if (payPollCount > PAY_POLL_MAX) {
-          clearInterval(payPollTimer);
           document.getElementById('payStatus').textContent = '支付超时，请重新发起支付';
           document.getElementById('payStatus').className = 'pay-status error';
           return;
         }
+        let paid = false;
         try {
-          const res = await apiRequest('/api/user/recharge/query/' + currentPayOrderId);
+          const res = await apiRequest('/api/user/recharge/query/' + encodeURIComponent(orderId));
+          if (sequence !== window._payPollSequence) return;
           if (res.code === 0 && res.data.status === 'paid') {
-            clearInterval(payPollTimer);
+            paid = true;
             document.getElementById('payStatus').textContent = '✅ 支付成功！积分已到账';
             document.getElementById('payStatus').className = 'pay-status success';
             // 更新顶部积分
             loadUserInfo();
             loadOrders();
             setTimeout(() => {
+              if (sequence !== window._payPollSequence) return;
               closePayModal();
               switchTab('orders');
             }, 1500);
@@ -1805,13 +1974,18 @@
         } catch (e) {
           // 轮询出错不中断
         }
-      }, 3000);
+        if (!paid && sequence === window._payPollSequence) {
+          payPollTimer = setTimeout(poll, 3000);
+        }
+      }
+      poll();
     }
 
     function closePayModal() {
       document.getElementById('payModalMask').classList.remove('show');
+      window._payPollSequence = (window._payPollSequence || 0) + 1;
       if (payPollTimer) {
-        clearInterval(payPollTimer);
+        clearTimeout(payPollTimer);
         payPollTimer = null;
       }
       currentPayOrderId = null;
@@ -1821,29 +1995,50 @@
     async function loadOrders(page = 1) {
       const res = await apiRequest(`/api/user/orders?page=${page}&pageSize=10`);
       if (res.code !== 0) return;
-      ordersPage = page; ordersTotal = res.data.total;
-      const list = res.data.list;
+      ordersPage = page; ordersTotal = Number(res.data.total) || 0;
+      const list = Array.isArray(res.data.list) ? res.data.list : [];
       const tbody = document.getElementById('ordersTbody');
+      tbody.replaceChildren();
       if (list.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-3);padding:40px;">暂无订单</td></tr>';
+        const row = document.createElement('tr');
+        const cell = document.createElement('td');
+        cell.colSpan = 6;
+        cell.style.cssText = 'text-align:center;color:var(--text-3);padding:40px;';
+        cell.textContent = '暂无订单';
+        row.appendChild(cell);
+        tbody.appendChild(row);
       } else {
         const statusMap = {
-          pending: '<span class="status-badge status-pending">待支付</span>',
-          paid: '<span class="status-badge status-paid">已支付</span>',
-          failed: '<span class="status-badge status-failed">失败</span>',
-          cancelled: '<span class="status-badge">已取消</span>',
-          manual: '<span class="status-badge status-success">手动充值</span>',
+          pending: ['status-pending', '待支付'],
+          paid: ['status-paid', '已支付'],
+          failed: ['status-failed', '失败'],
+          cancelled: ['', '已取消'],
+          manual: ['status-success', '手动充值'],
         };
-        tbody.innerHTML = list.map(o => `
-          <tr>
-            <td style="font-family:ui-monospace,monospace;font-size:12px;">${o.remark || ('ORD' + o.id)}</td>
-            <td>${o.package_name || '-'}</td>
-            <td>￥${o.amount}</td>
-            <td style="color:var(--brand);font-weight:600;">+${o.credits}</td>
-            <td>${statusMap[o.status] || o.status}</td>
-            <td style="font-size:12px;color:var(--text-3);">${o.created_at}</td>
-          </tr>
-        `).join('');
+        list.forEach(order => {
+          const row = document.createElement('tr');
+          const number = document.createElement('td');
+          number.style.cssText = 'font-family:ui-monospace,monospace;font-size:12px;';
+          number.textContent = String(order.remark || ('ORD' + order.id));
+          const packageName = document.createElement('td');
+          packageName.textContent = String(order.package_name || '-');
+          const amount = document.createElement('td');
+          amount.textContent = '￥' + String(order.amount ?? 0);
+          const credits = document.createElement('td');
+          credits.style.cssText = 'color:var(--brand);font-weight:600;';
+          credits.textContent = '+' + String(order.credits ?? 0);
+          const status = document.createElement('td');
+          const badge = document.createElement('span');
+          const statusConfig = statusMap[order.status];
+          badge.className = 'status-badge' + (statusConfig && statusConfig[0] ? ' ' + statusConfig[0] : '');
+          badge.textContent = statusConfig ? statusConfig[1] : String(order.status || '未知');
+          status.appendChild(badge);
+          const createdAt = document.createElement('td');
+          createdAt.style.cssText = 'font-size:12px;color:var(--text-3);';
+          createdAt.textContent = String(order.created_at || '-');
+          row.append(number, packageName, amount, credits, status, createdAt);
+          tbody.appendChild(row);
+        });
       }
       renderPagination('ordersPagination', page, Math.ceil(ordersTotal / 10), loadOrders);
     }
@@ -1852,24 +2047,38 @@
     async function loadCredits(page = 1) {
       const res = await apiRequest(`/api/user/credit-logs?page=${page}&pageSize=10`);
       if (res.code !== 0) return;
-      creditPage = page; creditTotal = res.data.total;
-      const list = res.data.list;
+      creditPage = page; creditTotal = Number(res.data.total) || 0;
+      const list = Array.isArray(res.data.list) ? res.data.list : [];
       const tbody = document.getElementById('creditTbody');
+      tbody.replaceChildren();
       if (list.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-3);padding:40px;">暂无记录</td></tr>';
+        const row = document.createElement('tr');
+        const cell = document.createElement('td');
+        cell.colSpan = 4;
+        cell.style.cssText = 'text-align:center;color:var(--text-3);padding:40px;';
+        cell.textContent = '暂无记录';
+        row.appendChild(cell);
+        tbody.appendChild(row);
       } else {
         const typeMap = { recharge: '充值', consume: '消耗', refund: '退款', manual: '手动调整' };
-        tbody.innerHTML = list.map(item => {
-          const positive = item.amount > 0;
-          return `<tr>
-            <td>${typeMap[item.type] || item.type}</td>
-            <td style="color:${positive ? 'var(--success)' : 'var(--danger)'};font-weight:600;">
-              ${positive ? '+' : ''}${item.amount}
-            </td>
-            <td>${item.description || '-'}</td>
-            <td style="font-size:12px;color:var(--text-3);">${item.created_at}</td>
-          </tr>`;
-        }).join('');
+        list.forEach(item => {
+          const amountValue = Number(item.amount);
+          const amount = Number.isFinite(amountValue) ? amountValue : 0;
+          const positive = amount > 0;
+          const row = document.createElement('tr');
+          const type = document.createElement('td');
+          type.textContent = typeMap[item.type] || String(item.type || '未知');
+          const value = document.createElement('td');
+          value.style.cssText = `color:var(${positive ? '--success' : '--danger'});font-weight:600;`;
+          value.textContent = (positive ? '+' : '') + amount;
+          const description = document.createElement('td');
+          description.textContent = String(item.description || '-');
+          const createdAt = document.createElement('td');
+          createdAt.style.cssText = 'font-size:12px;color:var(--text-3);';
+          createdAt.textContent = String(item.created_at || '-');
+          row.append(type, value, description, createdAt);
+          tbody.appendChild(row);
+        });
       }
       renderPagination('creditPagination', page, Math.ceil(creditTotal / 10), loadCredits);
     }
@@ -1879,26 +2088,40 @@
       const res = await apiRequest('/api/user/sign-status');
       if (res.code !== 0) return;
       const d = res.data;
-      document.getElementById('signDaysNum').textContent = d.sign_days;
-      document.getElementById('todayBonus').textContent = d.today_bonus;
+      const signedDays = Number(d.sign_days) || 0;
+      const todayBonus = Number(d.today_bonus) || 0;
 
       const cal = document.getElementById('signCalendar');
-      cal.innerHTML = d.week_days.map(day => `
-        <div class="sign-day ${day.signed ? 'signed' : ''} ${day.is_today ? 'today' : ''}">
-          <div class="circle">${day.signed ? '✓' : day.day}</div>
-          <div class="bonus">${day.bonus}分</div>
-        </div>
-      `).join('');
+      cal.replaceChildren();
+      const weekDays = Array.isArray(d.week_days) ? d.week_days : [];
+      weekDays.forEach(day => {
+        const item = document.createElement('div');
+        item.className = 'sign-day' + (day.signed ? ' signed' : '') + (day.is_today ? ' today' : '');
+        const circle = document.createElement('div');
+        circle.className = 'circle';
+        circle.textContent = day.signed ? '✓' : String(day.day || '');
+        const bonus = document.createElement('div');
+        bonus.className = 'bonus';
+        bonus.textContent = String(Number(day.bonus) || 0) + '分';
+        item.append(circle, bonus);
+        cal.appendChild(item);
+      });
 
       const btn = document.getElementById('signBtn');
+      const status = document.getElementById('signStatusText');
+      const days = document.createElement('b');
+      days.textContent = String(signedDays);
+      const reward = document.createElement('b');
       if (d.signed_today) {
         btn.textContent = '今日已签到';
         btn.disabled = true;
-        document.getElementById('signStatusText').innerHTML =
-          `已连续签到 <b>${d.sign_days}</b> 天，明天可领 <b>${Math.min(5 + (d.sign_days), 20)}</b> 积分`;
+        reward.textContent = String(Math.min(5 + signedDays, 20));
+        status.replaceChildren('已连续签到 ', days, ' 天，明天可领 ', reward, ' 积分');
       } else {
-        btn.textContent = '立即签到 +' + d.today_bonus + '分';
+        btn.textContent = '立即签到 +' + todayBonus + '分';
         btn.disabled = false;
+        reward.textContent = String(todayBonus);
+        status.replaceChildren('连续签到 ', days, ' 天，今日可领 ', reward, ' 积分');
       }
     }
 
@@ -1918,10 +2141,12 @@
       const res = await apiRequest('/api/user/invite-info');
       if (res.code !== 0) return;
       const d = res.data;
-      document.getElementById('myInviteCode').textContent = d.invite_code;
-      document.getElementById('inviteCountNum').textContent = d.invite_count;
-      document.getElementById('inviteDesc').innerHTML =
-        `每邀请一位好友注册，你和好友各得 <b>${d.invite_bonus}</b> 积分奖励`;
+      document.getElementById('myInviteCode').textContent = String(d.invite_code || '------');
+      document.getElementById('inviteCountNum').textContent = String(Number(d.invite_count) || 0);
+      const description = document.getElementById('inviteDesc');
+      const bonus = document.createElement('b');
+      bonus.textContent = String(Number(d.invite_bonus) || 0);
+      description.replaceChildren('每邀请一位好友注册，你和好友各得 ', bonus, ' 积分奖励');
     }
 
     function copyInviteCode() {
@@ -1969,36 +2194,40 @@
     // ===== 分页 =====
     function renderPagination(containerId, current, total, callback) {
       const container = document.getElementById(containerId);
-      if (total <= 1) { container.innerHTML = ''; return; }
-      let html = `<button class="page-btn" ${current === 1 ? 'disabled' : ''} onclick="__pg('${containerId}', ${current-1}, ${total})">上一页</button>`;
+      container.replaceChildren();
+      if (total <= 1) return;
+
+      function addButton(label, page, disabled = false, active = false) {
+        const button = document.createElement('button');
+        button.className = 'page-btn' + (active ? ' active' : '');
+        button.textContent = String(label);
+        button.disabled = disabled;
+        button.addEventListener('click', () => callback(page));
+        container.appendChild(button);
+      }
+
+      addButton('上一页', current - 1, current === 1);
       for (let i = 1; i <= total; i++) {
         if (total > 7 && Math.abs(i - current) > 2 && i !== 1 && i !== total) {
-          if (i === 2 || i === total - 1) html += '<span style="color:var(--text-3);padding:0 4px;">...</span>';
+          if (i === 2 || i === total - 1) {
+            const ellipsis = document.createElement('span');
+            ellipsis.style.cssText = 'color:var(--text-3);padding:0 4px;';
+            ellipsis.textContent = '...';
+            container.appendChild(ellipsis);
+          }
           continue;
         }
-        html += `<button class="page-btn ${i === current ? 'active' : ''}" onclick="__pg('${containerId}', ${i}, ${total})">${i}</button>`;
+        addButton(i, i, false, i === current);
       }
-      html += `<button class="page-btn" ${current === total ? 'disabled' : ''} onclick="__pg('${containerId}', ${current+1}, ${total})">下一页</button>`;
-      container.innerHTML = html;
-      container.dataset.callback = callback.name;
+      addButton('下一页', current + 1, current === total);
     }
-
-    window.__pg = function(containerId, page, total) {
-      if (page < 1 || page > total) return;
-      const cbMap = {
-        'worksPagination': loadWorks,
-        'creditPagination': loadCredits,
-        'ordersPagination': loadOrders,
-      };
-      const cb = cbMap[containerId];
-      if (cb) cb(page);
-    };
 
     // ===== 详情弹窗 =====
     // ===== 音频复制链接 =====
     function copyAudioUrl(url) {
-      if (!url) { showToast('链接不存在', 'error'); return; }
-      const fullUrl = window.location.origin + url;
+      const audioUrl = normalizeMediaUrl(url);
+      if (!audioUrl) { showToast('链接不存在', 'error'); return; }
+      const fullUrl = new URL(audioUrl, window.location.origin).href;
       if (navigator.clipboard && window.isSecureContext) {
         navigator.clipboard.writeText(fullUrl).then(() => {
           showToast('链接已复制到剪贴板', 'success');
@@ -2026,212 +2255,358 @@
 
     function showGenDetailModal(gen) {
       const studioMap = { image: 'AI图片生成', 'image-edit': '图片编辑', 'video-gen': 'AI视频生成', gif: 'GIF表情包', audio: '音频合成', 'prompt-extract': '提示词反推', ecommerce: '电商套图', xiaohongshu: '小红书笔记', poster: '海报工厂', copywriting: 'AI文案', idphoto: 'AI证件照', 'face-swap': '视频换人' };
-      const result = gen.result || {};
+      const result = gen && gen.result && typeof gen.result === 'object' ? gen.result : {};
+      const generationId = Number(gen && gen.id);
 
-      let contentHtml = '';
-      if (result.images && result.images.length > 0) {
-        contentHtml = `<div class="detail-img-grid">
-          ${result.images.map((img, i) => `
-            <div class="detail-img-item">
-              <img src="${img}" alt="图片${i+1}" onclick="openLightbox(${JSON.stringify(result.images).replace(/"/g,'&quot;')}, ${i})">
-              <div class="detail-img-index">${i+1}/${result.images.length}</div>
-            </div>
-          `).join('')}
-        </div>
-        <div style="text-align:center;margin-bottom:16px;">
-          <button class="action-btn" onclick="downloadAllImages(${JSON.stringify(result.images).replace(/"/g,'&quot;')})">📥 批量下载</button>
-        </div>`;
-      }
-      else if (result.posters && result.posters.length > 0) {
-        const urls = result.posters.map(p => typeof p === 'string' ? p : (p.image || '')).filter(Boolean);
-        contentHtml = `<div class="detail-img-grid">
-          ${result.posters.map((p, i) => {
-            const imgUrl = typeof p === 'string' ? p : (p.image || '');
-            return `<div class="detail-img-item">
-              <img src="${imgUrl}" alt="海报${i+1}" onclick="openLightbox(${JSON.stringify(urls).replace(/"/g,'&quot;')}, ${i})">
-              ${p.title ? `<div class="detail-img-title">${p.title}</div>` : ''}
-            </div>`;
-          }).join('')}
-        </div>
-        <div style="text-align:center;margin-bottom:16px;">
-          <button class="action-btn" onclick="downloadAllImages(${JSON.stringify(urls).replace(/"/g,'&quot;')})">📥 批量下载</button>
-        </div>`;
-      }
-      else if (result.notes && result.notes.length > 0) {
-        contentHtml = `<div class="detail-text-list">
-          ${result.notes.map((n, i) => `
-            <div class="detail-text-item">
-              <div class="detail-text-title">${n.title || '笔记 ' + (i+1)}</div>
-              <div class="detail-text-content">${(n.content || '').replace(/\n/g, '<br>')}</div>
-              ${n.tags && n.tags.length ? `<div class="detail-tags">${n.tags.map(t => `<span class="tag">${t}</span>`).join('')}</div>` : ''}
-              <div style="margin-top:10px;"><button class="link-btn" onclick="copyText(\`${(n.content || '').replace(/`/g, '\\`')}\`)">📋 复制文案</button></div>
-            </div>
-          `).join('')}
-        </div>`;
-      }
-      else if (result.versions && result.versions.length > 0) {
-        contentHtml = `<div class="detail-text-list">
-          ${result.versions.map((v, i) => `
-            <div class="detail-text-item">
-              <div class="detail-text-title">${v.title || '版本 ' + (i+1)}</div>
-              <div class="detail-text-content">${(v.content || '').replace(/\n/g, '<br>')}</div>
-              ${v.tags && v.tags.length ? `<div class="detail-tags">${v.tags.map(t => `<span class="tag">${t}</span>`).join('')}</div>` : ''}
-              <div style="margin-top:10px;"><button class="link-btn" onclick="copyText(\`${(v.content || '').replace(/`/g, '\\`')}\`)">📋 复制文案</button></div>
-            </div>
-          `).join('')}
-        </div>`;
-      }
-      else if (result.copies && result.copies.length > 0) {
-        contentHtml = `<div class="detail-text-list">
-          ${result.copies.map((c, i) => `
-            <div class="detail-text-item">
-              <div class="detail-text-title">${c.title || '方案 ' + (i+1)}</div>
-              <div class="detail-text-content">${(c.content || '').replace(/\n/g, '<br>')}</div>
-              ${c.tags && c.tags.length ? `<div class="detail-tags">${c.tags.map(t => `<span class="tag">${t}</span>`).join('')}</div>` : ''}
-              <div style="margin-top:10px;"><button class="link-btn" onclick="copyText(\`${(c.content || '').replace(/`/g, '\\`')}\`)">📋 复制文案</button></div>
-            </div>
-          `).join('')}
-        </div>`;
-      }
-      else if (result.text) {
-        contentHtml = `<div style="background:var(--bg-soft);border-radius:var(--radius-md);padding:16px;margin-bottom:8px;">
-          <div style="font-weight:500;margin-bottom:10px;font-size:13.5px;">📋 提取结果</div>
-          <div style="background:#fff;border-radius:var(--radius-sm);padding:12px;font-size:13px;line-height:1.7;white-space:pre-wrap;word-break:break-word;max-height:400px;overflow-y:auto;border:1px solid var(--border);">${result.text}</div>
-          <div style="margin-top:10px;text-align:right;"><button class="action-btn" onclick="navigator.clipboard.writeText(\`${result.text}\`).then(()=>{this.textContent='已复制 ✓';setTimeout(()=>{this.textContent='📋 复制内容'},1500)})">📋 复制内容</button></div>
-        </div>`;
-      }
-      else if (result.gif) {
-        contentHtml = `<div style="text-align:center;">
-          <img src="${result.gif}" alt="GIF" style="max-width:100%;max-height:500px;border-radius:12px;">
-          <div style="margin-top:16px;">
-            <button class="action-btn" onclick="downloadFile('${result.gif}', 'ai_gif.gif')">📥 下载GIF</button>
-          </div>
-        </div>`;
-      }
-      else if (result.video) {
-        contentHtml = `<div style="text-align:center;">
-          <video src="${result.video}" controls playsinline style="max-width:100%;max-height:500px;border-radius:12px;"></video>
-          <div style="margin-top:16px;">
-            <button class="action-btn" onclick="downloadFile('${result.video}', 'ai_video.mp4')">📥 下载视频</button>
-          </div>
-        </div>`;
-      }
-      else if (result.audio_url) {
-        const sizeKb = result.size ? (result.size / 1024).toFixed(1) + ' KB' : '';
-        const fileName = result.file_name || 'audio.wav';
-        contentHtml = `<div style="background:linear-gradient(135deg,#FFF3E6,#FFE8D6);border-radius:16px;padding:24px 20px;margin-bottom:8px;">
-          <div style="font-size:42px;text-align:center;margin-bottom:12px;">🎵</div>
-          <div style="text-align:center;font-weight:600;color:#8B4513;margin-bottom:4px;">${fileName}</div>
-          <div style="text-align:center;font-size:12.5px;color:#B8860B;margin-bottom:16px;">${sizeKb}</div>
-          <audio controls src="${result.audio_url}" style="width:100%;"></audio>
-          <div style="margin-top:16px;display:flex;gap:10px;justify-content:center;">
-            <button class="action-btn" onclick="downloadFile('${result.audio_url}', '${fileName}')">📥 下载音频</button>
-            <button class="action-btn secondary" onclick="copyAudioUrl('${result.audio_url}')">🔗 复制链接</button>
-          </div>
-        </div>`;
-      }
-      else if (gen.status === 'failed') {
-        contentHtml = `<div class="detail-failed">
-          <div style="font-size:48px;margin-bottom:12px;">❌</div>
-          <div style="color:var(--danger);font-weight:600;">生成失败</div>
-          <div style="color:var(--text-3);margin-top:8px;">${gen.error_msg || '未知错误'}</div>
-        </div>`;
-      }
-      else if (gen.status === 'pending') {
-        contentHtml = `<div class="detail-failed">
-          <div style="font-size:48px;margin-bottom:12px;">⏳</div>
-          <div style="color:var(--text-2);font-weight:600;">正在生成中...</div>
-          <div style="color:var(--text-3);margin-top:8px;">请稍后刷新查看</div>
-        </div>`;
+      function createActionButton(label, onClick, secondary = false) {
+        const button = document.createElement('button');
+        button.className = 'action-btn' + (secondary ? ' secondary' : '');
+        button.textContent = label;
+        button.addEventListener('click', onClick);
+        return button;
       }
 
-      // 参数
-      let paramsHtml = '';
-      if (gen.params) {
-        try {
-          const p = typeof gen.params === 'string' ? JSON.parse(gen.params) : gen.params;
-          const rows = Object.entries(p).filter(([k,v]) => v !== '' && v != null && !Array.isArray(v)).map(([k,v]) =>
-            `<div class="param-row"><span class="param-key">${k}</span><span class="param-val">${v}</span></div>`
-          ).join('');
-          if (rows) paramsHtml = `<div class="detail-params-title">生成参数</div><div class="detail-params">${rows}</div>`;
-        } catch (e) {}
+      function createImageSection(items, isPoster = false) {
+        const normalized = items.map((item, originalIndex) => {
+          const source = isPoster && item && typeof item === 'object' ? item.image : item;
+          const url = normalizeMediaUrl(source);
+          if (!url) return null;
+          return {
+            url,
+            title: isPoster && item && typeof item === 'object' ? String(item.title || '') : '',
+            originalIndex,
+          };
+        }).filter(Boolean);
+        if (normalized.length === 0) return null;
+
+        const section = document.createDocumentFragment();
+        const grid = document.createElement('div');
+        grid.className = 'detail-img-grid';
+        const urls = normalized.map(item => item.url);
+        normalized.forEach((item, index) => {
+          const wrapper = document.createElement('div');
+          wrapper.className = 'detail-img-item';
+          const image = document.createElement('img');
+          image.src = item.url;
+          image.alt = (isPoster ? '海报' : '图片') + (item.originalIndex + 1);
+          image.addEventListener('click', () => openLightbox(urls, index));
+          wrapper.appendChild(image);
+
+          const caption = document.createElement('div');
+          caption.className = isPoster ? 'detail-img-title' : 'detail-img-index';
+          caption.textContent = isPoster ? item.title : `${index + 1}/${normalized.length}`;
+          if (!isPoster || item.title) wrapper.appendChild(caption);
+          grid.appendChild(wrapper);
+        });
+        section.appendChild(grid);
+
+        const actions = document.createElement('div');
+        actions.style.cssText = 'text-align:center;margin-bottom:16px;';
+        actions.appendChild(createActionButton('📥 批量下载', () => downloadAllImages(urls)));
+        section.appendChild(actions);
+        return section;
+      }
+
+      function createTextSection(items, defaultTitle) {
+        const list = document.createElement('div');
+        list.className = 'detail-text-list';
+        items.forEach((item, index) => {
+          const value = item && typeof item === 'object' ? item : {};
+          const content = String(value.content || '');
+          const wrapper = document.createElement('div');
+          wrapper.className = 'detail-text-item';
+          const title = document.createElement('div');
+          title.className = 'detail-text-title';
+          title.textContent = String(value.title || `${defaultTitle} ${index + 1}`);
+          const body = document.createElement('div');
+          body.className = 'detail-text-content';
+          body.textContent = content;
+          wrapper.append(title, body);
+
+          if (Array.isArray(value.tags) && value.tags.length > 0) {
+            const tags = document.createElement('div');
+            tags.className = 'detail-tags';
+            value.tags.forEach(valueTag => {
+              const tag = document.createElement('span');
+              tag.className = 'tag';
+              tag.textContent = String(valueTag);
+              tags.appendChild(tag);
+            });
+            wrapper.appendChild(tags);
+          }
+
+          const actions = document.createElement('div');
+          actions.style.marginTop = '10px';
+          const copy = document.createElement('button');
+          copy.className = 'link-btn';
+          copy.textContent = '📋 复制文案';
+          copy.addEventListener('click', () => copyText(content));
+          actions.appendChild(copy);
+          wrapper.appendChild(actions);
+          list.appendChild(wrapper);
+        });
+        return list;
+      }
+
+      function createSingleMediaSection(tagName, url, filename, label) {
+        const mediaUrl = normalizeMediaUrl(url);
+        if (!mediaUrl) return null;
+        const section = document.createElement('div');
+        section.style.textAlign = 'center';
+        const media = document.createElement(tagName);
+        media.src = mediaUrl;
+        media.style.cssText = 'max-width:100%;max-height:500px;border-radius:12px;';
+        if (tagName === 'video') {
+          media.controls = true;
+          media.playsInline = true;
+        } else {
+          media.alt = label;
+        }
+        const actions = document.createElement('div');
+        actions.style.marginTop = '16px';
+        actions.appendChild(createActionButton(`📥 下载${label}`, () => downloadFile(mediaUrl, filename)));
+        section.append(media, actions);
+        return section;
+      }
+
+      function createStatusSection(icon, titleText, detailText, failed = false) {
+        const section = document.createElement('div');
+        section.className = 'detail-failed';
+        const iconNode = document.createElement('div');
+        iconNode.style.cssText = 'font-size:48px;margin-bottom:12px;';
+        iconNode.textContent = icon;
+        const title = document.createElement('div');
+        title.style.cssText = `color:var(${failed ? '--danger' : '--text-2'});font-weight:600;`;
+        title.textContent = titleText;
+        const detail = document.createElement('div');
+        detail.style.cssText = 'color:var(--text-3);margin-top:8px;';
+        detail.textContent = detailText;
+        section.append(iconNode, title, detail);
+        return section;
       }
 
       const modal = document.createElement('div');
       modal.className = 'modal-mask';
-      modal.innerHTML = `
-        <div class="modal-content detail-modal">
-          <div class="modal-header">
-            <div class="modal-title">生成详情 #${gen.id} · ${studioMap[gen.studio_type] || gen.studio_type}</div>
-            <div style="display:flex;gap:8px;">
-              <button class="link-btn" onclick="this.closest('.modal-mask').querySelector('.work-fav-btn-single').click()">
-                ${gen.is_favorite ? '❤️ 已收藏' : '🤍 收藏'}
-              </button>
-              <button class="modal-close" onclick="this.closest('.modal-mask').remove()">×</button>
-            </div>
-          </div>
-          <div class="modal-body">
-            ${contentHtml}
-            ${paramsHtml}
-          </div>
-        </div>
-      `;
-      modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+      const content = document.createElement('div');
+      content.className = 'modal-content detail-modal';
+      const header = document.createElement('div');
+      header.className = 'modal-header';
+      const title = document.createElement('div');
+      title.className = 'modal-title';
+      const studioType = String(gen && gen.studio_type || 'AI作品');
+      title.textContent = `生成详情 #${Number.isSafeInteger(generationId) && generationId > 0 ? generationId : '-'} · ${studioMap[studioType] || studioType}`;
+      const headerActions = document.createElement('div');
+      headerActions.style.cssText = 'display:flex;gap:8px;';
+      const favorite = document.createElement('button');
+      favorite.className = 'link-btn';
+      favorite.textContent = gen && gen.is_favorite ? '❤️ 已收藏' : '🤍 收藏';
+      favorite.disabled = !Number.isSafeInteger(generationId) || generationId < 1;
+      favorite.addEventListener('click', async () => {
+        if (favorite.disabled) return;
+        favorite.disabled = true;
+        try {
+          if (await toggleFav(generationId, Boolean(gen.is_favorite))) modal.remove();
+        } finally {
+          favorite.disabled = false;
+        }
+      });
+      const close = document.createElement('button');
+      close.className = 'modal-close';
+      close.textContent = '×';
+      close.addEventListener('click', () => modal.remove());
+      headerActions.append(favorite, close);
+      header.append(title, headerActions);
+
+      const body = document.createElement('div');
+      body.className = 'modal-body';
+      let resultSection = null;
+      if (Array.isArray(result.images) && result.images.length > 0) {
+        resultSection = createImageSection(result.images);
+      }
+      if (!resultSection && Array.isArray(result.posters) && result.posters.length > 0) {
+        resultSection = createImageSection(result.posters, true);
+      }
+      if (!resultSection && Array.isArray(result.notes) && result.notes.length > 0) {
+        resultSection = createTextSection(result.notes, '笔记');
+      }
+      if (!resultSection && Array.isArray(result.versions) && result.versions.length > 0) {
+        resultSection = createTextSection(result.versions, '版本');
+      }
+      if (!resultSection && Array.isArray(result.copies) && result.copies.length > 0) {
+        resultSection = createTextSection(result.copies, '方案');
+      }
+      if (!resultSection && result.text) {
+        const section = document.createElement('div');
+        section.style.cssText = 'background:var(--bg-soft);border-radius:var(--radius-md);padding:16px;margin-bottom:8px;';
+        const heading = document.createElement('div');
+        heading.style.cssText = 'font-weight:500;margin-bottom:10px;font-size:13.5px;';
+        heading.textContent = '📋 提取结果';
+        const text = document.createElement('div');
+        text.style.cssText = 'background:#fff;border-radius:var(--radius-sm);padding:12px;font-size:13px;line-height:1.7;white-space:pre-wrap;word-break:break-word;max-height:400px;overflow-y:auto;border:1px solid var(--border);';
+        text.textContent = String(result.text);
+        const actions = document.createElement('div');
+        actions.style.cssText = 'margin-top:10px;text-align:right;';
+        actions.appendChild(createActionButton('📋 复制内容', () => copyText(String(result.text))));
+        section.append(heading, text, actions);
+        resultSection = section;
+      }
+      if (!resultSection && result.gif) {
+        resultSection = createSingleMediaSection('img', result.gif, 'ai_gif.gif', 'GIF');
+      }
+      if (!resultSection && result.video) {
+        resultSection = createSingleMediaSection('video', result.video, 'ai_video.mp4', '视频');
+      }
+      if (!resultSection && result.audio_url) {
+        const audioUrl = normalizeMediaUrl(result.audio_url);
+        if (audioUrl) {
+          const section = document.createElement('div');
+          section.style.cssText = 'background:linear-gradient(135deg,#FFF3E6,#FFE8D6);border-radius:16px;padding:24px 20px;margin-bottom:8px;';
+          const icon = document.createElement('div');
+          icon.style.cssText = 'font-size:42px;text-align:center;margin-bottom:12px;';
+          icon.textContent = '🎵';
+          const fileName = String(result.file_name || 'audio.wav');
+          const name = document.createElement('div');
+          name.style.cssText = 'text-align:center;font-weight:600;color:#8B4513;margin-bottom:4px;';
+          name.textContent = fileName;
+          const size = document.createElement('div');
+          size.style.cssText = 'text-align:center;font-size:12.5px;color:#B8860B;margin-bottom:16px;';
+          const byteSize = Number(result.size);
+          size.textContent = Number.isFinite(byteSize) && byteSize > 0 ? (byteSize / 1024).toFixed(1) + ' KB' : '';
+          const audio = document.createElement('audio');
+          audio.controls = true;
+          audio.src = audioUrl;
+          audio.style.width = '100%';
+          const actions = document.createElement('div');
+          actions.style.cssText = 'margin-top:16px;display:flex;gap:10px;justify-content:center;';
+          actions.append(
+            createActionButton('📥 下载音频', () => downloadFile(audioUrl, fileName)),
+            createActionButton('🔗 复制链接', () => copyAudioUrl(audioUrl), true),
+          );
+          section.append(icon, name, size, audio, actions);
+          resultSection = section;
+        }
+      }
+      if (!resultSection && gen && gen.status === 'failed') {
+        resultSection = createStatusSection('❌', '生成失败', String(gen.error_msg || '未知错误'), true);
+      }
+      if (!resultSection && gen && ['pending', 'processing'].includes(gen.status)) {
+        resultSection = createStatusSection('⏳', '正在生成中...', '请稍后刷新查看');
+      }
+      if (!resultSection) {
+        resultSection = createStatusSection('⚠', '暂无可展示结果', '生成结果中的媒体链接无效或内容为空', true);
+      }
+      body.appendChild(resultSection);
+
+      if (gen && gen.params) {
+        try {
+          const params = typeof gen.params === 'string' ? JSON.parse(gen.params) : gen.params;
+          if (params && typeof params === 'object' && !Array.isArray(params)) {
+            const rows = Object.entries(params).filter(([, value]) => value !== '' && value != null && !Array.isArray(value));
+            if (rows.length > 0) {
+              const paramsTitle = document.createElement('div');
+              paramsTitle.className = 'detail-params-title';
+              paramsTitle.textContent = '生成参数';
+              const paramsList = document.createElement('div');
+              paramsList.className = 'detail-params';
+              rows.forEach(([key, value]) => {
+                const row = document.createElement('div');
+                row.className = 'param-row';
+                const keyNode = document.createElement('span');
+                keyNode.className = 'param-key';
+                keyNode.textContent = String(key);
+                const valueNode = document.createElement('span');
+                valueNode.className = 'param-val';
+                valueNode.textContent = typeof value === 'object' ? JSON.stringify(value) : String(value);
+                row.append(keyNode, valueNode);
+                paramsList.appendChild(row);
+              });
+              body.append(paramsTitle, paramsList);
+            }
+          }
+        } catch (e) {}
+      }
+
+      content.append(header, body);
+      modal.appendChild(content);
+      modal.addEventListener('click', event => { if (event.target === modal) modal.remove(); });
       document.body.appendChild(modal);
     }
 
     // 灯箱
     window.openLightbox = function(images, index) {
-      let cur = index;
+      const safeImages = (Array.isArray(images) ? images : []).map(normalizeMediaUrl).filter(Boolean);
+      if (safeImages.length === 0) return;
+      let cur = Number.isSafeInteger(index) && index >= 0 && index < safeImages.length ? index : 0;
       const lb = document.createElement('div');
       lb.className = 'lightbox';
-      lb.innerHTML = `
-        <button class="lightbox-close">×</button>
-        <button class="lightbox-nav lightbox-prev">‹</button>
-        <img src="${images[cur]}" alt="">
-        <button class="lightbox-nav lightbox-next">›</button>
-        <div class="lightbox-counter">${cur + 1} / ${images.length}</div>
-      `;
-      const img = lb.querySelector('img');
-      const counter = lb.querySelector('.lightbox-counter');
+      const close = document.createElement('button');
+      close.className = 'lightbox-close';
+      close.textContent = '×';
+      const previous = document.createElement('button');
+      previous.className = 'lightbox-nav lightbox-prev';
+      previous.textContent = '‹';
+      const img = document.createElement('img');
+      img.src = safeImages[cur];
+      img.alt = '';
+      const next = document.createElement('button');
+      next.className = 'lightbox-nav lightbox-next';
+      next.textContent = '›';
+      const counter = document.createElement('div');
+      counter.className = 'lightbox-counter';
+      lb.append(close, previous, img, next, counter);
 
       function update() {
-        img.src = images[cur];
-        counter.textContent = `${cur + 1} / ${images.length}`;
+        img.src = safeImages[cur];
+        counter.textContent = `${cur + 1} / ${safeImages.length}`;
       }
-      lb.querySelector('.lightbox-close').onclick = () => lb.remove();
-      lb.querySelector('.lightbox-prev').onclick = (e) => { e.stopPropagation(); cur = (cur - 1 + images.length) % images.length; update(); };
-      lb.querySelector('.lightbox-next').onclick = (e) => { e.stopPropagation(); cur = (cur + 1) % images.length; update(); };
-      lb.onclick = (e) => { if (e.target === lb) lb.remove(); };
-      document.onkeydown = (e) => {
-        if (e.key === 'Escape') lb.remove();
-        if (e.key === 'ArrowLeft') { cur = (cur - 1 + images.length) % images.length; update(); }
-        if (e.key === 'ArrowRight') { cur = (cur + 1) % images.length; update(); }
-      };
+      function remove() {
+        document.removeEventListener('keydown', handleKeydown);
+        lb.remove();
+      }
+      function handleKeydown(event) {
+        if (event.key === 'Escape') remove();
+        if (event.key === 'ArrowLeft') { cur = (cur - 1 + safeImages.length) % safeImages.length; update(); }
+        if (event.key === 'ArrowRight') { cur = (cur + 1) % safeImages.length; update(); }
+      }
+      close.addEventListener('click', remove);
+      previous.addEventListener('click', event => { event.stopPropagation(); cur = (cur - 1 + safeImages.length) % safeImages.length; update(); });
+      next.addEventListener('click', event => { event.stopPropagation(); cur = (cur + 1) % safeImages.length; update(); });
+      lb.addEventListener('click', event => { if (event.target === lb) remove(); });
+      document.addEventListener('keydown', handleKeydown);
+      update();
       document.body.appendChild(lb);
     };
 
     // 批量下载
     window.downloadAllImages = function(urls) {
-      urls.forEach((url, i) => {
-        setTimeout(() => {
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `ai-studio-${i + 1}.png`;
-          a.target = '_blank';
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-        }, i * 500);
+      const safeUrls = (Array.isArray(urls) ? urls : []).map(normalizeMediaUrl).filter(Boolean);
+      if (safeUrls.length === 0) {
+        showToast('没有可下载的图片', 'error');
+        return;
+      }
+      safeUrls.forEach((url, index) => {
+        setTimeout(() => downloadFile(url, `ai-studio-${index + 1}.png`), index * 500);
       });
       showToast('已开始下载，请注意浏览器弹窗', 'success');
     };
 
     window.downloadFile = function(url, filename) {
+      const mediaUrl = normalizeMediaUrl(url);
+      if (!mediaUrl) {
+        showToast('下载链接无效', 'error');
+        return;
+      }
+      let safeName = String(filename || 'ai-studio-file')
+        .replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_')
+        .replace(/[. ]+$/g, '')
+        .trim()
+        .slice(0, 180);
+      if (!safeName || /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?$/i.test(safeName)) safeName = 'ai-studio-file';
       const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
+      a.href = mediaUrl;
+      a.download = safeName;
       a.target = '_blank';
+      a.rel = 'noopener noreferrer';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

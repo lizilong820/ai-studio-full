@@ -1,9 +1,15 @@
 const { db } = require('../database/db');
 const path = require('path');
 const fs = require('fs');
+const { safeRequest } = require('../utils/safeHttp');
+
+function createSignalFetch(fetchImpl, signal) {
+  if (!signal) return fetchImpl;
+  return (url, options = {}) => fetchImpl(url, { ...options, signal: options.signal || signal });
+}
 
 // ===== imgbb 免费图床上传（用于 mzsjai 等需要 https 图片 URL 的 API） =====
-const IMGBB_API_KEY = process.env.IMGBB_API_KEY || "6451c92bd17479293603aedc9e650358";
+const IMGBB_API_KEY = process.env.IMGBB_API_KEY || '';
 
 /**
  * 下载视频到本地 uploads 目录（用于 mzsjai 等需要鉴权访问的视频 URL）
@@ -17,18 +23,19 @@ async function downloadVideoToLocal(url, apiKey, taskId) {
   const fileName = 'video_' + Date.now() + '_' + taskId.slice(0, 8) + '.mp4';
   const filePath = path.join(uploadsDir, fileName);
 
-  const resp = await fetch(url, {
+  const resp = await safeRequest(url, {
     headers: {
       'Authorization': 'Bearer ' + apiKey,
     },
+    timeoutMs: 60_000,
+    maxBytes: 500 * 1024 * 1024
   });
 
-  if (!resp.ok) {
+  if (resp.status < 200 || resp.status >= 300) {
     throw new Error('下载失败：HTTP ' + resp.status);
   }
 
-  const arrayBuffer = await resp.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
+  const buffer = resp.body;
   fs.writeFileSync(filePath, buffer);
 
   console.log('[VIDEO_DOWNLOAD] 视频已保存:', fileName, '大小:', (buffer.length / 1024 / 1024).toFixed(2), 'MB');
@@ -195,31 +202,37 @@ async function generateImage(modelId, prompt, options = {}) {
     throw new Error('该模型类型不是生图模型');
   }
 
-  const fetch = globalThis.fetch || require('node-fetch');
+  const fetch = createSignalFetch(globalThis.fetch || require('node-fetch'), options.signal);
   
-  // 注意：如果是占位假key，直接返回模拟结果
-  if (model.api_key.includes('example') || model.api_key.includes('请修改') || model.api_endpoint.includes('api.example.com')) {
-    return generateMockImageResult(options.n || 1, model.model_identifier);
+  const requestedCount = Number(options.n === undefined ? 1 : options.n);
+  if (!Number.isSafeInteger(requestedCount) || requestedCount < 1 || requestedCount > 20) {
+    throw new Error('图片数量必须为1-20之间的整数');
   }
 
-  // 判断是否为 Token Plan 多模态生成接口（百炼原生格式）
-  const isTokenPlanMultimodal = model.api_endpoint.includes('multimodal-generation/generation');
-  
-  // 有参考图时走图生图分支
-  if (options.ref_image) {
-    if (isTokenPlanMultimodal) {
-      // Token Plan 多模态接口也支持图生图（传图片+文字），复用现有逻辑
-      return generateImageTokenPlan(model, prompt, options, fetch);
+  let result;
+  // 注意：如果是占位假key，直接返回模拟结果
+  if (model.api_key.includes('example') || model.api_key.includes('请修改') || model.api_endpoint.includes('api.example.com')) {
+    result = generateMockImageResult(requestedCount, model.model_identifier);
+  } else {
+    // 判断是否为 Token Plan 多模态生成接口（百炼原生格式）
+    const isTokenPlanMultimodal = model.api_endpoint.includes('multimodal-generation/generation');
+
+    if (options.ref_image) {
+      result = isTokenPlanMultimodal
+        ? await generateImageTokenPlan(model, prompt, options, fetch)
+        : await editImageOpenAICompat(model, prompt, options, fetch);
     } else {
-      return editImageOpenAICompat(model, prompt, options, fetch);
+      result = isTokenPlanMultimodal
+        ? await generateImageTokenPlan(model, prompt, options, fetch)
+        : await generateImageOpenAICompat(model, prompt, options, fetch);
     }
   }
-  
-  if (isTokenPlanMultimodal) {
-    return generateImageTokenPlan(model, prompt, options, fetch);
-  } else {
-    return generateImageOpenAICompat(model, prompt, options, fetch);
+
+  if (!Array.isArray(result.images) || result.images.length < requestedCount) {
+    throw new Error(`图片生成数量不足：请求${requestedCount}张，实际${result.images?.length || 0}张`);
   }
+  result.images = result.images.slice(0, requestedCount);
+  return result;
 }
 
 /**
@@ -704,7 +717,7 @@ async function generateText(modelId, messages, options = {}) {
   };
 
   try {
-    const fetch = globalThis.fetch || require('node-fetch');
+    const fetch = createSignalFetch(globalThis.fetch || require('node-fetch'), options.signal);
     
     // 占位假key，返回模拟结果
     if (model.api_key.includes('example') || model.api_key.includes('请修改') || model.api_endpoint.includes('api.example.com')) {
@@ -804,7 +817,7 @@ async function generateAudio(modelId, inputText, options = {}) {
   }
 
   try {
-    const fetch = globalThis.fetch || require('node-fetch');
+    const fetch = createSignalFetch(globalThis.fetch || require('node-fetch'), options.signal);
 
     if (model.api_key.includes('example') || model.api_key.includes('请修改') || model.api_endpoint.includes('api.example.com')) {
       return { audio_url: '', mock: true, model: model.model_identifier, format: response_format };
@@ -927,7 +940,8 @@ function generateMockTextResult(messages, modelName) {
  * 获取启用的模型列表
  */
 function getEnabledModels(type = null) {
-  let sql = 'SELECT id, name, type, model_identifier, price_per_call, is_default, description FROM models WHERE status = 1';
+  let sql = `SELECT id, name, type, api_endpoint, model_identifier,
+    price_per_call, is_default, description FROM models WHERE status = 1`;
   const params = [];
   if (type) {
     sql += ' AND type = ?';
@@ -956,7 +970,9 @@ function calculateCost(modelId, countOrOptions = 1) {
   if (!model) return null;
 
   const basePrice = Number(model.price_per_call);
-  if (!Number.isSafeInteger(basePrice) || basePrice <= 0) return null;
+  if (!Number.isFinite(basePrice) || basePrice <= 0 || basePrice > Number.MAX_SAFE_INTEGER) {
+    return null;
+  }
 
   const validateCount = value => (
     Number.isSafeInteger(value) && value >= 1 && value <= 20 ? value : null
@@ -965,10 +981,13 @@ function calculateCost(modelId, countOrOptions = 1) {
   // 兼容旧调用：传数字直接当 count
   if (typeof countOrOptions === 'number') {
     const count = validateCount(countOrOptions);
-    return count === null ? null : basePrice * count;
+    return count === null ? null : Math.round((basePrice * count + Number.EPSILON) * 100) / 100;
   }
 
-  const opts = countOrOptions || {};
+  if (!countOrOptions || typeof countOrOptions !== 'object' || Array.isArray(countOrOptions)) {
+    return null;
+  }
+  const opts = countOrOptions;
   const count = validateCount(opts.count === undefined ? 1 : Number(opts.count));
   if (count === null) return null;
 
@@ -976,10 +995,10 @@ function calculateCost(modelId, countOrOptions = 1) {
   if (model.type === 'video' && opts.duration !== undefined) {
     const seconds = Number(opts.duration);
     if (!Number.isSafeInteger(seconds) || seconds < 1 || seconds > 60) return null;
-    return Math.ceil(basePrice * seconds * count);
+    return Math.round((basePrice * seconds * count + Number.EPSILON) * 100) / 100;
   }
 
-  return basePrice * count;
+  return Math.round((basePrice * count + Number.EPSILON) * 100) / 100;
 }
 
 /**
@@ -999,7 +1018,7 @@ async function editImage(modelId, prompt, options = {}) {
     throw new Error('该模型类型不是生图模型');
   }
 
-  const fetch = globalThis.fetch || require('node-fetch');
+  const fetch = createSignalFetch(globalThis.fetch || require('node-fetch'), options.signal);
   
   if (model.api_key.includes('example') || model.api_key.includes('请修改') || model.api_endpoint.includes('api.example.com')) {
     return generateMockImageResult(options.n || 1, model.model_identifier);
@@ -1008,9 +1027,6 @@ async function editImage(modelId, prompt, options = {}) {
   // 暂只支持 OpenAI 兼容格式的 edits 接口
   return editImageOpenAICompat(model, prompt, options, fetch);
 }
-
-// 同步返回视频结果缓存（chat completions 格式可能同步返回视频URL）
-const syncVideoResults = new Map();
 
 // ============ 视频生成 (文生视频 / 图生视频) ============
 /**
@@ -1030,7 +1046,7 @@ async function submitVideoTask(modelId, prompt, options = {}) {
     throw new Error('该模型类型不是视频模型');
   }
 
-  const fetch = globalThis.fetch || require('node-fetch');
+  const fetch = createSignalFetch(globalThis.fetch || require('node-fetch'), options.signal);
 
   // 演示模式
   if (model.api_key.includes('example') || model.api_key.includes('请修改') || model.api_endpoint.includes('api.example.com')) {
@@ -1097,6 +1113,7 @@ async function submitVideoTask(modelId, prompt, options = {}) {
         headers: {
           "Content-Type": "application/json",
           "Authorization": "Bearer " + model.api_key,
+          ...(options.idempotency_key ? { "Idempotency-Key": options.idempotency_key } : {}),
         },
         body: JSON.stringify(body),
       });
@@ -1142,6 +1159,7 @@ async function submitVideoTask(modelId, prompt, options = {}) {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ' + model.api_key,
+          ...(options.idempotency_key ? { 'Idempotency-Key': options.idempotency_key } : {}),
         },
         body: JSON.stringify(body),
       });
@@ -1187,6 +1205,7 @@ async function submitVideoTask(modelId, prompt, options = {}) {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ' + model.api_key,
+          ...(options.idempotency_key ? { 'Idempotency-Key': options.idempotency_key } : {}),
         },
         body: JSON.stringify(body),
       });
@@ -1260,6 +1279,7 @@ async function submitVideoTask(modelId, prompt, options = {}) {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ' + model.api_key,
+        ...(options.idempotency_key ? { 'Idempotency-Key': options.idempotency_key } : {}),
       },
       body: JSON.stringify(body),
     });
@@ -1314,10 +1334,7 @@ async function submitVideoTask(modelId, prompt, options = {}) {
       }
 
       if (videoUrl && typeof videoUrl === 'string' && (videoUrl.startsWith('http') || videoUrl.startsWith('data:'))) {
-        // 同步返回视频
-        const syncTaskId = 'sync_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
-        syncVideoResults.set(syncTaskId, { video_url: videoUrl });
-        return { task_id: syncTaskId, raw: data, sync: true };
+        return { sync: true, video_url: videoUrl, raw: data };
       }
 
       // 异步任务：提取 task_id
@@ -1352,7 +1369,7 @@ async function submitVideoTask(modelId, prompt, options = {}) {
  * @param {string} taskId 任务ID
  * @returns {Promise<{ status: 'pending'|'processing'|'succeeded'|'failed', video_url?: string, error?: string }>}
  */
-async function getVideoTaskStatus(modelId, taskId) {
+async function getVideoTaskStatus(modelId, taskId, options = {}) {
   const model = db.prepare('SELECT * FROM models WHERE id = ? AND status = 1').get(modelId);
   if (!model) {
     throw new Error('模型不存在或已禁用');
@@ -1372,16 +1389,7 @@ async function getVideoTaskStatus(modelId, taskId) {
     };
   }
 
-  // 同步返回的视频（chat completions 同步格式）
-  if (taskId.startsWith('sync_')) {
-    const cached = syncVideoResults.get(taskId);
-    if (cached && cached.video_url) {
-      return { status: 'succeeded', video_url: cached.video_url, sync: true };
-    }
-    return { status: 'failed', error: '同步视频结果丢失' };
-  }
-
-  const fetch = globalThis.fetch || require('node-fetch');
+  const fetch = createSignalFetch(globalThis.fetch || require('node-fetch'), options.signal);
 
   try {
     const isChatCompletionsFormat = model.api_endpoint.includes('/chat/completions');
@@ -1575,7 +1583,7 @@ async function getVideoTaskStatus(modelId, taskId) {
     return result;
   } catch (err) {
     console.error('视频任务状态查询失败:', err.message);
-    return { status: 'processing' };
+    throw err;
   }
 }
 module.exports = {
@@ -1602,7 +1610,7 @@ async function analyzeMedia(modelId, prompt, options = {}) {
     throw new Error('模型不存在或已禁用');
   }
 
-  const fetch = globalThis.fetch || require('node-fetch');
+  const fetch = createSignalFetch(globalThis.fetch || require('node-fetch'), options.signal);
 
   if (model.api_key.includes('example') || model.api_key.includes('请修改') || model.api_endpoint.includes('api.example.com')) {
     return { text: '【演示模式】这是一张精美的图片，包含丰富的色彩和细节。请配置真实API后使用。', mock: true };
@@ -1748,7 +1756,7 @@ async function submitFaceSwapTask(modelId, prompt, options = {}) {
     throw new Error('模型不存在或已禁用');
   }
 
-  const fetch = globalThis.fetch || require('node-fetch');
+  const fetch = createSignalFetch(globalThis.fetch || require('node-fetch'), options.signal);
   const isChatCompletionsFormat = model.api_endpoint.includes('/chat/completions');
   const isZiklVideoAPI = model.api_endpoint.includes('img.zikl.dev') || model.api_endpoint.includes('/v1/videos');
 
@@ -1783,7 +1791,11 @@ async function submitFaceSwapTask(modelId, prompt, options = {}) {
       };
       var response = await fetch(submitUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + model.api_key },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + model.api_key,
+          ...(options.idempotency_key ? { 'Idempotency-Key': options.idempotency_key } : {}),
+        },
         body: JSON.stringify(body),
       });
       var data = await response.json();
@@ -1810,7 +1822,11 @@ async function submitFaceSwapTask(modelId, prompt, options = {}) {
       };
       var response = await fetch(model.api_endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + model.api_key },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + model.api_key,
+          ...(options.idempotency_key ? { 'Idempotency-Key': options.idempotency_key } : {}),
+        },
         body: JSON.stringify(body),
       });
       var data = await response.json();
@@ -1828,9 +1844,7 @@ async function submitFaceSwapTask(modelId, prompt, options = {}) {
       if (!videoUrl && data.data && data.data.video_url) videoUrl = data.data.video_url;
 
       if (videoUrl && typeof videoUrl === 'string' && videoUrl.startsWith('http')) {
-        var syncTaskId = 'sync_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
-        syncVideoResults.set(syncTaskId, { video_url: videoUrl });
-        return { task_id: syncTaskId, sync: true, raw: data };
+        return { sync: true, video_url: videoUrl, raw: data };
       }
 
       var taskId = data.task_id || (data.data && data.data.task_id) || data.id;

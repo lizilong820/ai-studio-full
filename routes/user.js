@@ -1,11 +1,13 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
+const { generateApiKey, hashApiKey, getApiKeyPrefix, maskApiKey } = require('../utils/apiKey');
 const fs = require('fs');
 const path = require('path');
-const { exec } = require('child_process');
+const { execFile } = require('child_process');
 const { db, getSetting } = require('../database/db');
 const { signToken, authRequired } = require('../middleware/auth');
 const creditService = require('../controllers/creditService');
+const batchDownloadTaskQueue = require('../services/batchDownloadTaskQueue');
 const xunhupay = require('../utils/xunhupay');
 
 
@@ -20,7 +22,12 @@ function generateThumbnail(srcUrl) {
         resolve(null);
         return;
       }
-      const srcPath = path.join(__dirname, '..', 'public', srcUrl);
+      const uploadsRoot = path.resolve(__dirname, '..', 'public', 'uploads');
+      const srcPath = path.resolve(__dirname, '..', 'public', srcUrl.replace(/^\/+/, ''));
+      if (srcPath !== uploadsRoot && !srcPath.startsWith(uploadsRoot + path.sep)) {
+        resolve(null);
+        return;
+      }
       if (!fs.existsSync(srcPath)) {
         resolve(null);
         return;
@@ -40,19 +47,19 @@ function generateThumbnail(srcUrl) {
       const gifExts = ['.gif'];
       const videoExts = ['.mp4', '.webm', '.mov', '.avi'];
 
-      let cmd = '';
+      let args;
       if (imgExts.includes(ext)) {
-        cmd = 'ffmpeg -y -i "' + srcPath + '" -vf "scale=300:-1" -q:v 6 "' + thumbPath + '" 2>/dev/null';
+        args = ['-y', '-i', srcPath, '-vf', 'scale=300:-1', '-q:v', '6', thumbPath];
       } else if (gifExts.includes(ext)) {
-        cmd = 'ffmpeg -y -i "' + srcPath + '" -vf "scale=300:-1" -frames:v 1 -q:v 6 "' + thumbPath + '" 2>/dev/null';
+        args = ['-y', '-i', srcPath, '-vf', 'scale=300:-1', '-frames:v', '1', '-q:v', '6', thumbPath];
       } else if (videoExts.includes(ext)) {
-        cmd = 'ffmpeg -y -i "' + srcPath + '" -vf "scale=300:-1" -ss 00:00:01 -frames:v 1 -q:v 6 "' + thumbPath + '" 2>/dev/null';
+        args = ['-y', '-i', srcPath, '-vf', 'scale=300:-1', '-ss', '00:00:01', '-frames:v', '1', '-q:v', '6', thumbPath];
       } else {
         resolve(null);
         return;
       }
 
-      exec(cmd, (err) => {
+      execFile(process.env.FFMPEG_PATH || 'ffmpeg', args, { windowsHide: true }, (err) => {
         if (err || !fs.existsSync(thumbPath)) {
           resolve(null);
         } else {
@@ -290,6 +297,7 @@ router.delete('/generation/:id', authRequired, (req, res) => {
   const genId = parseInt(req.params.id);
   const gen = db.prepare('SELECT id, user_id, status, credits_used FROM generations WHERE id = ?').get(genId);
   if (!gen || gen.user_id !== req.user.id) return res.error('作品不存在');
+  if (gen.status === 'pending' || gen.status === 'processing') return res.error('任务执行中，暂不能删除');
 
   db.prepare('DELETE FROM favorites WHERE generation_id = ?').run(genId);
   db.prepare('DELETE FROM generations WHERE id = ? AND user_id = ?').run(genId, req.user.id);
@@ -303,7 +311,9 @@ router.post('/works/batch-delete', authRequired, (req, res) => {
   if (ids.length > 100) return res.error('一次最多删除100个');
 
   const placeholders = ids.map(() => '?').join(',');
-  const rows = db.prepare(`SELECT id FROM generations WHERE id IN (${placeholders}) AND user_id = ?`).all(...ids, req.user.id);
+  const rows = db.prepare(`SELECT id, status FROM generations WHERE id IN (${placeholders}) AND user_id = ?`).all(...ids, req.user.id);
+  const activeCount = rows.filter(row => row.status === 'pending' || row.status === 'processing').length;
+  if (activeCount > 0) return res.error('选中的作品包含执行中任务，暂不能删除');
   const validIds = rows.map(r => r.id);
 
   const tx = db.transaction(() => {
@@ -319,134 +329,53 @@ router.post('/works/batch-delete', authRequired, (req, res) => {
 });
 
 // 批量下载作品（异步打包）
-const batchTasks = new Map(); // taskId -> { status, filePath, total, done, error }
-
 router.post('/works/batch-download', authRequired, (req, res) => {
-  const ids = req.body.ids;
-  if (!Array.isArray(ids) || ids.length === 0) return res.error('请选择要下载的作品');
-  if (ids.length > 50) return res.error('一次最多下载50个');
+  const rawIds = req.body.ids;
+  if (!Array.isArray(rawIds) || rawIds.length === 0) return res.error('请选择要下载的作品');
+  if (rawIds.length > 50) return res.error('一次最多下载50个');
 
-  const taskId = 'bdl_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
-  batchTasks.set(taskId, { status: 'processing', filePath: null, total: ids.length, done: 0, error: null, userId: req.user.id });
+  const ids = [...new Set(rawIds.map(Number))];
+  if (!ids.every(id => Number.isSafeInteger(id) && id > 0)) return res.error('作品ID无效');
 
-  // 异步打包
-  setImmediate(() => processBatchDownload(taskId, ids, req.user.id));
+  const placeholders = ids.map(() => '?').join(',');
+  const ownedIds = db.prepare(`SELECT id FROM generations
+    WHERE id IN (${placeholders}) AND user_id = ? AND status = 'success'`)
+    .all(...ids, req.user.id).map(row => row.id);
+  if (ownedIds.length !== ids.length) return res.error('部分作品不存在、未完成或无权访问');
 
+  const taskId = batchDownloadTaskQueue.createTask(req.user.id, ids);
   res.success({ taskId }, '打包任务已创建');
 });
 
 // 查询打包进度
 router.get('/works/batch-download/:taskId', authRequired, (req, res) => {
-  const task = batchTasks.get(req.params.taskId);
+  const task = batchDownloadTaskQueue.getTask(req.params.taskId, req.user.id);
   if (!task) return res.error('任务不存在');
-  if (task.userId !== req.user.id) return res.error('无权访问');
+  const status = task.status === 'done' || task.status === 'failed' ? task.status : 'processing';
   res.success({
-    status: task.status,
+    status,
     total: task.total,
-    done: task.done,
-    downloadUrl: task.status === 'done' ? `/api/user/works/batch-download/${req.params.taskId}/download` : null,
-    error: task.error
+    done: task.done_count,
+    downloadUrl: task.status === 'done' ? `/api/user/works/batch-download/${task.public_id}/download` : null,
+    error: task.status === 'failed' ? task.error_msg : null
   });
 });
 
 // 下载打包好的文件
 router.get('/works/batch-download/:taskId/download', authRequired, (req, res) => {
-  const task = batchTasks.get(req.params.taskId);
-  if (!task || task.status !== 'done') return res.error('文件不存在或未就绪');
-  if (task.userId !== req.user.id) return res.error('无权访问');
-  res.download(task.filePath, `works_${req.params.taskId}.zip`, err => {
+  const task = batchDownloadTaskQueue.getTask(req.params.taskId, req.user.id);
+  if (!task || task.status !== 'done' || !task.file_path) return res.error('文件不存在或未就绪');
+  if (task.expires_at && Date.parse(`${task.expires_at}Z`) <= Date.now()) return res.error('文件已过期');
+
+  const batchRoot = path.resolve(__dirname, '..', 'tmp', 'batch-downloads');
+  const filePath = path.resolve(task.file_path);
+  if (!filePath.startsWith(batchRoot + path.sep) || !fs.existsSync(filePath)) {
+    return res.error('文件不存在或已过期');
+  }
+  res.download(filePath, `works_${task.public_id}.zip`, err => {
     if (err) console.error('download error:', err);
   });
 });
-
-async function processBatchDownload(taskId, ids, userId) {
-  const task = batchTasks.get(taskId);
-  if (!task) return;
-
-  try {
-    const tmpDir = path.join(__dirname, '..', 'tmp', taskId);
-    const zipPath = path.join(__dirname, '..', 'tmp', taskId + '.zip');
-    const uploadsDir = path.join(__dirname, '..', 'public', 'uploads');
-
-    // 确保临时目录存在
-    fs.mkdirSync(tmpDir, { recursive: true });
-    fs.mkdirSync(path.join(__dirname, '..', 'tmp'), { recursive: true });
-
-    const placeholders = ids.map(() => '?').join(',');
-    const rows = db.prepare(`SELECT id, studio_type, result, created_at FROM generations WHERE id IN (${placeholders}) AND user_id = ?`).all(...ids, userId);
-
-    const studioMap = { ecommerce: '电商套图', xiaohongshu: '小红书', poster: '海报', copywriting: '文案', ppt: 'PPT', video: '视频', resume: '简历', avatar: '头像', image: 'AI绘图', 'image-edit': '图生图', gif: 'GIF表情包' };
-
-    let count = 0;
-    for (const row of rows) {
-      const studioName = (studioMap[row.studio_type] || row.studio_type).replace(/[\\/:*?"<>|]/g, '_');
-      let images = [];
-      let title = `作品_${row.id}`;
-      if (row.result) {
-        try {
-          const r = JSON.parse(row.result);
-          if (r.images && r.images.length) images = r.images;
-          else if (r.posters && r.posters.length) images = r.posters.map(p => typeof p === 'string' ? p : (p.image || p.url || ''));
-          else if (r.image) images = [r.image];
-          else if (r.gif) images = [r.gif];
-          if (r.title) title = r.title;
-        } catch(e) {}
-      }
-
-      const cleanTitle = title.replace(/[\\/:*?"<>|]/g, '_').substring(0, 40);
-      const studioDir = path.join(tmpDir, studioName);
-      if (!fs.existsSync(studioDir)) fs.mkdirSync(studioDir, { recursive: true });
-
-      for (let i = 0; i < images.length; i++) {
-        const imgUrl = images[i];
-        if (!imgUrl) continue;
-        if (imgUrl.startsWith('/uploads/')) {
-          const localPath = path.join(uploadsDir, path.basename(imgUrl));
-          if (fs.existsSync(localPath)) {
-            const ext = path.extname(imgUrl) || '.png';
-            const destPath = path.join(studioDir, `${cleanTitle}_${i+1}${ext}`);
-            // 用硬链接，秒级完成
-            try {
-              fs.linkSync(localPath, destPath);
-            } catch(e) {
-              // 硬链接失败就复制
-              fs.copyFileSync(localPath, destPath);
-            }
-          }
-        }
-      }
-      count++;
-      task.done = count;
-    }
-
-    // 用系统zip命令打包，飞快
-    await new Promise((resolve, reject) => {
-      exec(`cd "${tmpDir}" && zip -r -q "${zipPath}" .`, { maxBuffer: 100 * 1024 * 1024 }, (err) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
-
-    // 清理临时目录
-    fs.rmSync(tmpDir, { recursive: true, force: true });
-
-    task.status = 'done';
-    task.filePath = zipPath;
-
-    // 30分钟后清理
-    setTimeout(() => {
-      try {
-        if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
-        batchTasks.delete(taskId);
-      } catch(e) {}
-    }, 30 * 60 * 1000);
-
-  } catch(err) {
-    console.error('batch download error:', err);
-    task.status = 'failed';
-    task.error = err.message;
-  }
-}
 
 // 我的作品 (升级版 - 支持收藏/工作室/状态筛选 + 网格视图)
 router.get('/works', authRequired, async (req, res) => {
@@ -948,18 +877,16 @@ router.delete('/search/history', authRequired, (req, res) => {
 // 获取我的API密钥列表
 router.get('/api-keys', authRequired, (req, res) => {
   const list = db.prepare(`
-    SELECT id, name, api_key, status, last_used_at, created_at
+    SELECT id, name, api_key_prefix, api_key, status, last_used_at, created_at
     FROM api_keys
     WHERE user_id = ?
     ORDER BY created_at DESC
   `).all(req.user.id);
 
-  // 返回掩码后的key
   res.success(list.map(k => ({
     id: k.id,
     name: k.name,
-    api_key_masked: maskKey(k.api_key),
-    api_key_full: '', // 默认不返回完整key
+    api_key_masked: maskApiKey(k.api_key_prefix || (k.api_key ? getApiKeyPrefix(k.api_key) : '')),
     status: k.status,
     last_used_at: k.last_used_at,
     created_at: k.created_at
@@ -979,12 +906,13 @@ router.post('/api-keys', authRequired, (req, res) => {
 
   const keyName = (name || '默认密钥').toString().slice(0, 50);
   const apiKey = generateApiKey();
+  const apiKeyHash = hashApiKey(apiKey);
 
   try {
     const result = db.prepare(`
-      INSERT INTO api_keys (user_id, name, api_key, status)
-      VALUES (?, ?, ?, 1)
-    `).run(userId, keyName, apiKey);
+      INSERT INTO api_keys (user_id, name, api_key, api_key_hash, api_key_prefix, status)
+      VALUES (?, ?, ?, ?, ?, 1)
+    `).run(userId, keyName, apiKeyHash, apiKeyHash, getApiKeyPrefix(apiKey));
 
     res.success({
       id: result.lastInsertRowid,
@@ -996,13 +924,6 @@ router.post('/api-keys', authRequired, (req, res) => {
   } catch (err) {
     return res.error('创建失败，请重试');
   }
-});
-
-// 查看完整密钥（需要验证密码？这里简化直接返回，但记录操作）
-router.get('/api-keys/:id/reveal', authRequired, (req, res) => {
-  const key = db.prepare('SELECT * FROM api_keys WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
-  if (!key) return res.error('密钥不存在');
-  res.success({ api_key: key.api_key });
 });
 
 // 更新密钥状态（启用/禁用）
@@ -1151,16 +1072,5 @@ router.get('/api-usage/by-endpoint', authRequired, (req, res) => {
 
   res.success(data);
 });
-
-// 工具函数
-function generateApiKey() {
-  const crypto = require('crypto');
-  return 'sk_' + crypto.randomBytes(16).toString('hex');
-}
-
-function maskKey(key) {
-  if (!key || key.length <= 10) return '****';
-  return key.slice(0, 6) + '...' + key.slice(-4);
-}
 
 module.exports = router;

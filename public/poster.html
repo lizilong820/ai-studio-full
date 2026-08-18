@@ -363,15 +363,18 @@
       if (data.code === 0) {
         const select = document.getElementById('imageModel');
         if (select && data.data.length > 0) {
-          select.innerHTML = data.data.map(m => 
-            `<option value="${m.id}">${m.name} (${m.model_identifier}) - ${m.price_per_call}积分/张${m.is_default ? ' · 默认' : ''}</option>`
-          ).join('');
+          renderModelOptions(select, data.data, model =>
+            `${model.name} (${model.model_identifier}) - ${model.price_per_call}积分/张${model.is_default ? ' · 默认' : ''}`
+          );
           updateCost();
         }
       }
     }
 
+    let costRequestSeq = 0;
+
     function updateCost() {
+      const requestSeq = ++costRequestSeq;
       const count = parseInt(document.getElementById('posterCount').value) || 1;
       const modelId = document.getElementById('imageModel')?.value;
       if (!modelId || isNaN(modelId)) return;
@@ -380,6 +383,7 @@
         method: 'POST',
         body: JSON.stringify({ model_id: parseInt(modelId), count })
       }).then(data => {
+        if (requestSeq !== costRequestSeq) return;
         if (data.code === 0) {
           document.getElementById('costDisplay').textContent = '💎 ' + data.data.cost + ' 积分';
         }
@@ -465,25 +469,22 @@
         }
         
         // 显示生成动画
-        startImageGeneration(count, function() {});
+        startImageGeneration(formData.count, function() {});
         
-        // 轮询状态
-        let pollCount = 0;
-        const pollInterval = setInterval(async () => {
-          pollCount++;
-          if (pollCount > 60) {
-            clearInterval(pollInterval);
-            showToast('生成超时，请稍后在个人中心查看结果', 'error');
-            btn.classList.remove('loading');
-            btn.disabled = false;
-            btn.innerHTML = '<span class="btn-icon">✨</span>重新设计';
-            return;
-          }
-          
-          const statusData = await apiRequest('/api/generation/' + taskId);
-          if (statusData.code === 0 && statusData.data.status === 'success') {
-            clearInterval(pollInterval);
-            const images = statusData.data.result?.images || [];
+        pollGeneration(
+          taskId,
+          statusData => {
+            let images = [];
+            if (statusData.result) {
+              try {
+                const result = typeof statusData.result === 'string'
+                  ? JSON.parse(statusData.result)
+                  : statusData.result;
+                images = result.images || [];
+              } catch (e) {
+                console.error('解析结果失败', e);
+              }
+            }
             displayImageResults(images, {
               studio_type: 'poster',
               params: getFormData(),
@@ -494,15 +495,18 @@
             btn.innerHTML = '<span class="btn-icon">✨</span>重新设计';
             showToast('生成成功！共 ' + images.length + ' 张海报', 'success');
             refreshUserInfo();
-          } else if (statusData.code === 0 && statusData.data.status === 'failed') {
-            clearInterval(pollInterval);
-            showToast('生成失败：' + (statusData.data.error_msg || '未知错误'), 'error');
+          },
+          error => {
+            showToast(error === 'timeout'
+              ? '生成超时，请稍后在个人中心查看结果'
+              : '生成失败：' + error, 'error');
             btn.classList.remove('loading');
             btn.disabled = false;
             btn.innerHTML = '<span class="btn-icon">✨</span>重新设计';
             refreshUserInfo();
-          }
-        }, 3000);
+          },
+          60,
+        );
       });
     });
     
