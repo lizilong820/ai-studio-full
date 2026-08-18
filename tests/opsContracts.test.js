@@ -92,6 +92,24 @@ test('storage report is read-only and reports configured directories', () => {
   assert.doesNotMatch(source, /rmSync|unlinkSync|rmdirSync/);
 });
 
+test('video generation enforces provider duration and validates image signatures', () => {
+  const api = read('routes/api.js');
+  const apiV1 = read('routes/apiV1.js');
+  const adapter = read('controllers/aiAdapter.js');
+  const safeHttp = read('utils/safeHttp.js');
+  assert.match(api, /name: '时长', min: 5, max: 15, defaultValue: 5/);
+  assert.match(apiV1, /name: 'duration', min: 5, max: 15, defaultValue: 5/);
+  assert.match(api, /MiniMax H3 模型仅支持 5-15 秒时长/);
+  assert.match(apiV1, /MiniMax H3 模型仅支持 5-15 秒时长/);
+  assert.match(adapter, /Math\.min\(Math\.max\(duration, 5\), 15\)/);
+  assert.match(adapter, /buffer\[0\] === 0xff && buffer\[1\] === 0xd8/);
+  assert.match(adapter, /图片内容不是有效的 JPEG、PNG 或 GIF/);
+  assert.match(adapter, /function getVideoContentUrl\(data\)/);
+  assert.match(adapter, /供应商未返回有效视频地址/);
+  assert.match(safeHttp, /if \(lookupOptions && lookupOptions\.all\)/);
+  assert.match(safeHttp, /目标地址解析失败/);
+});
+
 test('workers stop submitting state after lease loss', () => {
   const generation = read('workers/generationWorker.js');
   const batch = read('workers/batchDownloadWorker.js');

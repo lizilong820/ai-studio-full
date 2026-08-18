@@ -71,6 +71,14 @@ async function requestOnce(url, options, addressRecord) {
       signal: options.signal,
       servername: url.hostname,
       lookup(hostname, lookupOptions, callback) {
+        if (!addressRecord || !addressRecord.address || !addressRecord.family) {
+          callback(new Error('目标地址解析失败'));
+          return;
+        }
+        if (lookupOptions && lookupOptions.all) {
+          callback(null, [addressRecord]);
+          return;
+        }
         callback(null, addressRecord.address, addressRecord.family);
       }
     }, response => {

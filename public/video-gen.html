@@ -507,8 +507,8 @@
             <div class="form-group">
               <label class="form-label">时长</label>
               <div class="duration-group">
-                <div class="duration-item active" data-duration="4">
-                  <span class="dur-icon">⏱️</span>4秒
+                <div class="duration-item active" data-duration="5">
+                  <span class="dur-icon">⏱️</span>5秒
                 </div>
                 <div class="duration-item" data-duration="8">
                   <span class="dur-icon">⏱️</span>8秒
@@ -625,7 +625,7 @@
 
     // 当前状态
     let currentMode = 'text'; // text / image
-    let currentDuration = 4;
+    let currentDuration = 5;
     let currentRatio = '16:9';
     let uploadedImageBase64 = '';
     let pollTimer = null;
@@ -790,7 +790,7 @@
         if (supportsOnly10_15) {
           enabled = (dur === 10 || dur === 15);
         } else if (isMinimax) {
-          enabled = (dur >= 4 && dur <= 15);
+          enabled = (dur >= 5 && dur <= 15);
         }
         if (enabled) {
           item.style.opacity = '1';
@@ -890,16 +890,48 @@
       });
     }
 
-    function handleUploadFile(file, target) {
-      if (!file.type.startsWith('image/')) {
-        showToast('请上传图片文件', 'error');
-        return;
-      }
-      var reader = new FileReader();
-      reader.onload = function(e) {
-        var base64 = e.target.result;
+    function normalizeImageFile(file) {
+      return new Promise(function(resolve, reject) {
+        if (!file || !file.type.startsWith('image/')) {
+          reject(new Error('请上传图片文件'));
+          return;
+        }
+        var objectUrl = URL.createObjectURL(file);
+        var image = new Image();
+        image.onload = function() {
+          try {
+            var maxDimension = 4096;
+            var scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
+            var canvas = document.createElement('canvas');
+            canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+            canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+            var context = canvas.getContext('2d');
+            context.fillStyle = '#ffffff';
+            context.fillRect(0, 0, canvas.width, canvas.height);
+            context.drawImage(image, 0, 0, canvas.width, canvas.height);
+            var jpeg = canvas.toDataURL('image/jpeg', 0.92);
+            if (!jpeg.startsWith('data:image/jpeg;base64,/9j/')) {
+              throw new Error('图片转换失败');
+            }
+            resolve(jpeg);
+          } catch (error) {
+            reject(error);
+          } finally {
+            URL.revokeObjectURL(objectUrl);
+          }
+        };
+        image.onerror = function() {
+          URL.revokeObjectURL(objectUrl);
+          reject(new Error('该图片格式无法读取，请先在手机相册中导出为 JPG 或 PNG'));
+        };
+        image.src = objectUrl;
+      });
+    }
+
+    async function handleUploadFile(file, target) {
+      try {
+        var base64 = await normalizeImageFile(file);
         if (target === 'firstframe') uploadedFirstFrameBase64 = base64;
-        else uploadedReferenceBase64 = base64;
 
         var uploadPreview = document.querySelector('.upload-preview-' + target);
         var previewImg = uploadPreview.querySelector('.preview-img');
@@ -908,8 +940,9 @@
         previewImg.src = base64;
         uploadArea.style.display = 'none';
         uploadPreview.style.display = '';
-      };
-      reader.readAsDataURL(file);
+      } catch (error) {
+        showToast(error.message || '图片处理失败', 'error');
+      }
     }
 
     setupUpload('firstframe');
@@ -945,39 +978,32 @@
       refAddBtn.style.display = (uploadedReferenceBase64List.length >= MAX_REF_IMAGES) ? 'none' : 'flex';
     }
 
-    refAddBtn.addEventListener('click', function() { refFileInput.click(); });
-    refFileInput.addEventListener('change', function(e) {
-      var files = Array.from(e.target.files);
-      files.forEach(function(file) {
-        if (!file.type.startsWith('image/')) return;
-        if (uploadedReferenceBase64List.length >= MAX_REF_IMAGES) return;
-        var reader = new FileReader();
-        reader.onload = function(ev) {
-          uploadedReferenceBase64List.push(ev.target.result);
+    async function addReferenceFiles(files) {
+      for (var i = 0; i < files.length && uploadedReferenceBase64List.length < MAX_REF_IMAGES; i++) {
+        try {
+          var jpeg = await normalizeImageFile(files[i]);
+          uploadedReferenceBase64List.push(jpeg);
           renderRefImages();
-        };
-        reader.readAsDataURL(file);
-      });
+        } catch (error) {
+          showToast(error.message || '参考图处理失败', 'error');
+        }
+      }
+    }
+
+    refAddBtn.addEventListener('click', function() { refFileInput.click(); });
+    refFileInput.addEventListener('change', async function(e) {
+      var files = Array.from(e.target.files);
       refFileInput.value = '';
+      await addReferenceFiles(files);
     });
 
     // 拖拽支持
     refAddBtn.addEventListener('dragover', function(e) { e.preventDefault(); refAddBtn.style.borderColor = 'var(--brand)'; });
     refAddBtn.addEventListener('dragleave', function() { refAddBtn.style.borderColor = ''; });
-    refAddBtn.addEventListener('drop', function(e) {
+    refAddBtn.addEventListener('drop', async function(e) {
       e.preventDefault();
       refAddBtn.style.borderColor = '';
-      var files = Array.from(e.dataTransfer.files);
-      files.forEach(function(file) {
-        if (!file.type.startsWith('image/')) return;
-        if (uploadedReferenceBase64List.length >= MAX_REF_IMAGES) return;
-        var reader = new FileReader();
-        reader.onload = function(ev) {
-          uploadedReferenceBase64List.push(ev.target.result);
-          renderRefImages();
-        };
-        reader.readAsDataURL(file);
-      });
+      await addReferenceFiles(Array.from(e.dataTransfer.files));
     });
 
     // 生成按钮

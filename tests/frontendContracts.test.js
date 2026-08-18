@@ -262,6 +262,16 @@ test('cost calculation ignores stale responses and duplicate triggers', () => {
   assert.match(videoGen, /updateDurationAvailability\(\);\s*updateCost\(\);/);
   assert.doesNotMatch(videoGen, /currentDuration = parseInt\(items\[i\]\.dataset\.duration\);\s*updateCost\(\);/);
 });
+test('video generation normalizes mobile images and exposes provider-safe durations', () => {
+  assert.match(videoGen, /function normalizeImageFile\(file\)/);
+  assert.match(videoGen, /canvas\.toDataURL\('image\/jpeg', 0\.92\)/);
+  assert.match(videoGen, /data:image\/jpeg;base64,\/9j\//);
+  assert.doesNotMatch(videoGen, /data-duration="4"/);
+  assert.match(videoGen, /let currentDuration = 5/);
+  assert.match(videoGen, /enabled = \(dur >= 5 && dur <= 15\)/);
+  assert.match(videoGen, /await addReferenceFiles\(files\)/);
+});
+
 test('gif and video generation polling isolates tasks and validates media URLs', () => {
   for (const [fileName, html, endpoint] of [
     ['gif.html', gif, 'gif'],
