@@ -1089,7 +1089,7 @@ async function submitVideoTask(modelId, prompt, options = {}) {
     // ===== mzsjai /v1/videos 异步API（MiniMax H3 等模型） =====
     if (isMinimaxVideoAPI) {
       const duration = parseInt(options.duration, 10) || 5;
-      const validDuration = Math.min(Math.max(duration, 5), 15);
+      const validDuration = Math.min(Math.max(duration, 1), 15);
 
       let imageList = [];
       if (Array.isArray(options.ref_image)) {

@@ -136,10 +136,24 @@
       color: var(--text);
       font-weight: 500;
     }
-    .duration-item .dur-icon {
-      display: block;
+    .duration-input {
+      width: 88px;
+      padding: 11px 10px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
       font-size: 16px;
-      margin-bottom: 3px;
+      text-align: center;
+    }
+    .duration-input:focus {
+      outline: none;
+      border-color: var(--brand);
+      box-shadow: 0 0 0 2px var(--brand-soft);
+    }
+    .duration-unit {
+      color: var(--text-2);
+      font-size: 14px;
     }
 
     /* 比例选择 */
@@ -507,21 +521,8 @@
             <div class="form-group">
               <label class="form-label">时长</label>
               <div class="duration-group">
-                <div class="duration-item active" data-duration="5">
-                  <span class="dur-icon">⏱️</span>5秒
-                </div>
-                <div class="duration-item" data-duration="8">
-                  <span class="dur-icon">⏱️</span>8秒
-                </div>
-                <div class="duration-item" data-duration="10">
-                  <span class="dur-icon">⏱️</span>10秒
-                </div>
-                <div class="duration-item" data-duration="12">
-                  <span class="dur-icon">⏱️</span>12秒
-                </div>
-                <div class="duration-item" data-duration="15">
-                  <span class="dur-icon">⏱️</span>15秒
-                </div>
+                <input id="durationInput" class="duration-input" type="number" min="1" max="15" step="1" value="5" aria-label="视频时长（秒）">
+                <span class="duration-unit">秒</span>
               </div>
             </div>
 
@@ -771,61 +772,35 @@
       }
     }
 
-    // 根据模型更新时长选项可用性
+    // 根据模型更新时长可用性；MiniMax H3 保留完整的 1-15 秒控制权。
     function updateDurationAvailability() {
       var select = document.getElementById('modelSelect');
-      if (!select || select.selectedIndex < 0) return;
+      var input = document.getElementById('durationInput');
+      if (!select || !input || select.selectedIndex < 0) return;
       var modelName = select.options[select.selectedIndex].text || '';
       var lowerName = modelName.toLowerCase();
-
-      // Seedance / paipu 模型只支持 10 秒和 15 秒
       var supportsOnly10_15 = lowerName.indexOf('seedance') !== -1 || lowerName.indexOf('dance') !== -1;
-      var isMinimax = lowerName.indexOf("minimax") !== -1 || lowerName.indexOf("h3") !== -1;
-
-      var durations = document.querySelectorAll('.duration-item');
-      var hasActiveValid = false;
-      durations.forEach(function(item) {
-        var dur = parseInt(item.dataset.duration);
-        var enabled = true;
-        if (supportsOnly10_15) {
-          enabled = (dur === 10 || dur === 15);
-        } else if (isMinimax) {
-          enabled = (dur >= 5 && dur <= 15);
-        }
-        if (enabled) {
-          item.style.opacity = '1';
-          item.style.pointerEvents = '';
-          if (item.classList.contains('active')) hasActiveValid = true;
-        } else {
-          item.style.opacity = '0.3';
-          item.style.pointerEvents = 'none';
-          if (item.classList.contains('active')) item.classList.remove('active');
-        }
-      });
-
-      // 如果当前选中的时长不可用，自动切到第一个可用的
-      if (!hasActiveValid) {
-        var firstValid = document.querySelector('.duration-item[style*="opacity: 1"], .duration-item:not([style*="opacity: 0.3"])');
-        // 用更可靠的方式找第一个可用的
-        var items = document.querySelectorAll('.duration-item');
-        for (var i = 0; i < items.length; i++) {
-          if (items[i].style.pointerEvents !== 'none') {
-            items[i].classList.add('active');
-            currentDuration = parseInt(items[i].dataset.duration);
-            break;
-          }
-        }
+      input.disabled = false;
+      input.title = supportsOnly10_15 ? '该模型仅支持 10 或 15 秒' : '支持 1-15 秒整数';
+      if (supportsOnly10_15 && currentDuration !== 10 && currentDuration !== 15) {
+        currentDuration = 10;
+        input.value = '10';
       }
     }
 
-    // 时长选择
-    document.querySelectorAll('.duration-item').forEach(item => {
-      item.addEventListener('click', () => {
-        document.querySelectorAll('.duration-item').forEach(i => i.classList.remove('active'));
-        item.classList.add('active');
-        currentDuration = parseInt(item.dataset.duration);
+    // 时长输入
+    document.getElementById('durationInput').addEventListener('input', function() {
+      var value = Number.parseInt(this.value, 10);
+      if (Number.isInteger(value) && value >= 1 && value <= 15) {
+        currentDuration = value;
         updateCost();
-      });
+      }
+    });
+    document.getElementById('durationInput').addEventListener('change', function() {
+      var value = Number.parseInt(this.value, 10);
+      currentDuration = Number.isInteger(value) ? Math.min(Math.max(value, 1), 15) : 5;
+      this.value = String(currentDuration);
+      updateCost();
     });
 
     // 比例选择

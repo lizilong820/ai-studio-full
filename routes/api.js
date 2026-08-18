@@ -1499,7 +1499,7 @@ router.post('/generate/video-gen', authRequired, async (req, res) => {
     }
 
     const actualDuration = parseIntegerParam(duration, {
-      name: '时长', min: 5, max: 15, defaultValue: 5
+      name: '时长', min: 1, max: 15, defaultValue: 5
     });
 
     // Seedance 2.0 (paipu) 时长只能是 10 或 15 秒
@@ -1507,9 +1507,9 @@ router.post('/generate/video-gen', authRequired, async (req, res) => {
       return res.error('该模型仅支持 10 秒或 15 秒时长');
     }
 
-    // MiniMax H3 时长：1-15 秒整数
-    if (isMinimax && (actualDuration < 5 || actualDuration > 15)) {
-      return res.error("MiniMax H3 模型仅支持 5-15 秒时长");
+    // MiniMax H3 时长：1-15 秒整数；范围由通用参数校验统一保证
+    if (isMinimax && (actualDuration < 1 || actualDuration > 15)) {
+      return res.error('MiniMax H3 模型仅支持 1-15 秒时长');
     }
 
     const cost = aiAdapter.calculateCost(model_id, { duration: actualDuration });
