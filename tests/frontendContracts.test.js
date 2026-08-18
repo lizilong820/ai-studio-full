@@ -266,9 +266,10 @@ test('video generation normalizes mobile images and exposes provider-safe durati
   assert.match(videoGen, /function normalizeImageFile\(file\)/);
   assert.match(videoGen, /canvas\.toDataURL\('image\/jpeg', 0\.92\)/);
   assert.match(videoGen, /data:image\/jpeg;base64,\/9j\//);
-  assert.doesNotMatch(videoGen, /data-duration="4"/);
+  assert.match(videoGen, /id="durationInput"[^>]*min="1"[^>]*max="15"/);
   assert.match(videoGen, /let currentDuration = 5/);
-  assert.match(videoGen, /enabled = \(dur >= 5 && dur <= 15\)/);
+  assert.match(videoGen, /Math\.min\(Math\.max\(value, 1\), 15\)/);
+  assert.doesNotMatch(videoGen, /dur >= 5/);
   assert.match(videoGen, /await addReferenceFiles\(files\)/);
 });
 

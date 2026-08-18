@@ -1134,13 +1134,13 @@ router.post('/generate/video-gen', async (req, res) => {
       }
     }
     const actualDuration = parseIntegerParam(duration, {
-      name: 'duration', min: 5, max: 15, defaultValue: 5
+      name: 'duration', min: 1, max: 15, defaultValue: 5
     });
     if ((isPaipu || isSeedance) && actualDuration !== 10 && actualDuration !== 15) {
       return v1Error(res, '该模型仅支持 10 秒或 15 秒时长');
     }
-    if (isMinimax && (actualDuration < 5 || actualDuration > 15)) {
-      return v1Error(res, 'MiniMax H3 模型仅支持 5-15 秒时长');
+    if (isMinimax && (actualDuration < 1 || actualDuration > 15)) {
+      return v1Error(res, 'MiniMax H3 模型仅支持 1-15 秒时长');
     }
 
     const cost = aiAdapter.calculateCost(model_id, { duration: actualDuration });
