@@ -14,7 +14,23 @@ const IMGBB_API_KEY = process.env.IMGBB_API_KEY || '';
 /**
  * 下载视频到本地 uploads 目录（用于 mzsjai 等需要鉴权访问的视频 URL）
  */
+function getVideoContentUrl(data) {
+  const candidates = [
+    data && data.content_url,
+    data && data.metadata && data.metadata.url,
+    data && data.video_url,
+    data && data.url,
+    data && data.output && data.output.video_url,
+    data && data.data && data.data.video_url,
+    data && data.result_url
+  ];
+  return candidates.find(value => typeof value === 'string' && /^https?:\/\/[^\s]+$/i.test(value.trim()))?.trim() || '';
+}
+
 async function downloadVideoToLocal(url, apiKey, taskId) {
+  if (typeof url !== 'string' || !/^https?:\/\/[^\s]+$/i.test(url.trim())) {
+    throw new Error('供应商未返回有效视频地址');
+  }
   const uploadsDir = path.join(__dirname, '..', 'public', 'uploads');
   if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
@@ -88,18 +104,25 @@ async function saveImageLocal(base64Image) {
   if (typeof base64Image === "string" && base64Image.startsWith("https://")) {
     return base64Image;
   }
-  let base64Data = base64Image;
-  let ext = "png";
-  const match = base64Image.match(/^data:image\/(\w+);base64,/);
-  if (match) {
-    ext = match[1];
-    base64Data = base64Image.replace(/^data:image\/\w+;base64,/, "");
+  if (typeof base64Image !== 'string' || !base64Image.startsWith('data:image/')) {
+    throw new Error('图片格式无效，请重新上传 JPG 或 PNG 图片');
   }
-  const uploadsDir = path.join(__dirname, "..", "public", "uploads");
+  const match = base64Image.match(/^data:image\/[a-zA-Z0-9+.-]+;base64,([a-zA-Z0-9+/=\s]+)$/);
+  if (!match) throw new Error('图片 Base64 数据无效');
+  const buffer = Buffer.from(match[1].replace(/\s/g, ''), 'base64');
+  if (!buffer.length || buffer.length > 20 * 1024 * 1024) {
+    throw new Error('图片大小无效');
+  }
+  let ext = '';
+  if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) ext = 'jpg';
+  else if (buffer.slice(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) ext = 'png';
+  else if (buffer.slice(0, 6).toString('ascii') === 'GIF87a' || buffer.slice(0, 6).toString('ascii') === 'GIF89a') ext = 'gif';
+  else throw new Error('图片内容不是有效的 JPEG、PNG 或 GIF');
+  const uploadsDir = path.join(__dirname, '..', 'public', 'uploads');
   if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
   const fileName = "mzsjai_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8) + "." + ext;
   const filePath = path.join(uploadsDir, fileName);
-  fs.writeFileSync(filePath, Buffer.from(base64Data, "base64"));
+  fs.writeFileSync(filePath, buffer);
   return HTTPS_IMAGE_DOMAIN + "/uploads/" + fileName;
 }
 
@@ -1065,8 +1088,8 @@ async function submitVideoTask(modelId, prompt, options = {}) {
 
     // ===== mzsjai /v1/videos 异步API（MiniMax H3 等模型） =====
     if (isMinimaxVideoAPI) {
-      const duration = parseInt(options.duration) || 5;
-      const validDuration = Math.min(duration, 15);
+      const duration = parseInt(options.duration, 10) || 5;
+      const validDuration = Math.min(Math.max(duration, 5), 15);
 
       let imageList = [];
       if (Array.isArray(options.ref_image)) {
@@ -1491,7 +1514,7 @@ async function getVideoTaskStatus(modelId, taskId, options = {}) {
       const state = data.status || 'processing';
       if (state === 'completed' || state === 'succeeded' || state === 'success') {
         // content_url 需要带 API Key 访问，下载到本地再返回本地 URL
-        const contentUrl = data.content_url || (data.metadata && data.metadata.url) || data.video_url || data.url;
+        const contentUrl = getVideoContentUrl(data);
         if (contentUrl) {
           try {
             const localPath = await downloadVideoToLocal(contentUrl, model.api_key, taskId);
