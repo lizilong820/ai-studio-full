@@ -31,7 +31,6 @@ function logEvent(level, event, fields = {}) {
   else console.log(output);
 }
 
-// 中间件
 app.set('trust proxy', 'loopback');
 app.disable('x-powered-by');
 app.use(securityHeaders);
@@ -101,17 +100,13 @@ app.use('/api', generalApiLimit);
 app.use('/api/user/login', authLimit);
 app.use('/api/user/register', authLimit);
 
-// 静态文件
 app.use(express.static(path.join(__dirname, 'public')));
 
-// API 路由
 app.use('/api/user', userRoutes);
 app.use('/api', apiRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/v1', apiV1Routes);
 
-// 页面路由 (SPA 风格 - 返回对应 HTML)
-// 登录/注册页
 app.get('/login', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
@@ -122,7 +117,6 @@ app.get('/profile', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'profile.html'));
 });
 
-// 管理后台
 app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin', 'index.html'));
 });
@@ -130,7 +124,6 @@ app.get('/admin/*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin', 'index.html'));
 });
 
-// 工作室页面
 const studios = ['ecommerce', 'xiaohongshu', 'poster', 'copywriting', 'image', 'video', 'avatar', 'resume', 'ppt', 'editor', 'developer', 'gif', 'idphoto'];
 studios.forEach(studio => {
   app.get(`/${studio}`, (req, res) => {
@@ -138,12 +131,10 @@ studios.forEach(studio => {
   });
 });
 
-// 首页
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// 错误处理
 app.use((err, req, res, next) => {
   logEvent('error', 'http.error', {
     request_id: req.requestId,
@@ -151,13 +142,16 @@ app.use((err, req, res, next) => {
     path: req.path,
     error: err.message
   });
-  res.status(500).json({ code: 500, msg: '服务器内部错误', request_id: req.requestId });
+  res.status(500).json({
+    code: 500,
+    msg: '\u670d\u52a1\u5668\u5185\u90e8\u9519\u8bef',
+    request_id: req.requestId
+  });
 });
 
-// 404
 app.use((req, res) => {
   if (req.path.startsWith('/api/')) {
-    res.json({ code: 404, msg: '接口不存在' });
+    res.json({ code: 404, msg: '\u63a5\u53e3\u4e0d\u5b58\u5728' });
   } else {
     res.status(404).sendFile(path.join(__dirname, 'public', 'index.html'));
   }

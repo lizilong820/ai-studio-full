@@ -18,12 +18,17 @@ function walk(dir) {
 walk(root);
 let failed = false;
 for (const file of files.sort()) {
+  const source = fs.readFileSync(file, 'utf8');
+  if (source.includes('\uFFFD')) {
+    failed = true;
+    process.stderr.write(`UTF-8 encoding check failed: ${file} contains replacement characters\n`);
+  }
   const result = spawnSync(process.execPath, ['--check', file], { encoding: 'utf8' });
   if (result.status !== 0) {
     failed = true;
-    process.stderr.write(result.stderr || `语法检查失败: ${file}\n`);
+    process.stderr.write(result.stderr || `Syntax check failed: ${file}\n`);
   }
 }
 
 if (failed) process.exitCode = 1;
-else console.log(`语法检查通过: ${files.length} 个 JavaScript 文件`);
+else console.log(`Syntax check passed: ${files.length} JavaScript files`);

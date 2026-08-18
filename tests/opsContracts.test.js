@@ -38,6 +38,15 @@ test('health and readiness probes expose request correlation and worker checks',
   assert.match(source, /isRunning\(\)/);
 });
 
+test('application source is UTF-8 and user-facing errors remain readable', () => {
+  const source = read('app.js');
+  assert.doesNotMatch(source, /\uFFFD/);
+  assert.match(source, /\\u670d\\u52a1\\u5668\\u5185\\u90e8\\u9519\\u8bef/);
+  assert.match(source, /\\u63a5\\u53e3\\u4e0d\\u5b58\\u5728/);
+  assert.match(source, /corsOrigins\.includes\(origin\)/);
+  assert.match(read('scripts/check-syntax.js'), /source\.includes\('\\uFFFD'\)/);
+});
+
 test('release preflight and rollback tools are plan-only', () => {
   const preflight = read('scripts/release-preflight.js');
   const rollback = read('scripts/rollback-plan.js');
