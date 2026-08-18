@@ -4,15 +4,25 @@ const Database = require('better-sqlite3');
 const args = new Set(process.argv.slice(2));
 const apply = args.has('--apply-stale-pending');
 const backupConfirmed = args.has('--backup-confirmed');
+const backupArg = process.argv.find(arg => arg.startsWith('--backup-file='));
 const ageArg = process.argv.find(arg => arg.startsWith('--stale-hours='));
 const staleHours = ageArg ? Number(ageArg.split('=')[1]) : 24;
-const dbPath = process.env.DB_PATH || path.join(__dirname, '..', 'database', 'ai_studio.db');
+const dbPath = process.env.AI_STUDIO_DB_PATH || path.join(__dirname, '..', 'database', 'ai_studio.db');
 
 if (!Number.isInteger(staleHours) || staleHours < 1 || staleHours > 720) {
   throw new Error('--stale-hours must be an integer between 1 and 720');
 }
-if (apply && !backupConfirmed) {
-  throw new Error('Apply mode requires --backup-confirmed');
+if (apply && (!backupConfirmed || !backupArg)) {
+  throw new Error('Apply mode requires --backup-confirmed and --backup-file=PATH');
+}
+
+if (apply) {
+  const backupPath = path.resolve(backupArg.split('=').slice(1).join('='));
+  if (backupPath === path.resolve(dbPath)) throw new Error('Backup file must differ from database');
+  const backupDb = new Database(backupPath, { readonly: true, fileMustExist: true });
+  const integrity = backupDb.pragma('integrity_check', { simple: true });
+  backupDb.close();
+  if (integrity !== 'ok') throw new Error('Backup integrity check failed');
 }
 
 const db = new Database(dbPath, {

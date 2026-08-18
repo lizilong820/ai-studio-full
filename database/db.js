@@ -9,6 +9,8 @@ const db = new Database(dbPath);
 
 // 启用外键
 db.pragma('foreign_keys = ON');
+db.pragma('busy_timeout = 10000');
+db.pragma('journal_mode = WAL');
 
 // ============ 建表 ============
 
@@ -212,7 +214,7 @@ function setSetting(key, value) {
   }
 }
 
-module.exports = { db, getSetting, setSetting };
+module.exports = { db, dbPath, getSetting, setSetting };
 
 // ============ 数据库迁移 (新增列/表) ============
 
@@ -480,3 +482,24 @@ db.exec(`
 
 db.exec(`CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_claim
   ON webhook_deliveries(status, next_run_at, lease_expires_at, id)`);
+
+// ============ 查询与租户隔离索引 ============
+
+db.exec('CREATE INDEX IF NOT EXISTS idx_users_invite_code ON users(invite_code)');
+db.exec('CREATE INDEX IF NOT EXISTS idx_users_invited_by ON users(invited_by)');
+db.exec('CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at)');
+db.exec('CREATE INDEX IF NOT EXISTS idx_generations_user_id_id ON generations(user_id, id DESC)');
+db.exec('CREATE INDEX IF NOT EXISTS idx_generations_user_studio_id ON generations(user_id, studio_type, id DESC)');
+db.exec('CREATE INDEX IF NOT EXISTS idx_generations_user_status_id ON generations(user_id, status, id DESC)');
+db.exec('CREATE INDEX IF NOT EXISTS idx_generations_status_created_at ON generations(status, created_at)');
+db.exec('CREATE INDEX IF NOT EXISTS idx_favorites_generation_id ON favorites(generation_id)');
+db.exec('CREATE INDEX IF NOT EXISTS idx_credit_logs_user_created_at ON credit_logs(user_id, created_at DESC, id DESC)');
+db.exec('CREATE INDEX IF NOT EXISTS idx_credit_logs_related_type ON credit_logs(user_id, related_id, type)');
+db.exec('CREATE INDEX IF NOT EXISTS idx_orders_user_id_id ON orders(user_id, id DESC)');
+db.exec('CREATE INDEX IF NOT EXISTS idx_orders_remark_pay_method ON orders(remark, pay_method)');
+db.exec('CREATE INDEX IF NOT EXISTS idx_orders_status_id ON orders(status, id DESC)');
+db.exec('CREATE INDEX IF NOT EXISTS idx_param_templates_user_studio_id ON param_templates(user_id, studio_type, id DESC)');
+db.exec('CREATE INDEX IF NOT EXISTS idx_search_history_user_updated_at ON search_history(user_id, updated_at DESC)');
+db.exec('CREATE INDEX IF NOT EXISTS idx_search_history_user_keyword ON search_history(user_id, keyword)');
+db.exec('CREATE INDEX IF NOT EXISTS idx_api_usage_user_created_at ON api_usage(user_id, created_at DESC)');
+db.exec('CREATE INDEX IF NOT EXISTS idx_api_usage_user_endpoint_created_at ON api_usage(user_id, endpoint, created_at DESC)');

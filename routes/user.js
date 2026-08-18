@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 const { generateApiKey, hashApiKey, getApiKeyPrefix, maskApiKey } = require('../utils/apiKey');
 const fs = require('fs');
 const path = require('path');
-const { exec } = require('child_process');
+const { execFile } = require('child_process');
 const { db, getSetting } = require('../database/db');
 const { signToken, authRequired } = require('../middleware/auth');
 const creditService = require('../controllers/creditService');
@@ -22,7 +22,12 @@ function generateThumbnail(srcUrl) {
         resolve(null);
         return;
       }
-      const srcPath = path.join(__dirname, '..', 'public', srcUrl);
+      const uploadsRoot = path.resolve(__dirname, '..', 'public', 'uploads');
+      const srcPath = path.resolve(__dirname, '..', 'public', srcUrl.replace(/^\/+/, ''));
+      if (srcPath !== uploadsRoot && !srcPath.startsWith(uploadsRoot + path.sep)) {
+        resolve(null);
+        return;
+      }
       if (!fs.existsSync(srcPath)) {
         resolve(null);
         return;
@@ -42,19 +47,19 @@ function generateThumbnail(srcUrl) {
       const gifExts = ['.gif'];
       const videoExts = ['.mp4', '.webm', '.mov', '.avi'];
 
-      let cmd = '';
+      let args;
       if (imgExts.includes(ext)) {
-        cmd = 'ffmpeg -y -i "' + srcPath + '" -vf "scale=300:-1" -q:v 6 "' + thumbPath + '" 2>/dev/null';
+        args = ['-y', '-i', srcPath, '-vf', 'scale=300:-1', '-q:v', '6', thumbPath];
       } else if (gifExts.includes(ext)) {
-        cmd = 'ffmpeg -y -i "' + srcPath + '" -vf "scale=300:-1" -frames:v 1 -q:v 6 "' + thumbPath + '" 2>/dev/null';
+        args = ['-y', '-i', srcPath, '-vf', 'scale=300:-1', '-frames:v', '1', '-q:v', '6', thumbPath];
       } else if (videoExts.includes(ext)) {
-        cmd = 'ffmpeg -y -i "' + srcPath + '" -vf "scale=300:-1" -ss 00:00:01 -frames:v 1 -q:v 6 "' + thumbPath + '" 2>/dev/null';
+        args = ['-y', '-i', srcPath, '-vf', 'scale=300:-1', '-ss', '00:00:01', '-frames:v', '1', '-q:v', '6', thumbPath];
       } else {
         resolve(null);
         return;
       }
 
-      exec(cmd, (err) => {
+      execFile(process.env.FFMPEG_PATH || 'ffmpeg', args, { windowsHide: true }, (err) => {
         if (err || !fs.existsSync(thumbPath)) {
           resolve(null);
         } else {

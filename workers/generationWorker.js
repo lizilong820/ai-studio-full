@@ -291,15 +291,24 @@ function claimWebhook(owner, leaseSeconds) {
 
 async function deliverWebhook(delivery, owner, leaseSeconds) {
   let heartbeat = null;
+  let leaseLost = false;
+  const controller = new AbortController();
   try {
     heartbeat = setInterval(() => {
       try {
-        db.prepare(`UPDATE webhook_deliveries
+        const renewed = db.prepare(`UPDATE webhook_deliveries
           SET lease_expires_at = datetime('now', '+' || ? || ' seconds'),
               updated_at = datetime('now')
           WHERE id = ? AND status = 'processing' AND lease_owner = ?`)
           .run(leaseSeconds, delivery.id, owner);
-      } catch (err) {}
+        if (renewed.changes !== 1) {
+          leaseLost = true;
+          controller.abort(new Error('Webhook 投递租约已失效'));
+        }
+      } catch (err) {
+        leaseLost = true;
+        controller.abort(err);
+      }
     }, Math.max(1000, Math.floor(leaseSeconds * 500)));
     if (typeof heartbeat.unref === 'function') heartbeat.unref();
 
@@ -313,8 +322,10 @@ async function deliverWebhook(delivery, owner, leaseSeconds) {
       },
       body: delivery.payload,
       timeoutMs: 10_000,
-      maxBytes: 1024 * 1024
+      maxBytes: 1024 * 1024,
+      signal: controller.signal
     });
+    if (leaseLost) throw new Error('Webhook 投递租约已失效');
     if (response.status < 200 || response.status >= 300) {
       throw new Error(`Webhook 返回 HTTP ${response.status}`);
     }
@@ -375,6 +386,7 @@ function createGenerationWorker(options = {}) {
 
     let heartbeat = null;
     let deadlineTimer = null;
+    let leaseLost = false;
     try {
       const remainingMs = getRemainingDeadlineMs(job);
       if (remainingMs !== null) {
@@ -382,7 +394,15 @@ function createGenerationWorker(options = {}) {
         if (typeof deadlineTimer.unref === 'function') deadlineTimer.unref();
       }
       heartbeat = setInterval(() => {
-        try { queue.renewLease(job, owner, leaseSeconds); } catch (err) {}
+        try {
+          if (!queue.renewLease(job, owner, leaseSeconds)) {
+            leaseLost = true;
+            controller.abort(new Error('生成任务租约已失效'));
+          }
+        } catch (err) {
+          leaseLost = true;
+          controller.abort(err);
+        }
       }, Math.max(1000, Math.floor(leaseSeconds * 500)));
       if (typeof heartbeat.unref === 'function') heartbeat.unref();
 
@@ -390,11 +410,17 @@ function createGenerationWorker(options = {}) {
         throw permanentError('生成任务恢复次数已达上限');
       }
       const outcome = await handler(job, controller.signal);
+      if (leaseLost) throw new Error('生成任务租约已失效');
       if (outcome && outcome.rescheduled) return;
       assertDeadline(job);
       const result = outcome && outcome.done ? outcome.result : outcome;
       queue.complete(job, owner, result);
     } catch (error) {
+      if (leaseLost || error.message === '生成任务租约已失效'
+        || controller.signal.reason?.message === '生成任务租约已失效') {
+        console.error(`生成任务 ${job.id} 租约已失效，放弃提交状态`);
+        return;
+      }
       const abortMessage = controller.signal.aborted && controller.signal.reason?.message;
       if (abortMessage === '服务正在关闭') {
         queue.reschedule(job, owner, { delaySeconds: 0, lastError: abortMessage });
@@ -469,7 +495,7 @@ function createGenerationWorker(options = {}) {
     return draining;
   }
 
-  return { start, stop, runOnce };
+  return { start, stop, runOnce, isRunning: () => running };
 }
 
 module.exports = { createGenerationWorker };

@@ -1,4 +1,4 @@
-const { exec } = require('child_process');
+const { execFile } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
@@ -16,8 +16,12 @@ function extractVideoFrames(videoPath, outputDir, frameCount) {
     var gridOutput = path.join(outputDir, baseName + '_grid.jpg');
 
     // 获取视频时长
-    var probeCmd = 'ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "' + videoPath + '"';
-    exec(probeCmd, function(probeErr, probeStdout) {
+    execFile(process.env.FFPROBE_PATH || 'ffprobe', [
+      '-v', 'error',
+      '-show_entries', 'format=duration',
+      '-of', 'default=noprint_wrappers=1:nokey=1',
+      videoPath
+    ], { windowsHide: true }, function(probeErr, probeStdout) {
       var duration = 0;
       if (!probeErr) {
         duration = parseFloat(probeStdout.trim()) || 0;
@@ -48,12 +52,16 @@ function extractVideoFrames(videoPath, outputDir, frameCount) {
           }
           // 横向拼接
           var tileLayout = frames.length <= 3 ? frames.length + 'x1' : '3x' + Math.ceil(frames.length / 3);
-          var inputs = '';
+          var args = ['-y'];
           for (var f = 0; f < frames.length; f++) {
-            inputs += ' -i "' + frames[f] + '"';
+            args.push('-i', frames[f]);
           }
-          var montageCmd = 'ffmpeg -y' + inputs + ' -filter_complex "tile=' + tileLayout + ':margin=10:padding=10:color=white" -q:v 2 "' + gridOutput + '" 2>/dev/null';
-          exec(montageCmd, function(montageErr) {
+          args.push(
+            '-filter_complex', `tile=${tileLayout}:margin=10:padding=10:color=white`,
+            '-q:v', '2',
+            gridOutput
+          );
+          execFile(process.env.FFMPEG_PATH || 'ffmpeg', args, { windowsHide: true }, function(montageErr) {
             if (montageErr) {
               if (frames[0]) {
                 fs.copyFileSync(frames[0], gridOutput);
@@ -70,8 +78,9 @@ function extractVideoFrames(videoPath, outputDir, frameCount) {
 
         var t = timePoints[idx];
         var framePath = path.join(outputDir, baseName + '_f' + idx + '.jpg');
-        var cmd = 'ffmpeg -y -ss ' + t + ' -i "' + videoPath + '" -vframes 1 -q:v 2 "' + framePath + '" 2>/dev/null';
-        exec(cmd, function(err) {
+        execFile(process.env.FFMPEG_PATH || 'ffmpeg', [
+          '-y', '-ss', t, '-i', videoPath, '-vframes', '1', '-q:v', '2', framePath
+        ], { windowsHide: true }, function(err) {
           if (!err && fs.existsSync(framePath) && fs.statSync(framePath).size > 0) {
             frames.push(framePath);
           }

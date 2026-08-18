@@ -109,7 +109,9 @@ async function createArchive(task, owner, queue, leaseSeconds, signal) {
       }
       processed += 1;
       queue.updateProgress(task, owner, processed);
-      queue.renewLease(task, owner, leaseSeconds);
+      if (!queue.renewLease(task, owner, leaseSeconds)) {
+        throw new Error('批量下载任务租约已失效');
+      }
     }
 
     await execFileAsync(process.env.ZIP_PATH || 'zip', ['-r', '-q', archivePath, '.'], {
@@ -160,9 +162,18 @@ function createBatchDownloadWorker(options = {}) {
 
   async function processTask(task, controller) {
     let heartbeat = null;
+    let leaseLost = false;
     try {
       heartbeat = setInterval(() => {
-        try { queue.renewLease(task, owner, leaseSeconds); } catch (error) {}
+        try {
+          if (!queue.renewLease(task, owner, leaseSeconds)) {
+            leaseLost = true;
+            controller.abort(new Error('批量下载任务租约已失效'));
+          }
+        } catch (error) {
+          leaseLost = true;
+          controller.abort(error);
+        }
       }, Math.max(1000, Math.floor(leaseSeconds * 500)));
       if (typeof heartbeat.unref === 'function') heartbeat.unref();
       if (task.attempt_count > task.max_attempts) {
@@ -170,6 +181,10 @@ function createBatchDownloadWorker(options = {}) {
       }
       await createArchive(task, owner, queue, leaseSeconds, controller.signal);
     } catch (error) {
+      if (leaseLost || error.message === '批量下载任务租约已失效') {
+        console.error(`批量下载任务 ${task.public_id} 租约已失效，放弃提交状态`);
+        return;
+      }
       try {
         if (controller.signal.aborted && controller.signal.reason?.message === '服务正在关闭') {
           queue.release(task, owner, '服务正在关闭');
@@ -233,7 +248,7 @@ function createBatchDownloadWorker(options = {}) {
     if (active) await active;
   }
 
-  return { start, stop, runOnce };
+  return { start, stop, runOnce, isRunning: () => running };
 }
 
 module.exports = { createBatchDownloadWorker };
