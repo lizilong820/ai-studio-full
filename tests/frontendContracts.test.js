@@ -269,6 +269,9 @@ test('video generation normalizes mobile images and exposes provider-safe durati
   assert.match(videoGen, /id="durationInput"[^>]*min="1"[^>]*max="15"/);
   assert.match(videoGen, /let currentDuration = 5/);
   assert.match(videoGen, /Math\.min\(Math\.max\(value, 1\), 15\)/);
+  assert.match(videoGen, /function switchLoraToStandardModel\(\)/);
+  assert.match(videoGen, /identifier\.replace\(\/-lora\$\/, ''\)/);
+  assert.match(videoGen, /1-4 秒已切换到同模式标准版/);
   assert.doesNotMatch(videoGen, /dur >= 5/);
   assert.match(videoGen, /await addReferenceFiles\(files\)/);
 });

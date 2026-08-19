@@ -105,6 +105,10 @@ test('video generation enforces provider duration and validates image signatures
   assert.doesNotMatch(api, /min: 5, max: 15/);
   assert.doesNotMatch(apiV1, /min: 5, max: 15/);
   assert.doesNotMatch(adapter, /Math\.max\(duration, 5\)/);
+  assert.match(api, /isMinimaxLora && actualDuration < 5/);
+  assert.match(apiV1, /isMinimaxLora && actualDuration < 5/);
+  assert.match(adapter, /isLoraModel && validDuration < 5/);
+  assert.match(adapter, /当前加速版仅支持 5-15 秒；1-4 秒请选择同模式标准版/);
   const videoPage = read('public/video-gen.html');
   assert.match(videoPage, /id="durationInput"[^>]*min="1"[^>]*max="15"/);
   assert.match(videoPage, /支持 1-15 秒整数/);
