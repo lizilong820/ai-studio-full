@@ -1090,6 +1090,10 @@ async function submitVideoTask(modelId, prompt, options = {}) {
     if (isMinimaxVideoAPI) {
       const duration = parseInt(options.duration, 10) || 5;
       const validDuration = Math.min(Math.max(duration, 1), 15);
+      const isLoraModel = (model.model_identifier || '').toLowerCase().includes('-lora');
+      if (isLoraModel && validDuration < 5) {
+        throw new Error('当前加速版仅支持 5-15 秒；1-4 秒请选择同模式标准版');
+      }
 
       let imageList = [];
       if (Array.isArray(options.ref_image)) {

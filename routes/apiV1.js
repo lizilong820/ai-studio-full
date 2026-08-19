@@ -1142,6 +1142,10 @@ router.post('/generate/video-gen', async (req, res) => {
     if (isMinimax && (actualDuration < 1 || actualDuration > 15)) {
       return v1Error(res, 'MiniMax H3 模型仅支持 1-15 秒时长');
     }
+    const isMinimaxLora = isMinimax && (model.model_identifier || '').toLowerCase().includes('-lora');
+    if (isMinimaxLora && actualDuration < 5) {
+      return v1Error(res, '当前加速版仅支持 5-15 秒；1-4 秒请选择同模式标准版');
+    }
 
     const cost = aiAdapter.calculateCost(model_id, { duration: actualDuration });
     if (cost === null) return v1Error(res, '无法计算价格');
