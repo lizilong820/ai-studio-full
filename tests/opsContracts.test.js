@@ -92,6 +92,17 @@ test('storage report is read-only and reports configured directories', () => {
   assert.doesNotMatch(source, /rmSync|unlinkSync|rmdirSync/);
 });
 
+test('text API bills provider usage without byte-count false caps', () => {
+  const source = read('routes/apiV1.js');
+  assert.match(source, /const reservedCost = Math\.max\(/);
+  assert.match(source, /Math\.ceil\(\(actualMaxTokens \/ 1000\) \* pricePer1k/);
+  assert.match(source, /模型未返回有效 token 用量/);
+  assert.ok(!source.includes('模型返回的 token 用量超过预授权上限'));
+  assert.ok(!source.includes('promptTokenUpperBound'));
+  assert.match(source, /settleGenerationCharge\(/);
+  assert.match(source, /refundFailedGeneration\(taskId, err\.message\)/);
+});
+
 test('video generation enforces provider duration and validates image signatures', () => {
   const api = read('routes/api.js');
   const apiV1 = read('routes/apiV1.js');
