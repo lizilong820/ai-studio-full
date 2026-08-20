@@ -1761,10 +1761,12 @@ router.post('/generate/text', async (req, res) => {
     const actualMaxTokens = parseIntegerParam(max_tokens, {
       name: 'max_tokens', min: 1, max: 32000, defaultValue: 2000
     });
-    const promptTokenUpperBound = Buffer.byteLength(JSON.stringify(messages), 'utf8');
+    // Reserve only the requested output budget before calling the provider.
+    // The provider's actual usage is the billing source of truth after success;
+    // serialized UTF-8 bytes are not token counts and must not cap the response.
     const reservedCost = Math.max(
       1,
-      Math.ceil(((promptTokenUpperBound + actualMaxTokens) / 1000) * pricePer1k * 100) / 100
+      Math.ceil((actualMaxTokens / 1000) * pricePer1k * 100) / 100
     );
     const deductResult = creditService.createGenerationAndDeduct(
       user.id,
@@ -1790,8 +1792,8 @@ router.post('/generate/text', async (req, res) => {
     const completionTokens = normalizeTokenUsage(usage.completion_tokens);
     const reportedTotalTokens = normalizeTokenUsage(usage.total_tokens);
     const totalTokens = reportedTotalTokens || (promptTokens + completionTokens);
-    if (totalTokens > promptTokenUpperBound + actualMaxTokens) {
-      throw new Error('模型返回的 token 用量超过预授权上限');
+    if (totalTokens <= 0) {
+      throw new Error('模型未返回有效 token 用量');
     }
     cost = Math.max(1, Math.ceil((totalTokens / 1000) * pricePer1k * 100) / 100);
 
