@@ -4,7 +4,11 @@ const Database = require('better-sqlite3');
 
 const sourcePath = path.resolve(process.env.AI_STUDIO_DB_PATH || path.join(__dirname, '..', 'database', 'ai_studio.db'));
 const outputArg = process.argv.find(arg => arg.startsWith('--output='));
-const outputPath = path.resolve(outputArg ? outputArg.slice('--output='.length) : `${sourcePath}.backup`);
+const backupDir = process.env.AI_STUDIO_BACKUP_DIR
+  ? path.resolve(process.env.AI_STUDIO_BACKUP_DIR)
+  : path.dirname(sourcePath);
+const defaultOutput = path.join(backupDir, 'ai_studio.db.backup');
+const outputPath = path.resolve(outputArg ? outputArg.slice('--output='.length) : defaultOutput);
 
 if (sourcePath === outputPath) throw new Error('Backup output must differ from source database');
 if (!fs.existsSync(sourcePath)) throw new Error(`Source database not found: ${sourcePath}`);
