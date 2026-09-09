@@ -192,7 +192,7 @@ router.post('/models/:id/test', adminRequired, async (req, res) => {
   
   try {
     if (model.type === 'image') {
-      const result = await aiAdapter.generateImage(modelId, 'a simple test image', { n: 1, size: '256x256' });
+      const result = await aiAdapter.generateImage(modelId, 'a simple test image', { n: 1, size: '1024x1024' });
       const elapsed = Date.now() - startTime;
       res.success({ 
         success: true, 

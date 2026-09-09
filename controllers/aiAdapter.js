@@ -8,6 +8,29 @@ function createSignalFetch(fetchImpl, signal) {
   return (url, options = {}) => fetchImpl(url, { ...options, signal: options.signal || signal });
 }
 
+function resolveImageGenerationEndpoint(endpoint) {
+  const raw = String(endpoint || '').trim().replace(/\/+$/, '');
+  if (!raw) throw new Error('生图 API 地址不能为空');
+
+  try {
+    const url = new URL(raw);
+    const pathname = url.pathname.replace(/\/+$/, '');
+    if (/\/images\/generations$/i.test(pathname)) return url.toString();
+    if (/\/images$/i.test(pathname)) {
+      url.pathname = `${pathname}/generations`;
+      return url.toString();
+    }
+    if (/\/v1$/i.test(pathname)) {
+      url.pathname = `${pathname}/images/generations`;
+      return url.toString();
+    }
+  } catch (_) {
+    // 保留自定义 endpoint 的原始地址，兼容非标准供应商配置。
+  }
+
+  return raw;
+}
+
 // ===== imgbb 免费图床上传（用于 mzsjai 等需要 https 图片 URL 的 API） =====
 const IMGBB_API_KEY = process.env.IMGBB_API_KEY || '';
 
@@ -319,6 +342,7 @@ async function generateImageOpenAICompat(model, prompt, options, fetch) {
     size: options.size || '1024x1024',
     response_format: 'b64_json',
   };
+  const endpoint = resolveImageGenerationEndpoint(model.api_endpoint);
 
   // 根据已知能力构建变体列表，避免无谓重试
   const bodyVariants = [];
@@ -352,7 +376,7 @@ async function generateImageOpenAICompat(model, prompt, options, fetch) {
     delete body._label;
 
     try {
-      const response = await fetch(model.api_endpoint, {
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1623,6 +1647,7 @@ module.exports = {
   getEnabledModels,
   getModelPrice,
   calculateCost,
+  resolveImageGenerationEndpoint,
 };
 
 /**
