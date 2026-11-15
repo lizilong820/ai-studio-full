@@ -13,9 +13,11 @@ const userRoutes = require('./routes/user');
 const apiRoutes = require('./routes/api');
 const adminRoutes = require('./routes/admin');
 const apiV1Routes = require('./routes/apiV1');
+const workflowRoutes = require('./routes/workflow');
 const { db } = require('./database/db');
 const { createGenerationWorker } = require('./workers/generationWorker');
 const { createBatchDownloadWorker } = require('./workers/batchDownloadWorker');
+const { createWorkflowWorker } = require('./workers/workflowWorker');
 
 const app = express();
 
@@ -66,6 +68,7 @@ app.use(responseWrapper);
 let shutdownPromise = null;
 let worker = null;
 let batchDownloadWorker = null;
+let workflowWorker = null;
 
 app.get('/healthz', (req, res) => {
   res.status(200).json({ status: 'ok', request_id: req.requestId });
@@ -83,13 +86,15 @@ app.get('/readyz', (req, res) => {
   }
   const generationWorkerReady = Boolean(worker && worker.isRunning());
   const batchWorkerReady = Boolean(batchDownloadWorker && batchDownloadWorker.isRunning());
-  const ready = databaseReady && generationWorkerReady && batchWorkerReady && !shutdownPromise;
+  const workflowWorkerReady = Boolean(workflowWorker && workflowWorker.isRunning());
+  const ready = databaseReady && generationWorkerReady && batchWorkerReady && workflowWorkerReady && !shutdownPromise;
   res.status(ready ? 200 : 503).json({
     status: ready ? 'ready' : 'not_ready',
     checks: {
       database: databaseReady,
       generation_worker: generationWorkerReady,
       batch_download_worker: batchWorkerReady,
+      workflow_worker: workflowWorkerReady,
       shutting_down: Boolean(shutdownPromise)
     },
     request_id: req.requestId
@@ -103,6 +108,7 @@ app.use('/api/user/register', authLimit);
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.use('/api/user', userRoutes);
+app.use('/api/workflow', workflowRoutes);
 app.use('/api', apiRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/v1', apiV1Routes);
@@ -124,7 +130,7 @@ app.get('/admin/*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin', 'index.html'));
 });
 
-const studios = ['ecommerce', 'xiaohongshu', 'poster', 'copywriting', 'image', 'video', 'avatar', 'resume', 'ppt', 'editor', 'developer', 'gif', 'idphoto'];
+const studios = ['ecommerce', 'xiaohongshu', 'poster', 'copywriting', 'image', 'video', 'avatar', 'resume', 'ppt', 'editor', 'developer', 'gif', 'idphoto', 'workflow'];
 studios.forEach(studio => {
   app.get(`/${studio}`, (req, res) => {
     res.sendFile(path.join(__dirname, 'public', `${studio}.html`));
@@ -159,11 +165,13 @@ app.use((req, res) => {
 
 worker = createGenerationWorker();
 batchDownloadWorker = createBatchDownloadWorker();
+workflowWorker = createWorkflowWorker();
 const server = app.listen(port, host, () => {
   logEvent('info', 'server.started', { host, port });
 });
 worker.start();
 batchDownloadWorker.start();
+workflowWorker.start();
 
 function closeServer() {
   return new Promise((resolve, reject) => {
@@ -177,7 +185,7 @@ function shutdown(signal) {
   shutdownPromise = (async () => {
     logEvent('info', 'server.shutdown_started', { signal });
     await closeServer();
-    await Promise.all([worker.stop(), batchDownloadWorker.stop()]);
+    await Promise.all([worker.stop(), batchDownloadWorker.stop(), workflowWorker.stop()]);
     db.close();
     logEvent('info', 'server.shutdown_completed', { signal });
   })().catch(err => {
@@ -194,4 +202,5 @@ module.exports = app;
 module.exports.server = server;
 module.exports.worker = worker;
 module.exports.batchDownloadWorker = batchDownloadWorker;
+module.exports.workflowWorker = workflowWorker;
 module.exports.shutdown = shutdown;

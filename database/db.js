@@ -483,6 +483,85 @@ db.exec(`
 db.exec(`CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_claim
   ON webhook_deliveries(status, next_run_at, lease_expires_at, id)`);
 
+// ============ 电商工作流 ============
+
+// 工作流模板（内置模板由 config/workflowTemplates.js 初始化）
+db.exec(`
+  CREATE TABLE IF NOT EXISTS workflow_templates (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    template_key TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    summary TEXT DEFAULT '',
+    category TEXT DEFAULT 'ecommerce',
+    emoji TEXT DEFAULT '🛠️',
+    badge TEXT DEFAULT '',
+    inputs TEXT NOT NULL DEFAULT '[]',
+    nodes TEXT NOT NULL DEFAULT '[]',
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    status INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+  )
+`);
+
+// 工作流运行实例：一次运行对应一条记录，节点进度存在 node_states JSON 里
+db.exec(`
+  CREATE TABLE IF NOT EXISTS workflow_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    template_id INTEGER NOT NULL,
+    template_key TEXT NOT NULL DEFAULT '',
+    model_id INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending'
+      CHECK (status IN ('pending', 'running', 'succeeded', 'failed', 'canceled')),
+    inputs TEXT NOT NULL DEFAULT '{}',
+    nodes_snapshot TEXT NOT NULL DEFAULT '[]',
+    node_states TEXT NOT NULL DEFAULT '[]',
+    current_index INTEGER NOT NULL DEFAULT 0,
+    total_cost INTEGER NOT NULL DEFAULT 0,
+    final_image TEXT DEFAULT '',
+    error_msg TEXT DEFAULT '',
+    next_run_at TEXT NOT NULL DEFAULT (datetime('now')),
+    locked_until TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+    finished_at TEXT DEFAULT '',
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (template_id) REFERENCES workflow_templates(id)
+  )
+`);
+
+db.exec('CREATE INDEX IF NOT EXISTS idx_workflow_runs_user_id ON workflow_runs(user_id, id DESC)');
+db.exec('CREATE INDEX IF NOT EXISTS idx_workflow_runs_claim ON workflow_runs(status, next_run_at, locked_until, id)');
+
+// 内置模板初始化：按 template_key 幂等写入，不覆盖后台改过的名称/排序/启停状态
+try {
+  const { WORKFLOW_TEMPLATES } = require('../config/workflowTemplates');
+  const existsTemplate = db.prepare('SELECT id FROM workflow_templates WHERE template_key = ?');
+  const insertTemplate = db.prepare(`INSERT INTO workflow_templates
+    (template_key, name, summary, category, emoji, badge, inputs, nodes, sort_order)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+  let seeded = 0;
+  for (const tpl of WORKFLOW_TEMPLATES) {
+    if (existsTemplate.get(tpl.key)) continue;
+    insertTemplate.run(
+      tpl.key,
+      tpl.name,
+      tpl.summary || '',
+      tpl.category || 'ecommerce',
+      tpl.emoji || '🛠️',
+      tpl.badge || '',
+      JSON.stringify(tpl.inputs || []),
+      JSON.stringify(tpl.nodes || []),
+      tpl.sort_order || 0
+    );
+    seeded += 1;
+  }
+  if (seeded > 0) console.log(`✅ 已初始化 ${seeded} 个电商工作流模板`);
+} catch (error) {
+  console.warn('工作流模板初始化失败：' + error.message);
+}
+
 // ============ 查询与租户隔离索引 ============
 
 db.exec('CREATE INDEX IF NOT EXISTS idx_users_invite_code ON users(invite_code)');

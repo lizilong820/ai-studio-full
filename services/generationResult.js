@@ -5,7 +5,8 @@ const ORCHESTRATION_FIELDS = new Set([
   'input_text',
   'deadline_seconds',
   'result_style',
-  'result_metadata'
+  'result_metadata',
+  'ref_image_paths'
 ]);
 
 function getAdapterOptions(payload = {}) {

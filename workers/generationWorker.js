@@ -61,10 +61,15 @@ async function handleImageEdit(job, signal) {
   const payload = job.payload;
   const prompt = typeof payload.prompt === 'string' ? payload.prompt : '';
   if (!prompt.trim()) throw permanentError('payload.prompt 无效');
+  const options = { ...getAdapterOptions(payload), signal };
+  if (payload.ref_image_paths !== undefined) {
+    const refs = readRefImagePaths(payload.ref_image_paths);
+    options.ref_image = refs.length === 1 ? refs[0] : refs;
+  }
   const result = await aiAdapter.editImage(
     getModelId(job),
     prompt,
-    { ...getAdapterOptions(payload), signal }
+    options
   );
   return formatGenerationResult(payload.result_style, result, { images: result.images }, payload.result_metadata);
 }
@@ -154,6 +159,38 @@ function resolveLocalPublicFile(value) {
     throw new Error('视频本地文件不存在');
   }
   return resolved;
+}
+
+// 把工作流传来的本地参考图读成 data URL，交给 editImage 使用
+function readRefImagePaths(paths) {
+  if (!Array.isArray(paths) || paths.length === 0) throw permanentError('payload.ref_image_paths 无效');
+  if (paths.length > 8) throw permanentError('payload.ref_image_paths 数量过多');
+  const roots = [];
+  if (process.env.AI_STUDIO_UPLOADS_DIR && String(process.env.AI_STUDIO_UPLOADS_DIR).trim()) {
+    roots.push(path.resolve(String(process.env.AI_STUDIO_UPLOADS_DIR).trim()));
+  }
+  roots.push(path.resolve(__dirname, '..', 'public', 'uploads'));
+  const images = [];
+  for (const item of paths) {
+    if (typeof item !== 'string' || !item.startsWith('/uploads/')) {
+      throw permanentError('参考图路径无效');
+    }
+    const relative = item.replace(/^\/uploads\//, '');
+    let resolved = null;
+    for (const root of roots) {
+      const candidate = path.resolve(root, relative);
+      if (candidate !== root && !candidate.startsWith(root + path.sep)) continue;
+      if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
+        resolved = candidate;
+        break;
+      }
+    }
+    if (!resolved) throw permanentError('参考图文件不存在');
+    const ext = path.extname(resolved).slice(1).toLowerCase();
+    const mime = ext === 'jpg' || ext === 'jpeg' ? 'jpeg' : (ext === 'webp' ? 'webp' : 'png');
+    images.push(`data:image/${mime};base64,` + fs.readFileSync(resolved).toString('base64'));
+  }
+  return images;
 }
 
 async function downloadVideo(url, destination, signal) {

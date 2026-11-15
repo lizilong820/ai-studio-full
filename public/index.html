@@ -111,6 +111,7 @@
       </div>
       <div class="nav-links">
         <a href="#studios" class="nav-link active">工作室</a>
+        <a href="workflow.html" class="nav-link">电商工作流</a>
         <a href="developer.html" class="nav-link">开发者平台</a>
         <a href="/profile.html" class="nav-link" id="navMyWorks" style="display:none;">我的作品</a>
       </div>
@@ -188,6 +189,21 @@
     </div>
 
     <div class="studio-grid">
+      <!-- 电商工作流 -->
+      <a href="workflow.html" class="studio-card" data-category="电商">
+        <div class="arrow">→</div>
+        <div class="studio-icon">⚡</div>
+        <h3>电商工作流</h3>
+        <p>上传一张商品图，抠图 → 场景 → 主图 → 详情页，节点式一次跑完。</p>
+        <div class="studio-meta">
+          <div class="studio-tags">
+            <span class="studio-tag hot">🔥 新品</span>
+            <span class="studio-tag">电商</span>
+          </div>
+          <div class="studio-credit">按节点计费</div>
+        </div>
+      </a>
+
       <!-- AI图片生成工作室 -->
       <a href="image.html?v=223" class="studio-card" data-category="设计">
         <div class="arrow">→</div>
@@ -573,7 +589,15 @@
         video: 'video.html',
         resume: 'resume.html',
         avatar: 'avatar.html',
-        image: 'image.html?v=223'
+        image: 'image.html?v=223',
+        workflow: 'workflow.html',
+        'video-gen': 'video-gen.html',
+        gif: 'gif.html',
+        audio: 'audio.html',
+        editor: 'editor.html',
+        idphoto: 'idphoto.html',
+        'face-swap': 'video-face-swap.html',
+        'prompt-extract': 'prompt-extract.html'
       };
       const url = map[type];
       if (url) {
