@@ -380,14 +380,17 @@ function createGenerationWorker(options = {}) {
   const controllers = new Set();
 
   async function processGenerationJob(job, controller) {
-    const handler = handlers[job.job_type];
-    if (!handler) throw permanentError(`不支持的生成任务类型：${job.job_type}`);
-    assertDeadline(job);
-
     let heartbeat = null;
     let deadlineTimer = null;
     let leaseLost = false;
     try {
+      // Preflight failures must use the same terminal-state and refund path.
+      if (!job.payload || typeof job.payload !== 'object' || Array.isArray(job.payload)) {
+        throw permanentError('任务 payload 必须是有效 JSON 对象');
+      }
+      const handler = Object.hasOwn(handlers, job.job_type) ? handlers[job.job_type] : null;
+      if (!handler) throw permanentError(`不支持的生成任务类型：${job.job_type}`);
+      assertDeadline(job);
       const remainingMs = getRemainingDeadlineMs(job);
       if (remainingMs !== null) {
         deadlineTimer = setTimeout(() => controller.abort(new Error('生成任务超过 deadline_seconds')), remainingMs);

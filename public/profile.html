@@ -1535,7 +1535,6 @@
       const sequence = (window._dlPollSequence || 0) + 1;
       window._dlPollSequence = sequence;
       window._autoDownloadTriggered = false;
-      window._downloading = false;
 
       // 创建弹窗
       let modal = document.getElementById('downloadProgressModal');
@@ -1549,7 +1548,7 @@
         heading.textContent = '📦 正在打包';
         const tip = document.createElement('p');
         tip.className = 'progress-tip';
-        tip.textContent = '后台正在为您打包图片，请稍候...';
+        tip.textContent = '作品打包中...';
         const barWrap = document.createElement('div');
         barWrap.className = 'progress-bar-wrap';
         const bar = document.createElement('div');
@@ -1575,7 +1574,7 @@
         actions.append(close, download);
         const notice = document.createElement('p');
         notice.className = 'progress-notice';
-        notice.textContent = '💡 打包在后台进行，您可以离开此页面继续操作，稍后回来下载即可。文件保留30分钟。';
+        notice.textContent = '下载文件保留30分钟。';
         box.append(heading, tip, barWrap, progress, actions, notice);
         modal.appendChild(box);
         document.body.appendChild(modal);
@@ -1590,7 +1589,7 @@
 
       // 轮询进度
       let pollCount = 0;
-      const maxPoll = 180; // 最多轮询3分钟
+      const maxPoll = 1800;
       async function poll() {
         if (sequence !== window._dlPollSequence) return;
         pollCount++;
@@ -1612,26 +1611,15 @@
           if (data.status === 'processing') {
             const percent = data.total > 0 ? Math.round((data.done / data.total) * 80) : 0;
             document.getElementById('dlProgressBar').style.width = percent + '%';
-            document.getElementById('dlProgressText').textContent = '正在整理图片... ' + data.done + '/' + data.total;
+            document.getElementById('dlProgressText').textContent = '正在整理作品... ' + data.done + '/' + data.total;
           } else if (data.status === 'done') {
             shouldContinue = false;
             if (window._autoDownloadTriggered) return; // 防止重复触发
             window._autoDownloadTriggered = true;
             const currentDownloadUrl = data.downloadUrl;
 
-            // 进度条动画：80% -> 100%，模拟zip压缩阶段
-            let curPct = 80;
-            document.getElementById('dlProgressText').textContent = '正在压缩打包...';
-            window._zipAnimTimer = setInterval(function() {
-              curPct += 2;
-              if (curPct >= 100) {
-                curPct = 100;
-                clearInterval(window._zipAnimTimer);
-                window._zipAnimTimer = null;
-                document.getElementById('dlProgressText').textContent = '✅ 打包完成！';
-              }
-              document.getElementById('dlProgressBar').style.width = curPct + '%';
-            }, 60);
+            document.getElementById('dlProgressBar').style.width = '100%';
+            document.getElementById('dlProgressText').textContent = '打包完成';
 
             // 绑定下载按钮
             const btn = document.getElementById('dlDownloadBtn');
@@ -1647,7 +1635,9 @@
             document.getElementById('dlProgressText').textContent = '打包失败：' + (data.error || '未知错误');
           }
         } catch(e) {
-          // 忽略网络错误，继续轮询
+          if (sequence === window._dlPollSequence) {
+            document.getElementById('dlProgressText').textContent = '网络连接中断，正在重试...';
+          }
         }
         if (shouldContinue && sequence === window._dlPollSequence) {
           window._dlTimer = setTimeout(poll, 1000);
@@ -1659,6 +1649,7 @@
     function closeDownloadProgress() {
       const modal = document.getElementById('downloadProgressModal');
       if (modal) modal.style.display = 'none';
+      if (window._dlAbortController) window._dlAbortController.abort();
       window._dlPollSequence = (window._dlPollSequence || 0) + 1;
       if (window._dlTimer) {
         clearTimeout(window._dlTimer);
@@ -1679,6 +1670,10 @@
         return;
       }
       window._downloading = true;
+      const sequence = window._dlPollSequence;
+      const controller = new AbortController();
+      window._dlAbortController = controller;
+      const timeout = setTimeout(() => controller.abort(), 5 * 60 * 1000);
 
       const btn = document.getElementById('dlDownloadBtn');
       const progressText = document.getElementById('dlProgressText');
@@ -1688,38 +1683,21 @@
       try {
         const token = localStorage.getItem('token');
         const res = await fetch(downloadUrl, {
-          headers: { 'Authorization': 'Bearer ' + token }
+          headers: { 'Authorization': 'Bearer ' + token },
+          signal: controller.signal
         });
-        if (!res.ok) {
+        if (!res.ok || (res.headers.get('content-type') || '').includes('application/json')) {
           const data = await res.json().catch(function() { return {}; });
-          showToast(data.msg || '下载失败', 'error');
-          return;
+          throw new Error(data.msg || '下载失败');
         }
-
-        // 用 ReadableStream 监控下载进度
-        const contentLength = res.headers.get('content-length');
-        const total = contentLength ? parseInt(contentLength) : 0;
-        const reader = res.body.getReader();
-        let received = 0;
-        const chunks = [];
-
-        while (true) {
-          const result = await reader.read();
-          if (result.done) break;
-          chunks.push(result.value);
-          received += result.value.length;
-          if (total > 0 && progressText) {
-            const pct = Math.round((received / total) * 100);
-            const mb = (received / 1024 / 1024).toFixed(1);
-            const totalMb = (total / 1024 / 1024).toFixed(1);
-            progressText.textContent = '正在下载... ' + mb + 'MB / ' + totalMb + 'MB (' + pct + '%)';
-          } else if (progressText) {
-            const mb = (received / 1024 / 1024).toFixed(1);
-            progressText.textContent = '正在下载... ' + mb + 'MB';
-          }
-        }
-
-        const blob = new Blob(chunks);
+        const total = Number(res.headers.get('content-length'));
+        if (progressText) progressText.textContent = total > 0
+          ? '正在下载 ' + (total / 1024 / 1024).toFixed(1) + ' MB...'
+          : '正在下载...';
+        // Blob consumption also works in WebViews without ReadableStream.
+        const blob = await res.blob();
+        if (!blob.size || blob.type.includes('text/html')) throw new Error('下载文件无效，请重新打包');
+        if (sequence !== window._dlPollSequence || controller.signal.aborted) return;
         const blobUrl = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = blobUrl;
@@ -1727,17 +1705,21 @@
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        setTimeout(function() { window.URL.revokeObjectURL(blobUrl); }, 1000);
+        setTimeout(function() { window.URL.revokeObjectURL(blobUrl); }, 60_000);
 
-        showToast('下载完成', 'success');
-        if (progressText) progressText.textContent = '✅ 下载完成';
+        showToast('文件已就绪', 'success');
+        if (progressText) progressText.textContent = '文件已就绪，可再次下载';
       } catch(e) {
-        console.error('download error:', e);
-        showToast('下载失败', 'error');
-        if (progressText) progressText.textContent = '下载失败';
+        if (sequence === window._dlPollSequence) {
+          const message = e.name === 'AbortError' ? '下载已中断，请重试' : (e.message || '下载失败，请重试');
+          showToast(message, 'error');
+          if (progressText) progressText.textContent = message;
+        }
       } finally {
+        clearTimeout(timeout);
+        window._dlAbortController = null;
         window._downloading = false;
-        if (btn) { btn.textContent = '⬇ 下载文件'; btn.disabled = false; }
+        if (btn && sequence === window._dlPollSequence) { btn.textContent = '⬇ 下载文件'; btn.disabled = false; }
       }
     }
 

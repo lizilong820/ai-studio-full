@@ -13,7 +13,8 @@ function parsePayload(job) {
   try {
     return { ...job, payload: JSON.parse(job.payload) };
   } catch (err) {
-    throw new Error(`任务 ${job.id} payload 不是有效 JSON`);
+    // Preserve the claimed job so the worker can fail it and refund once.
+    return { ...job, payload: null };
   }
 }
 
