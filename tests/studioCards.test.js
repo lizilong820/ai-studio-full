@@ -9,12 +9,15 @@ const {
 } = require('../utils/studioCardInput');
 
 test('内置首页卡片数据完整且可安全跳转', () => {
-  assert.equal(DEFAULT_STUDIO_CARDS.length, 17);
+  assert.equal(DEFAULT_STUDIO_CARDS.length, 16);
 
   const hrefs = new Set();
+  const titles = new Set();
   const categories = new Set();
   for (const card of DEFAULT_STUDIO_CARDS) {
     assert.ok(card.title, '卡片缺少名称');
+    assert.ok(!titles.has(card.title), '卡片名称重复: ' + card.title);
+    titles.add(card.title);
     assert.ok(card.description, card.title + ' 缺少描述');
     assert.ok(card.icon, card.title + ' 缺少图标');
     assert.ok(card.category, card.title + ' 缺少分类');
@@ -33,6 +36,11 @@ test('内置首页卡片数据完整且可安全跳转', () => {
     [...categories].sort(),
     ['办公', '工具', '文案', '电商', '社媒', '设计'].sort()
   );
+
+  const ecommerceCards = DEFAULT_STUDIO_CARDS.filter(card => card.category === '电商');
+  assert.equal(ecommerceCards.length, 1, '电商入口只保留一个');
+  assert.equal(ecommerceCards[0].title, '电商工作室');
+  assert.equal(ecommerceCards[0].href, 'workflow.html');
 });
 
 test('工作室卡片输入会规范化文本、标签和默认值', () => {

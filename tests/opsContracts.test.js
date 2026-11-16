@@ -140,6 +140,7 @@ test('homepage studio cards are DB-backed and seeded exactly once', () => {
   assert.match(source, /CREATE TABLE IF NOT EXISTS studio_cards/);
   assert.match(source, /idx_studio_cards_status_sort/);
   assert.match(source, /studio_cards_seeded_v1/);
+  assert.match(source, /studio_cards_merge_ecommerce_v1/);
   assert.match(source, /db\.transaction\(cards =>/);
 
   assert.match(api, /router\.get\('\/studio-cards'/);

@@ -622,6 +622,47 @@ if (getSetting(STUDIO_CARDS_SEED_KEY, '') !== '1') {
   }
 }
 
+// 旧版把同一个电商页面拆成了“电商工作流”和“电商套图工作室”两个入口，
+// 一次性合并为“电商工作室”。只处理仍保持初始标题和链接的卡片，避免覆盖管理员自定义内容。
+const STUDIO_CARDS_MERGE_ECOMMERCE_KEY = 'studio_cards_merge_ecommerce_v1';
+if (getSetting(STUDIO_CARDS_MERGE_ECOMMERCE_KEY, '') !== '1') {
+  try {
+    const workflowCard = db.prepare('SELECT id FROM studio_cards WHERE title = ? AND href = ?')
+      .get('电商工作流', 'workflow.html');
+    const studioCard = db.prepare('SELECT id FROM studio_cards WHERE title = ? AND href = ?')
+      .get('电商套图工作室', 'workflow.html#studio');
+    if (workflowCard && studioCard) {
+      const { DEFAULT_STUDIO_CARDS } = require('../config/studioCardDefaults');
+      const mergedCard = DEFAULT_STUDIO_CARDS[0];
+      const mergeCards = db.transaction(() => {
+        db.prepare(`UPDATE studio_cards SET
+          title = ?, description = ?, icon = ?, href = ?, category = ?, tags = ?,
+          highlight = ?, highlight_style = ?, credit = ?, keywords = ?,
+          updated_at = datetime('now', 'localtime')
+          WHERE id = ?`).run(
+          mergedCard.title,
+          mergedCard.description || '',
+          mergedCard.icon || '✨',
+          mergedCard.href,
+          mergedCard.category,
+          JSON.stringify(mergedCard.tags || []),
+          mergedCard.highlight || '',
+          mergedCard.highlight_style || '',
+          mergedCard.credit || '',
+          JSON.stringify(mergedCard.keywords || []),
+          workflowCard.id
+        );
+        db.prepare('DELETE FROM studio_cards WHERE id = ?').run(studioCard.id);
+      });
+      mergeCards();
+      console.log('✅ 已合并重复的电商工作室入口');
+    }
+    setSetting(STUDIO_CARDS_MERGE_ECOMMERCE_KEY, '1');
+  } catch (error) {
+    console.warn('电商工作室入口合并失败：' + error.message);
+  }
+}
+
 // ============ 查询与租户隔离索引 ============
 
 db.exec('CREATE INDEX IF NOT EXISTS idx_users_invite_code ON users(invite_code)');
