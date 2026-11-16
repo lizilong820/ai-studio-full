@@ -158,6 +158,14 @@ test('homepage studio cards are DB-backed and seeded exactly once', () => {
   assert.match(service, /JSON\.stringify\(data\.tags\)/);
 });
 
+test('deployment never overwrites runtime uploads', () => {
+  const deploy = read('scripts/deploy.sh');
+  assert.match(deploy, /--exclude ['"]public\/uploads['"]/);
+  assert.match(deploy, /--exclude ['"]public\/audio['"]/);
+  assert.match(deploy, /\[ ! -L "\$REMOTE_ROOT\/public\/uploads" \]/);
+  assert.match(read('.gitignore'), /public\/uploads\//);
+});
+
 test('workers stop submitting state after lease loss', () => {
   const generation = read('workers/generationWorker.js');
   const batch = read('workers/batchDownloadWorker.js');
