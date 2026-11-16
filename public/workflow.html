@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>电商工作室 · AI工作室</title>
-  <meta name="description" content="节点工作流逐步精修，电商套图一次批量出图。上传商品图就能跑完抠图、场景主图、细节特写和详情页。">
+  <meta name="description" content="上传商品图、填写卖点，直接批量生成电商套图；需要逐步精修时再切换到节点工作流。">
   <link rel="stylesheet" href="css/style.css?v=18">
   <style>
     .wf-page {
@@ -382,21 +382,21 @@
 
   <main class="wf-page">
     <header class="wf-hero">
-      <div class="wf-badge-top">⚡ 电商图像工作台</div>
-      <h1>电商出图，两种方式随你选</h1>
-      <p>想逐步精修、每一步都可控，就用节点工作流；想一次批量出一整套场景图，就用电商套图。两种方式都在这个页面完成。</p>
+      <div class="wf-badge-top">🏪 电商图像工作台</div>
+      <h1>上传商品图，直接生成电商套图</h1>
+      <p>填写平台、卖点和画面要求，一次批量生成多张电商图；需要逐步精修时，再切换到节点工作流。</p>
     </header>
 
     <div class="wf-mode-switch" id="modeSwitch" role="tablist" aria-label="出图方式">
-      <button class="wf-mode-btn active" type="button" data-mode="pipeline" role="tab" aria-selected="true">
-        🧩 节点工作流 <span>逐步精修</span>
+      <button class="wf-mode-btn active" type="button" data-mode="studio" role="tab" aria-selected="true">
+        🏪 电商套图 <span>直接生图</span>
       </button>
-      <button class="wf-mode-btn" type="button" data-mode="studio" role="tab" aria-selected="false">
-        🏪 电商套图 <span>批量出图</span>
+      <button class="wf-mode-btn" type="button" data-mode="pipeline" role="tab" aria-selected="false">
+        🧩 节点工作流 <span>高级精修</span>
       </button>
     </div>
 
-    <div id="pipelineMode">
+    <div id="pipelineMode" hidden>
       <section>
         <div class="wf-section-head">
           <h2>选择工作流</h2>
@@ -480,7 +480,7 @@
     </section>
     </div>
 
-    <div id="studioMode" hidden>
+    <div id="studioMode">
       <div class="wf-studio-head">
         <div>
           <h2>🏪 电商套图工作室</h2>
@@ -1290,7 +1290,7 @@
           history.replaceState(null, '', '#studio');
         }
       } else if (window.history && history.replaceState) {
-        history.replaceState(null, '', location.pathname + location.search);
+        history.replaceState(null, '', '#pipeline');
       }
       if (!options || !options.noScroll) {
         document.getElementById('modeSwitch').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1633,7 +1633,7 @@
       bindStudio();
       await Promise.all([loadTemplates(), loadModels()]);
       await loadHistory();
-      if (location.hash === '#studio') setMode('studio', { noScroll: true });
+      setMode(location.hash === '#pipeline' ? 'pipeline' : 'studio', { noScroll: true });
     })();
   </script>
 </body>

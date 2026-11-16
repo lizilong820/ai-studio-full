@@ -562,6 +562,34 @@ try {
   console.warn('工作流模板初始化失败：' + error.message);
 }
 
+// 优化“电商主图套图”：旧版场景图和留白图基于上一节点反复转绘，商品容易变形、比例失真。
+// 新版四张图都从用户原图独立生成，并使用更适合生图模型的英文商业摄影提示词。
+const WORKFLOW_MAIN_IMAGE_SET_KEY = 'workflow_main_image_set_v2';
+if (getSetting(WORKFLOW_MAIN_IMAGE_SET_KEY, '') !== '1') {
+  try {
+    const template = db.prepare('SELECT id FROM workflow_templates WHERE template_key = ?')
+      .get('main_image_set');
+    if (template) {
+      const { WORKFLOW_TEMPLATES } = require('../config/workflowTemplates');
+      const latest = WORKFLOW_TEMPLATES.find(item => item.key === 'main_image_set');
+      if (latest) {
+        db.prepare(`UPDATE workflow_templates SET
+          summary = ?, inputs = ?, nodes = ?, updated_at = datetime('now', 'localtime')
+          WHERE id = ?`).run(
+          latest.summary || '',
+          JSON.stringify(latest.inputs || []),
+          JSON.stringify(latest.nodes || []),
+          template.id
+        );
+        console.log('✅ 已更新电商主图套图模板');
+      }
+    }
+    setSetting(WORKFLOW_MAIN_IMAGE_SET_KEY, '1');
+  } catch (error) {
+    console.warn('电商主图套图模板更新失败：' + error.message);
+  }
+}
+
 // ============ 首页工作室卡片 ============
 
 db.exec(`
@@ -660,6 +688,37 @@ if (getSetting(STUDIO_CARDS_MERGE_ECOMMERCE_KEY, '') !== '1') {
     setSetting(STUDIO_CARDS_MERGE_ECOMMERCE_KEY, '1');
   } catch (error) {
     console.warn('电商工作室入口合并失败：' + error.message);
+  }
+}
+
+// 电商工作室默认进入“直接生图”模式，首页卡片也要直接落到套图表单
+const STUDIO_CARDS_DIRECT_KEY = 'studio_cards_ecommerce_direct_v1';
+if (getSetting(STUDIO_CARDS_DIRECT_KEY, '') !== '1') {
+  try {
+    const { DEFAULT_STUDIO_CARDS } = require('../config/studioCardDefaults');
+    const card = DEFAULT_STUDIO_CARDS[0];
+    const existing = db.prepare('SELECT id FROM studio_cards WHERE title = ? AND href IN (?, ?)')
+      .get('电商工作室', 'workflow.html', 'workflow.html#studio');
+    if (existing) {
+      db.prepare(`UPDATE studio_cards SET
+        description = ?, icon = ?, href = ?, category = ?, tags = ?, highlight = ?,
+        highlight_style = ?, credit = ?, keywords = ?, updated_at = datetime('now', 'localtime')
+        WHERE id = ?`).run(
+        card.description || '',
+        card.icon || '✨',
+        card.href,
+        card.category,
+        JSON.stringify(card.tags || []),
+        card.highlight || '',
+        card.highlight_style || '',
+        card.credit || '',
+        JSON.stringify(card.keywords || []),
+        existing.id
+      );
+    }
+    setSetting(STUDIO_CARDS_DIRECT_KEY, '1');
+  } catch (error) {
+    console.warn('电商工作室首页卡片更新失败：' + error.message);
   }
 }
 

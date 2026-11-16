@@ -37,6 +37,24 @@ test('内置工作流模板已写入数据库且节点结构合法', () => {
   assert.ok(main, '缺少电商主图套图模板');
   assert.equal(main.node_count, 4);
   assert.deepEqual(main.nodes.map(node => node.key), ['white_bg', 'scene', 'detail', 'hero_space']);
+  const mainConfig = WORKFLOW_TEMPLATES.find(tpl => tpl.key === 'main_image_set');
+  assert.ok(
+    mainConfig.nodes.every(node => node.source === 'input:product'),
+    '四张图都应从用户原图独立生成，避免反复转绘导致商品变形'
+  );
+  const scene = mainConfig.nodes.find(node => node.key === 'scene');
+  assert.match(scene.prompt, /realistic scale/i);
+
+  // 已有数据库也要通过一次性迁移拿到新节点，而不是继续使用旧的串联提示词
+  const stored = db.prepare('SELECT nodes FROM workflow_templates WHERE template_key = ?').get('main_image_set');
+  const storedNodes = JSON.parse(stored.nodes);
+  assert.ok(storedNodes.every(node => node.source === 'input:product'));
+});
+
+test('电商主图套图模板升级会同步到已有数据库', () => {
+  const source = fs.readFileSync(path.join(__dirname, '..', 'database', 'db.js'), 'utf8');
+  assert.match(source, /workflow_main_image_set_v2/);
+  assert.match(source, /UPDATE workflow_templates SET/);
 });
 
 test('模板配置里的节点 key 在同一模板内唯一且都有 prompt', () => {
@@ -218,6 +236,9 @@ test('工作流页面同时提供电商套图工作室', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'workflow.html'), 'utf8');
   assert.match(html, /id="studioMode"/);
   assert.match(html, /\/api\/generate\/ecommerce/);
+  assert.match(html, /data-mode="studio" role="tab" aria-selected="true"/);
+  assert.match(html, /<div id="pipelineMode" hidden>/);
+  assert.match(html, /location\.hash === '#pipeline' \? 'pipeline' : 'studio'/);
   assert.match(html, /product_images:\s*studioImages\.product\.slice\(\)/);
   assert.match(html, /style_ref_image:\s*studioImages\.style\[0\]/);
   assert.match(html, /pollGeneration\(\s*res\.data\.task_id/);
@@ -225,9 +246,9 @@ test('工作流页面同时提供电商套图工作室', () => {
   assert.doesNotMatch(html, /setInterval\s*\(\s*async/);
 });
 
-test('首页已挂上工作流入口', () => {
+test('首页电商工作室入口直接打开套图表单', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
-  assert.match(html, /href="workflow\.html"/);
+  assert.match(html, /href="workflow\.html#studio"/);
 });
 
 test('工作流路由已挂载且 readyz 检查 workflow worker', () => {

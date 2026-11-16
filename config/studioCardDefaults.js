@@ -8,14 +8,14 @@
 const DEFAULT_STUDIO_CARDS = [
   {
     title: '电商工作室',
-    description: '上传一张商品图，抠图、场景、主图、详情页一次跑完；也支持电商套图批量出图。',
+    description: '上传商品图、填写卖点，直接批量生成电商套图；需要逐步精修时再切换到节点工作流。',
     icon: '🏪',
-    href: 'workflow.html',
+    href: 'workflow.html#studio',
     category: '电商',
     tags: ['电商', '图片'],
     highlight: '🔥 热门',
     highlight_style: 'hot',
-    credit: '按节点/张计费',
+    credit: '按张计费',
     keywords: ['电商', '套图', '主图', '详情页', '工作流', '节点', '白底', '抠图', '复刻', '模特', '试穿', '商品', '场景图', '推广图', '批量'],
     sort_order: 10,
   },

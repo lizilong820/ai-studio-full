@@ -40,7 +40,7 @@ test('内置首页卡片数据完整且可安全跳转', () => {
   const ecommerceCards = DEFAULT_STUDIO_CARDS.filter(card => card.category === '电商');
   assert.equal(ecommerceCards.length, 1, '电商入口只保留一个');
   assert.equal(ecommerceCards[0].title, '电商工作室');
-  assert.equal(ecommerceCards[0].href, 'workflow.html');
+  assert.equal(ecommerceCards[0].href, 'workflow.html#studio');
 });
 
 test('工作室卡片输入会规范化文本、标签和默认值', () => {

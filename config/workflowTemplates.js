@@ -16,7 +16,7 @@ const WORKFLOW_TEMPLATES = [
   {
     key: 'main_image_set',
     name: '电商主图套图',
-    summary: '上传一张产品图，自动产出白底图、场景主图、细节特写和留白主图。',
+    summary: '上传一张产品图，自动产出白底图、场景主图、细节特写和留白主图；四张都从原图独立生成，避免反复转绘导致商品变形。',
     category: 'ecommerce',
     emoji: '📦',
     badge: '最常用',
@@ -38,34 +38,34 @@ const WORKFLOW_TEMPLATES = [
         source: 'input:product',
         size: '1:1',
         note: '去背景 + 白底 + 接触阴影',
-        prompt: '把图中的商品完整保留下来，去除原有的杂乱背景，放到纯白色（#FFFFFF）背景上。严格保留商品真实的颜色、材质、纹理和 logo 细节，不要改变商品本身的形状和结构。在商品下方添加自然柔和的接触阴影，让商品有落地感。整体呈现专业电商平台主图的标准质感：光线均匀、边缘干净、清晰锐利。画面中不要出现任何文字、水印、边框、道具或其他多余元素。'
+        prompt: 'Professional e-commerce product photo. Isolate the product shown in the reference image and place it on a pure white background (#FFFFFF). Preserve its exact shape, proportions, color, material, texture, and logo details. Add a soft, natural contact shadow under the product. Clean edges, even studio lighting, sharp focus. No text, no watermark, no border, no props, no extra objects.'
       },
       {
         key: 'scene',
         name: '场景主图',
         type: 'image_edit',
-        source: 'node:white_bg',
+        source: 'input:product',
         size: '1:1',
-        note: '放进生活方式场景，上方留白',
-        prompt: '保持图中商品的款式、颜色、材质和 logo 完全不变，把商品放进一个明亮温馨的生活方式场景中：浅色木质桌面或米白大理石台面，背景是柔和虚化的窗户和绿植，上午的自然光从侧面照入。商品位于画面中心偏下的位置，上方保留干净的呼吸留白。整体色调温暖、干净、有质感，像高端电商品牌的场景主图。不要添加任何文字、水印或边框。'
+        note: '按商品品类生成合适的生活场景',
+        prompt: 'Create a high-end e-commerce lifestyle image featuring the exact product from the reference image. Preserve the product\'s shape, color, material, logo, and realistic scale — do not enlarge it into a giant object. Choose a beautiful, natural scene that suits this product category (for example: a styled dining table for food, a bright bathroom for skincare, a modern interior for home goods, an outdoor setting for fashion). Use soft directional daylight, realistic shadows, shallow depth of field, and a balanced composition with clean breathing room. The product must remain the clear focal point and look like a real commercial photograph. No text, no watermark, no border.'
       },
       {
         key: 'detail',
         name: '细节特写',
         type: 'image_edit',
-        source: 'node:white_bg',
+        source: 'input:product',
         size: '1:1',
         note: '微距质感，突出材质做工',
-        prompt: '对图中的商品做微距细节特写，聚焦在材质纹理和做工细节上（例如织物纹理、金属拉丝、缝线走向、边缘处理）。采用浅景深，主体局部清晰，背景柔和虚化。打光要有层次感，突出高级质感和手工细节。不要添加任何文字、水印或边框。'
+        prompt: 'Create a macro close-up of the exact product from the reference image, focusing on material texture and craftsmanship (fabric weave, metal brushing, seams, surface finish, or other relevant details). Use shallow depth of field, soft directional lighting, and realistic color. Keep the product\'s true color, material, and structure; do not invent details. Clean, high-end commercial photography. No text, no watermark, no border.'
       },
       {
         key: 'hero_space',
         name: '留白主图',
         type: 'image_edit',
-        source: 'node:scene',
+        source: 'input:product',
         size: '1:1',
         note: '右侧留白，方便后期加卖点文案',
-        prompt: '在保持商品和场景不变的前提下重新构图：把商品安排在画面左侧三分之一，右侧留出一大片干净、明亮、色彩柔和的留白区域，用于后期添加卖点文案。整体提高亮度和通透感，画面更干净更高级。不要自己添加任何文字、数字或图标。'
+        prompt: 'Recompose the exact product from the reference image into a clean e-commerce hero image. Place the product in the left third of the frame at a realistic scale, leaving a large, clean, bright negative space on the right for marketing copy. Preserve the product\'s shape, color, material, and logo. Use soft, airy lighting and a high-end commercial style. Do not add any text, numbers, icons, watermark, or border.'
       }
     ]
   },
