@@ -131,6 +131,33 @@ test('video generation enforces provider duration and validates image signatures
   assert.match(safeHttp, /目标地址解析失败/);
 });
 
+test('homepage studio cards are DB-backed and seeded exactly once', () => {
+  const source = read('database/db.js');
+  const api = read('routes/api.js');
+  const adminRoutes = read('routes/admin.js');
+  const service = read('controllers/studioCards.js');
+
+  assert.match(source, /CREATE TABLE IF NOT EXISTS studio_cards/);
+  assert.match(source, /idx_studio_cards_status_sort/);
+  assert.match(source, /studio_cards_seeded_v1/);
+  assert.match(source, /db\.transaction\(cards =>/);
+
+  assert.match(api, /router\.get\('\/studio-cards'/);
+  assert.match(api, /studioCardService\.getPublicStudioCards\(\)/);
+  assert.match(api, /studioCardService\.searchStudioCards\(keyword\)/);
+  assert.doesNotMatch(api, /type: 'workflow', name: '电商工作流'/);
+
+  assert.match(adminRoutes, /router\.get\('\/studio-cards'/);
+  assert.match(adminRoutes, /router\.post\('\/studio-cards'/);
+  assert.match(adminRoutes, /router\.put\('\/studio-cards\/:id'/);
+  assert.match(adminRoutes, /router\.post\('\/studio-cards\/:id\/status'/);
+  assert.match(adminRoutes, /router\.delete\('\/studio-cards\/:id'/);
+
+  assert.match(service, /WHERE status = 1 ORDER BY sort_order ASC, id ASC/);
+  assert.match(service, /href: card\.href/);
+  assert.match(service, /JSON\.stringify\(data\.tags\)/);
+});
+
 test('workers stop submitting state after lease loss', () => {
   const generation = read('workers/generationWorker.js');
   const batch = read('workers/batchDownloadWorker.js');

@@ -177,7 +177,7 @@
           <span class="section-sub">选择一个工作室，开始创作</span>
         </div>
       </div>
-      <div class="category-tabs">
+      <div class="category-tabs" id="categoryTabs">
         <div class="category-tab active">全部</div>
         <div class="category-tab">电商</div>
         <div class="category-tab">社媒</div>
@@ -188,7 +188,7 @@
       </div>
     </div>
 
-    <div class="studio-grid">
+    <div class="studio-grid" id="studioGrid">
       <!-- 电商工作流 -->
       <a href="workflow.html" class="studio-card" data-category="电商">
         <div class="arrow">→</div>
@@ -456,34 +456,161 @@
   <script src="js/common.js?v=17"></script>
   <script src="js/app.js?v=17"></script>
   <script>
-    // Category filter
-    document.querySelectorAll('.category-tab').forEach(tab => {
-      tab.addEventListener('click', function() {
-        document.querySelectorAll('.category-tab').forEach(t => t.classList.remove('active'));
-        this.classList.add('active');
-        
-        const category = this.textContent.trim();
-        const cards = document.querySelectorAll('.studio-card');
-        cards.forEach(card => {
-          if (category === '全部' || card.dataset.category === category) {
-            card.style.display = '';
-          } else {
-            card.style.display = 'none';
-          }
-        });
+    // 首页工作室卡片：后台可管理，页面从公开接口渲染
+    const studioGrid = document.getElementById('studioGrid');
+    const categoryTabs = document.getElementById('categoryTabs');
+    let activeStudioCategory = '全部';
+
+    function isSafeStudioHref(value) {
+      if (typeof value !== 'string') return false;
+      const href = value.trim();
+      if (!href || href.startsWith('//')) return false;
+      if (/^[a-zA-Z][a-zA-Z\d+.-]*:/.test(href)) return false;
+      if (/[\\\u0000-\u001F\u007F]/.test(href)) return false;
+      try {
+        const parsed = new URL(href, window.location.origin);
+        return parsed.origin === window.location.origin
+          && (parsed.protocol === 'http:' || parsed.protocol === 'https:');
+      } catch (error) {
+        return false;
+      }
+    }
+
+    function createStudioTag(text, className = '') {
+      const tag = document.createElement('span');
+      tag.className = 'studio-tag' + (className ? ' ' + className : '');
+      tag.textContent = String(text || '');
+      return tag;
+    }
+
+    function createStudioCard(card) {
+      const link = document.createElement('a');
+      link.className = 'studio-card';
+      link.href = card.href;
+      link.dataset.category = card.category;
+
+      const arrow = document.createElement('div');
+      arrow.className = 'arrow';
+      arrow.textContent = '→';
+
+      const icon = document.createElement('div');
+      icon.className = 'studio-icon';
+      icon.textContent = String(card.icon || '✨');
+
+      const title = document.createElement('h3');
+      title.textContent = String(card.title || '');
+
+      const description = document.createElement('p');
+      description.textContent = String(card.description || '');
+
+      const meta = document.createElement('div');
+      meta.className = 'studio-meta';
+
+      const tags = document.createElement('div');
+      tags.className = 'studio-tags';
+      if (card.highlight) {
+        const style = card.highlight_style === 'new' ? 'new' : 'hot';
+        tags.appendChild(createStudioTag(card.highlight, style));
+      }
+      if (Array.isArray(card.tags)) {
+        card.tags.forEach(tag => tags.appendChild(createStudioTag(tag)));
+      }
+
+      const credit = document.createElement('div');
+      credit.className = 'studio-credit';
+      credit.textContent = String(card.credit || '');
+
+      meta.append(tags, credit);
+      link.append(arrow, icon, title, description, meta);
+      return link;
+    }
+
+    function applyStudioCategory(category) {
+      activeStudioCategory = category;
+      categoryTabs.querySelectorAll('.category-tab').forEach(tab => {
+        tab.classList.toggle('active', tab.dataset.category === activeStudioCategory);
       });
+      studioGrid.querySelectorAll('.studio-card').forEach(card => {
+        const visible = activeStudioCategory === '全部'
+          || card.dataset.category === activeStudioCategory;
+        card.style.display = visible ? '' : 'none';
+      });
+    }
+
+    function renderStudioCards(cards) {
+      const safeCards = cards.filter(card => card
+        && typeof card.title === 'string'
+        && typeof card.category === 'string'
+        && isSafeStudioHref(card.href));
+
+      const categoryList = [];
+      safeCards.forEach(card => {
+        if (!categoryList.includes(card.category)) categoryList.push(card.category);
+      });
+
+      if (activeStudioCategory !== '全部' && !categoryList.includes(activeStudioCategory)) {
+        activeStudioCategory = '全部';
+      }
+
+      categoryTabs.replaceChildren();
+      ['全部', ...categoryList].forEach(category => {
+        const tab = document.createElement('div');
+        tab.className = 'category-tab' + (category === activeStudioCategory ? ' active' : '');
+        tab.dataset.category = category;
+        tab.textContent = category;
+        categoryTabs.appendChild(tab);
+      });
+
+      studioGrid.replaceChildren();
+      if (safeCards.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'studio-empty';
+        empty.style.cssText = 'grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--text-3);';
+        empty.textContent = '暂无工作室，敬请期待';
+        studioGrid.appendChild(empty);
+        return;
+      }
+
+      safeCards.forEach(card => studioGrid.appendChild(createStudioCard(card)));
+      applyStudioCategory(activeStudioCategory);
+    }
+
+    async function loadStudioCards() {
+      try {
+        const res = await fetch('/api/studio-cards', { headers: { Accept: 'application/json' } });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.code !== 0 || !data.data || !Array.isArray(data.data.cards)) return;
+        renderStudioCards(data.data.cards);
+      } catch (error) {
+        // 接口异常时保留静态卡片作为降级
+      }
+    }
+
+    categoryTabs.addEventListener('click', function(event) {
+      const tab = event.target.closest('.category-tab');
+      if (!tab || !categoryTabs.contains(tab)) return;
+      applyStudioCategory(String(tab.dataset.category || '全部'));
     });
-    
+
     // 点击工作室卡片检查登录
-    document.querySelectorAll('.studio-card[data-category]').forEach(card => {
-      card.addEventListener('click', function(e) {
-        if (!isLoggedIn()) {
-          e.preventDefault();
-          showToast('请先登录后使用', 'error');
-          setTimeout(() => window.location.href = '/login', 800);
-        }
-      });
+    studioGrid.addEventListener('click', function(event) {
+      const card = event.target.closest('.studio-card');
+      if (!card || !studioGrid.contains(card)) return;
+      const href = card.getAttribute('href') || '';
+      if (!isSafeStudioHref(href)) {
+        event.preventDefault();
+        showToast('该工作室链接无效', 'error');
+        return;
+      }
+      if (!isLoggedIn()) {
+        event.preventDefault();
+        showToast('请先登录后使用', 'error');
+        setTimeout(() => window.location.href = '/login', 800);
+      }
     });
+
+    loadStudioCards();
 
     // ===== 首页搜索 =====
     const searchInput = document.getElementById('heroSearch');
@@ -567,7 +694,7 @@
           enter.style.cssText = 'color:var(--text-3);font-size:12px;';
           enter.textContent = '进入 →';
           item.append(icon, info, enter);
-          item.addEventListener('click', () => window.gotoStudio(String(studio.type || '')));
+          item.addEventListener('click', () => window.gotoStudio(String(studio.href || '')));
           searchResults.appendChild(item);
         });
         searchDropdown.classList.add('show');
@@ -579,31 +706,14 @@
       fetchSearch(kw);
     };
 
-    window.gotoStudio = function(type) {
-      const map = { 
-        ecommerce: 'workflow.html#studio',
-        xiaohongshu: 'xiaohongshu.html', 
-        poster: 'poster.html', 
-        copywriting: 'copywriting.html',
-        ppt: 'ppt.html',
-        video: 'video.html',
-        resume: 'resume.html',
-        avatar: 'avatar.html',
-        image: 'image.html?v=223',
-        workflow: 'workflow.html',
-        'video-gen': 'video-gen.html',
-        gif: 'gif.html',
-        audio: 'audio.html',
-        editor: 'editor.html',
-        idphoto: 'idphoto.html',
-        'face-swap': 'video-face-swap.html',
-        'prompt-extract': 'prompt-extract.html'
-      };
-      const url = map[type];
-      if (url) {
-        if (isLoggedIn()) window.location.href = url;
-        else { showToast('请先登录后使用', 'error'); setTimeout(() => window.location.href = '/login', 800); }
+    window.gotoStudio = function(href) {
+      const url = String(href || '');
+      if (!isSafeStudioHref(url)) {
+        showToast('该工作室链接无效', 'error');
+        return;
       }
+      if (isLoggedIn()) window.location.href = url;
+      else { showToast('请先登录后使用', 'error'); setTimeout(() => window.location.href = '/login', 800); }
     };
   </script>
 </body>

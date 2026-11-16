@@ -350,6 +350,9 @@
         <div class="menu-item" data-view="generations" onclick="switchView('generations')">
           <span class="menu-icon">🖼️</span>生成记录
         </div>
+        <div class="menu-item" data-view="studio-cards" onclick="switchView('studio-cards')">
+          <span class="menu-icon">🗂️</span>工作室卡片
+        </div>
         <div class="menu-item" data-view="packages" onclick="switchView('packages')">
           <span class="menu-icon">💎</span>充值套餐
         </div>
@@ -525,6 +528,36 @@
             </table>
           </div>
           <div class="pagination" id="gensPagination"></div>
+        </div>
+      </div>
+
+      <!-- 首页工作室卡片 -->
+      <div id="view-studio-cards" class="view-section">
+        <div class="admin-card">
+          <h2>
+            首页工作室卡片
+            <button class="btn btn-primary btn-sm" onclick="showStudioCardModal()">+ 新增卡片</button>
+          </h2>
+          <p style="font-size:13px;color:var(--text-3);margin:-4px 0 14px;">
+            新增、编辑、隐藏或删除后，首页工作室广场和顶部搜索会实时同步。
+          </p>
+          <div style="overflow-x:auto;">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>图标</th>
+                  <th>名称</th>
+                  <th>分类</th>
+                  <th>链接</th>
+                  <th>排序</th>
+                  <th>状态</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="studioCardsTbody"></tbody>
+            </table>
+          </div>
         </div>
       </div>
 
@@ -799,6 +832,84 @@
     </div>
   </div>
 
+  <!-- 模态框：首页工作室卡片 -->
+  <div class="modal-mask" id="studioCardModal">
+    <div class="modal" style="max-width:620px;max-height:88vh;overflow-y:auto;">
+      <h3 id="studioCardModalTitle">新增工作室卡片</h3>
+      <form id="studioCardForm">
+        <input type="hidden" id="studioCardId">
+        <div class="form-row">
+          <div>
+            <label class="form-label">卡片名称 *</label>
+            <input type="text" class="form-input" id="studioCardTitle" maxlength="60" required>
+          </div>
+          <div>
+            <label class="form-label">图标 *</label>
+            <input type="text" class="form-input" id="studioCardIcon" maxlength="16" value="✨" required>
+          </div>
+        </div>
+        <div class="form-row">
+          <div>
+            <label class="form-label">分类 *</label>
+            <input type="text" class="form-input" id="studioCardCategory" list="studioCategoryOptions" maxlength="20" placeholder="如：电商" required>
+            <datalist id="studioCategoryOptions"></datalist>
+          </div>
+          <div>
+            <label class="form-label">排序（越小越靠前）</label>
+            <input type="number" class="form-input" id="studioCardSort" min="0" max="9999" value="0">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">跳转链接 *</label>
+          <input type="text" class="form-input" id="studioCardHref" maxlength="300" placeholder="如：workflow.html 或 workflow.html#studio" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">卡片描述</label>
+          <textarea class="form-textarea" id="studioCardDescription" maxlength="300" rows="3" placeholder="一句话介绍这个工作室"></textarea>
+        </div>
+        <div class="form-row">
+          <div>
+            <label class="form-label">普通标签（逗号分隔）</label>
+            <input type="text" class="form-input" id="studioCardTags" placeholder="如：电商, 图片">
+          </div>
+          <div>
+            <label class="form-label">高亮标签（可留空）</label>
+            <input type="text" class="form-input" id="studioCardHighlight" maxlength="20" placeholder="如：🔥 热门">
+          </div>
+        </div>
+        <div class="form-row">
+          <div>
+            <label class="form-label">高亮样式</label>
+            <select class="form-select" id="studioCardHighlightStyle">
+              <option value="">无高亮</option>
+              <option value="hot">热门（hot）</option>
+              <option value="new">新品（new）</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label">积分说明</label>
+            <input type="text" class="form-input" id="studioCardCredit" maxlength="40" placeholder="如：约 5-20 积分/张">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">搜索关键词（逗号分隔，不展示在卡片上）</label>
+          <input type="text" class="form-input" id="studioCardKeywords" placeholder="如：电商, 套图, 主图, 白底">
+        </div>
+        <div class="form-group">
+          <label class="form-label">状态</label>
+          <select class="form-select" id="studioCardStatus">
+            <option value="1">显示</option>
+            <option value="0">隐藏</option>
+          </select>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn" onclick="closeStudioCardModal()">取消</button>
+          <button type="submit" class="btn btn-primary">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- 生成记录详情弹窗 -->
   <div class="modal-mask" id="genDetailModal" onclick="if(event.target===this)closeGenDetail()">
     <div class="modal" style="max-width:700px;max-height:80vh;overflow-y:auto;">
@@ -865,6 +976,7 @@
         'users': '用户管理',
         'models': '模型管理',
         'generations': '生成记录',
+        'studio-cards': '工作室卡片',
         'packages': '充值套餐',
         'orders': '订单管理',
         'credit-logs': '积分流水',
@@ -877,6 +989,7 @@
       if (name === 'users') loadUsers(1);
       if (name === 'models') loadModels();
       if (name === 'generations') loadGenerations(1);
+      if (name === 'studio-cards') loadStudioCards();
       if (name === 'packages') loadPackages();
       if (name === 'orders') loadOrders(1);
       if (name === 'credit-logs') loadCreditLogs(1);
@@ -1481,6 +1594,191 @@
     function closeGenDetail() {
       window._genDetailSequence = (window._genDetailSequence || 0) + 1;
       document.getElementById('genDetailModal').classList.remove('show');
+    }
+
+    // ============ 首页工作室卡片 ============
+    let studioCardsCache = [];
+
+    function splitStudioCardList(value) {
+      return String(value || '')
+        .split(/[,，]/)
+        .map(item => item.trim())
+        .filter(Boolean);
+    }
+
+    function renderStudioCategoryOptions() {
+      const list = document.getElementById('studioCategoryOptions');
+      const categories = [];
+      studioCardsCache.forEach(card => {
+        if (card.category && !categories.includes(card.category)) categories.push(card.category);
+      });
+      list.replaceChildren();
+      categories.forEach(category => {
+        const option = document.createElement('option');
+        option.value = category;
+        list.appendChild(option);
+      });
+    }
+
+    async function loadStudioCards() {
+      const data = await api('/api/admin/studio-cards');
+      if (data.code !== 0) {
+        showToast(data.msg || '加载工作室卡片失败', 'error');
+        return;
+      }
+
+      studioCardsCache = Array.isArray(data.data) ? data.data : [];
+      const tbody = document.getElementById('studioCardsTbody');
+      tbody.replaceChildren();
+
+      if (studioCardsCache.length === 0) {
+        const row = document.createElement('tr');
+        const cell = document.createElement('td');
+        cell.colSpan = 8;
+        cell.style.cssText = 'text-align:center;color:var(--text-3);padding:24px;';
+        cell.textContent = '暂无工作室卡片';
+        row.appendChild(cell);
+        tbody.appendChild(row);
+        renderStudioCategoryOptions();
+        return;
+      }
+
+      studioCardsCache.forEach(card => {
+        const id = normalizeAdminId(card.id);
+        if (!id) return;
+        const row = document.createElement('tr');
+        const status = document.createElement('td');
+        status.appendChild(card.status === 1
+          ? createAdminBadge('显示', 'badge-success')
+          : createAdminBadge('隐藏', 'badge-danger'));
+        const actions = document.createElement('td');
+        actions.append(
+          createAdminButton('编辑', '', () => editStudioCard(id)),
+          createAdminButton(card.status === 1 ? '隐藏' : '显示', '', () => toggleStudioCardStatus(id, card.status === 1 ? 0 : 1)),
+          createAdminButton('删除', 'btn-danger', () => deleteStudioCard(id)),
+        );
+        row.append(
+          createAdminCell('#' + id),
+          createAdminCell(card.icon || '✨', 'font-size:20px;text-align:center;'),
+          createAdminCell(card.title || '-', 'font-weight:500;'),
+          createAdminCell(card.category || '-'),
+          createAdminCell(card.href || '-', 'max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-3);font-size:12px;'),
+          createAdminCell(card.sort_order ?? 0),
+          status,
+          actions,
+        );
+        tbody.appendChild(row);
+      });
+
+      renderStudioCategoryOptions();
+    }
+
+    function showStudioCardModal() {
+      const maxSort = studioCardsCache.reduce((max, card) => Math.max(max, Number(card.sort_order) || 0), 0);
+      document.getElementById('studioCardId').value = '';
+      document.getElementById('studioCardModalTitle').textContent = '新增工作室卡片';
+      document.getElementById('studioCardTitle').value = '';
+      document.getElementById('studioCardIcon').value = '✨';
+      document.getElementById('studioCardCategory').value = '';
+      document.getElementById('studioCardHref').value = '';
+      document.getElementById('studioCardDescription').value = '';
+      document.getElementById('studioCardTags').value = '';
+      document.getElementById('studioCardHighlight').value = '';
+      document.getElementById('studioCardHighlightStyle').value = '';
+      document.getElementById('studioCardCredit').value = '';
+      document.getElementById('studioCardKeywords').value = '';
+      document.getElementById('studioCardSort').value = String(maxSort + 10);
+      document.getElementById('studioCardStatus').value = '1';
+      renderStudioCategoryOptions();
+      document.getElementById('studioCardModal').classList.add('show');
+    }
+
+    function editStudioCard(id) {
+      const card = studioCardsCache.find(item => Number(item.id) === id);
+      if (!card) return;
+
+      document.getElementById('studioCardId').value = String(card.id);
+      document.getElementById('studioCardModalTitle').textContent = '编辑工作室卡片';
+      document.getElementById('studioCardTitle').value = card.title || '';
+      document.getElementById('studioCardIcon').value = card.icon || '✨';
+      document.getElementById('studioCardCategory').value = card.category || '';
+      document.getElementById('studioCardHref').value = card.href || '';
+      document.getElementById('studioCardDescription').value = card.description || '';
+      document.getElementById('studioCardTags').value = Array.isArray(card.tags) ? card.tags.join(', ') : '';
+      document.getElementById('studioCardHighlight').value = card.highlight || '';
+      document.getElementById('studioCardHighlightStyle').value = card.highlight_style || '';
+      document.getElementById('studioCardCredit').value = card.credit || '';
+      document.getElementById('studioCardKeywords').value = Array.isArray(card.keywords) ? card.keywords.join(', ') : '';
+      document.getElementById('studioCardSort').value = String(card.sort_order ?? 0);
+      document.getElementById('studioCardStatus').value = card.status === 0 ? '0' : '1';
+      renderStudioCategoryOptions();
+      document.getElementById('studioCardModal').classList.add('show');
+    }
+
+    function closeStudioCardModal() {
+      document.getElementById('studioCardModal').classList.remove('show');
+    }
+
+    document.getElementById('studioCardForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const id = document.getElementById('studioCardId').value;
+      const body = {
+        title: document.getElementById('studioCardTitle').value,
+        icon: document.getElementById('studioCardIcon').value,
+        category: document.getElementById('studioCardCategory').value,
+        href: document.getElementById('studioCardHref').value,
+        description: document.getElementById('studioCardDescription').value,
+        tags: splitStudioCardList(document.getElementById('studioCardTags').value),
+        highlight: document.getElementById('studioCardHighlight').value,
+        highlight_style: document.getElementById('studioCardHighlightStyle').value,
+        credit: document.getElementById('studioCardCredit').value,
+        keywords: splitStudioCardList(document.getElementById('studioCardKeywords').value),
+        sort_order: parseInt(document.getElementById('studioCardSort').value, 10) || 0,
+        status: parseInt(document.getElementById('studioCardStatus').value, 10),
+      };
+
+      let data;
+      if (id) {
+        data = await api(`/api/admin/studio-cards/${id}`, { method: 'PUT', body: JSON.stringify(body) });
+      } else {
+        data = await api('/api/admin/studio-cards', { method: 'POST', body: JSON.stringify(body) });
+      }
+
+      if (data.code === 0) {
+        showToast('保存成功', 'success');
+        closeStudioCardModal();
+        loadStudioCards();
+      } else {
+        showToast(data.msg, 'error');
+      }
+    });
+
+    async function toggleStudioCardStatus(id, status) {
+      const action = status === 1 ? '显示' : '隐藏';
+      if (!confirm(`确定要${action}这张工作室卡片吗？`)) return;
+      const data = await api(`/api/admin/studio-cards/${id}/status`, {
+        method: 'POST',
+        body: JSON.stringify({ status })
+      });
+      if (data.code === 0) {
+        showToast(`卡片已${action}`, 'success');
+        loadStudioCards();
+      } else {
+        showToast(data.msg, 'error');
+      }
+    }
+
+    async function deleteStudioCard(id) {
+      const card = studioCardsCache.find(item => Number(item.id) === id);
+      const title = card && card.title ? `「${card.title}」` : '';
+      if (!confirm(`确定删除工作室卡片${title}？删除后不会自动恢复。`)) return;
+      const data = await api(`/api/admin/studio-cards/${id}`, { method: 'DELETE' });
+      if (data.code === 0) {
+        showToast('已删除', 'success');
+        loadStudioCards();
+      } else {
+        showToast(data.msg, 'error');
+      }
     }
 
     // ============ 充值套餐 ============

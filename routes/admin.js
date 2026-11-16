@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const { db, getSetting, setSetting } = require('../database/db');
 const { adminRequired } = require('../middleware/auth');
 const creditService = require('../controllers/creditService');
+const studioCardService = require('../controllers/studioCards');
 
 const router = express.Router();
 
@@ -410,6 +411,45 @@ router.post('/settings', adminRequired, (req, res) => {
     setSetting(key, String(value));
   }
   res.success({}, '设置已保存');
+});
+
+// ============ 首页工作室卡片 ============
+
+router.get('/studio-cards', adminRequired, (req, res) => {
+  res.success(studioCardService.listAllStudioCards());
+});
+
+router.post('/studio-cards', adminRequired, (req, res) => {
+  const result = studioCardService.createStudioCard(req.body);
+  if (result.error) return res.error(result.error);
+  res.success({ id: result.id }, '卡片已添加');
+});
+
+router.put('/studio-cards/:id', adminRequired, (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!Number.isInteger(id) || id <= 0) return res.error('卡片不存在');
+
+  const result = studioCardService.updateStudioCard(id, req.body);
+  if (result.error) return res.error(result.error);
+  res.success({ id: result.id }, '卡片已更新');
+});
+
+router.post('/studio-cards/:id/status', adminRequired, (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!Number.isInteger(id) || id <= 0) return res.error('卡片不存在');
+
+  const result = studioCardService.setStudioCardStatus(id, req.body.status);
+  if (result.error) return res.error(result.error);
+  res.success({ status: result.status }, result.status === 1 ? '卡片已显示' : '卡片已隐藏');
+});
+
+router.delete('/studio-cards/:id', adminRequired, (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!Number.isInteger(id) || id <= 0) return res.error('卡片不存在');
+
+  const result = studioCardService.deleteStudioCard(id);
+  if (result.error) return res.error(result.error);
+  res.success({}, '卡片已删除');
 });
 
 // ============ 积分流水（管理员查看所有） ============

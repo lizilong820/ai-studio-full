@@ -7,6 +7,7 @@ const { authRequired, authOptional } = require('../middleware/auth');
 const aiAdapter = require('../controllers/aiAdapter');
 const creditService = require('../controllers/creditService');
 const { buildEcommercePrompt } = require('../controllers/ecommercePrompt');
+const studioCardService = require('../controllers/studioCards');
 const { extractVideoFrames } = require('../utils/videoFrameExtract');
 const { safeRequest } = require('../utils/safeHttp');
 const { parseIntegerParam } = require('../utils/requestParams');
@@ -973,37 +974,19 @@ router.get('/user/generations', authRequired, (req, res) => {
   res.success({ list, total, page, pageSize });
 });
 
+// 首页工作室卡片 (公开，未登录也能看)
+router.get('/studio-cards', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.success(studioCardService.getPublicStudioCards());
+});
+
 // 首页全局搜索 (工作室 + 未登录也能用)
 router.get('/search/all', (req, res) => {
   const keyword = (req.query.keyword || '').trim().toLowerCase();
   if (!keyword) return res.success({ studios: [] });
 
-  const allStudios = [
-    { type: 'workflow', name: '电商工作流', icon: '⚡', category: '电商', desc: '上传商品图，抠图、场景、主图、详情页节点式跑完', tags: '电商 套图 主图 详情页 工作流 节点 白底 抠图 复刻 模特 试穿' },
-    { type: 'ecommerce', name: '电商套图工作室', icon: '🏪', category: '电商', desc: '一键生成商品主图、场景图、推广图', tags: '电商 套图 主图 详情页 商品' },
-    { type: 'xiaohongshu', name: '小红书爆款笔记工作室', icon: '📕', category: '社媒', desc: '爆款封面 + 种草文案 + 热门标签', tags: '小红书 笔记 种草 封面 爆款' },
-    { type: 'poster', name: '海报工厂工作室', icon: '🎨', category: '设计', desc: '活动海报、节日海报、产品海报', tags: '海报 设计 宣传 活动 节日' },
-    { type: 'copywriting', name: 'AI文案工作室', icon: '✍️', category: '文案', desc: '产品文案、品牌文案、广告语', tags: '文案 广告 品牌 产品 标题' },
-    { type: 'ppt', name: 'PPT生成工作室', icon: '📊', category: '办公', desc: '输入主题自动生成精美PPT大纲', tags: 'ppt 幻灯片 演示 汇报 办公' },
-    { type: 'video', name: '短视频脚本工作室', icon: '🎬', category: '社媒', desc: 'AI生成短视频分镜脚本+口播文案', tags: '短视频 脚本 分镜 口播 抖音' },
-    { type: 'video-gen', name: 'AI视频生成工作室', icon: '🎥', category: '社媒', desc: '文生视频 + 图生视频，一键生成短视频', tags: '视频 文生视频 图生视频 短视频 抖音' },
-    { type: 'gif', name: 'GIF表情包工作室', icon: '🎞️', category: '社媒', desc: '文生GIF + 图生GIF，专属动态表情包', tags: 'gif 表情包 动态 动图' },
-    { type: 'audio', name: '音频合成工作室', icon: '🎵', category: '工具', desc: '文字转语音，多音色配音与朗读', tags: '音频 配音 语音 朗读 tts' },
-    { type: 'resume', name: '简历优化工作室', icon: '📄', category: '办公', desc: 'AI优化简历，突出亮点，提升通过率', tags: '简历 求职 面试 优化' },
-    { type: 'avatar', name: 'AI头像工作室', icon: '👤', category: '设计', desc: '一键生成各种风格的精美头像', tags: '头像 人像 风格 写真' },
-    { type: 'image', name: 'AI图片生成工作室', icon: '🖼️', category: '设计', desc: '文生图+图生图，多模型多风格自由创作', tags: '图片 生图 文生图 图生图 绘画 插画' },
-    { type: 'editor', name: '图片编辑器', icon: '✂️', category: '工具', desc: '裁剪、文字、贴纸、水印、去水印', tags: '编辑 修图 裁剪 水印 贴纸 文字' },
-    { type: 'idphoto', name: '证件照工作室', icon: '📷', category: '工具', desc: '一键生成各种尺寸与底色的证件照', tags: '证件照 一寸 二寸 换底色' },
-    { type: 'face-swap', name: '视频换脸工作室', icon: '🎭', category: '工具', desc: '视频中的人脸替换', tags: '换脸 视频 人脸' },
-    { type: 'prompt-extract', name: '提示词反推工作室', icon: '🔍', category: '工具', desc: '从图片反推可用的生成提示词', tags: '提示词 反推 图片 咒语' },
-  ];
-
-  const matched = allStudios.filter(s => {
-    const haystack = [s.name, s.category, s.desc, s.type, s.tags].join(' ').toLowerCase();
-    return haystack.includes(keyword);
-  });
-
-  res.success({ studios: matched });
+  res.set('Cache-Control', 'no-store');
+  res.success({ studios: studioCardService.searchStudioCards(keyword) });
 });
 
 // 虎皮椒支付回调（异步通知）

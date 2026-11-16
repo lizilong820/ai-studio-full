@@ -562,6 +562,66 @@ try {
   console.warn('工作流模板初始化失败：' + error.message);
 }
 
+// ============ 首页工作室卡片 ============
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS studio_cards (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    icon TEXT NOT NULL DEFAULT '✨',
+    href TEXT NOT NULL,
+    category TEXT NOT NULL DEFAULT '工具',
+    tags TEXT NOT NULL DEFAULT '[]',
+    highlight TEXT NOT NULL DEFAULT '',
+    highlight_style TEXT NOT NULL DEFAULT '',
+    credit TEXT NOT NULL DEFAULT '',
+    keywords TEXT NOT NULL DEFAULT '[]',
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    status INTEGER NOT NULL DEFAULT 1 CHECK (status IN (0, 1)),
+    created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+  )
+`);
+
+db.exec('CREATE INDEX IF NOT EXISTS idx_studio_cards_status_sort ON studio_cards(status, sort_order, id)');
+
+// 内置卡片只初始化一次：用 settings 标记，管理员删除后重启不会重新出现
+const STUDIO_CARDS_SEED_KEY = 'studio_cards_seeded_v1';
+if (getSetting(STUDIO_CARDS_SEED_KEY, '') !== '1') {
+  try {
+    const existingCards = db.prepare('SELECT COUNT(*) as count FROM studio_cards').get().count;
+    if (existingCards === 0) {
+      const { DEFAULT_STUDIO_CARDS } = require('../config/studioCardDefaults');
+      const insertCard = db.prepare(`INSERT INTO studio_cards
+        (title, description, icon, href, category, tags, highlight, highlight_style, credit, keywords, sort_order, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`);
+      const seedCards = db.transaction(cards => {
+        for (const card of cards) {
+          insertCard.run(
+            card.title,
+            card.description || '',
+            card.icon || '✨',
+            card.href,
+            card.category,
+            JSON.stringify(card.tags || []),
+            card.highlight || '',
+            card.highlight_style || '',
+            card.credit || '',
+            JSON.stringify(card.keywords || []),
+            card.sort_order || 0
+          );
+        }
+      });
+      seedCards(DEFAULT_STUDIO_CARDS);
+      console.log(`✅ 已初始化 ${DEFAULT_STUDIO_CARDS.length} 个首页工作室卡片`);
+    }
+    setSetting(STUDIO_CARDS_SEED_KEY, '1');
+  } catch (error) {
+    console.warn('首页工作室卡片初始化失败：' + error.message);
+  }
+}
+
 // ============ 查询与租户隔离索引 ============
 
 db.exec('CREATE INDEX IF NOT EXISTS idx_users_invite_code ON users(invite_code)');

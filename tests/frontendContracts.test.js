@@ -234,6 +234,34 @@ test('home search renders API results as text and ignores stale responses', () =
   assert.doesNotMatch(home, /onclick="gotoStudio/);
 });
 
+test('homepage studio cards and admin management stay in sync', () => {
+  assert.match(home, /id="studioGrid"/);
+  assert.match(home, /id="categoryTabs"/);
+  assert.match(home, /fetch\('\/api\/studio-cards'/);
+  assert.match(home, /function renderStudioCards\(cards\)/);
+  assert.match(home, /categoryTabs\.replaceChildren\(\)/);
+  assert.match(home, /studioGrid\.replaceChildren\(\)/);
+  assert.match(home, /function isSafeStudioHref\(value\)/);
+  assert.match(home, /link\.href = card\.href/);
+  assert.match(home, /title\.textContent = String\(card\.title/);
+  assert.match(home, /categoryTabs\.addEventListener\('click'/);
+  assert.match(home, /studioGrid\.addEventListener\('click'/);
+  assert.match(home, /window\.gotoStudio = function\(href\)/);
+  assert.doesNotMatch(home, /studioGrid\.innerHTML|categoryTabs\.innerHTML/);
+
+  assert.match(admin, /data-view="studio-cards"/);
+  assert.match(admin, /id="studioCardsTbody"/);
+  assert.match(admin, /id="studioCardModal"/);
+  assert.match(admin, /async function loadStudioCards\(\)/);
+  assert.match(admin, /function showStudioCardModal\(\)/);
+  assert.match(admin, /function editStudioCard\(id\)/);
+  assert.match(admin, /function toggleStudioCardStatus\(id, status\)/);
+  assert.match(admin, /function deleteStudioCard\(id\)/);
+  assert.match(admin, /\/api\/admin\/studio-cards/);
+  assert.match(admin, /studioCardsCache\.forEach\(card =>/);
+  assert.doesNotMatch(admin, /studioCardsTbody\.innerHTML/);
+});
+
 test('cost calculation ignores stale responses and duplicate triggers', () => {
   const costPages = [
     ['xiaohongshu.html', xiaohongshu],
