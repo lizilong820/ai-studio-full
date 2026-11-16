@@ -563,30 +563,45 @@ try {
 }
 
 // 优化“电商主图套图”：旧版场景图和留白图基于上一节点反复转绘，商品容易变形、比例失真。
-// 新版四张图都从用户原图独立生成，并使用更适合生图模型的英文商业摄影提示词。
+// v2：四张图都从用户原图独立生成，改用英文商业摄影提示词。
+// v3：不再写“不要站立”这类负面描述（实测反而诱导模型把葡萄立起来），
+//     改成“保持原图姿态、只换背景”的正向约束，并用具体摆放动作约束场景。
+function syncWorkflowTemplate(templateKey, label) {
+  const template = db.prepare('SELECT id FROM workflow_templates WHERE template_key = ?')
+    .get(templateKey);
+  if (!template) return false;
+  const { WORKFLOW_TEMPLATES } = require('../config/workflowTemplates');
+  const latest = WORKFLOW_TEMPLATES.find(item => item.key === templateKey);
+  if (!latest) return false;
+  db.prepare(`UPDATE workflow_templates SET
+    summary = ?, inputs = ?, nodes = ?, updated_at = datetime('now', 'localtime')
+    WHERE id = ?`).run(
+    latest.summary || '',
+    JSON.stringify(latest.inputs || []),
+    JSON.stringify(latest.nodes || []),
+    template.id
+  );
+  console.log(`✅ 已更新${label}`);
+  return true;
+}
+
 const WORKFLOW_MAIN_IMAGE_SET_KEY = 'workflow_main_image_set_v2';
 if (getSetting(WORKFLOW_MAIN_IMAGE_SET_KEY, '') !== '1') {
   try {
-    const template = db.prepare('SELECT id FROM workflow_templates WHERE template_key = ?')
-      .get('main_image_set');
-    if (template) {
-      const { WORKFLOW_TEMPLATES } = require('../config/workflowTemplates');
-      const latest = WORKFLOW_TEMPLATES.find(item => item.key === 'main_image_set');
-      if (latest) {
-        db.prepare(`UPDATE workflow_templates SET
-          summary = ?, inputs = ?, nodes = ?, updated_at = datetime('now', 'localtime')
-          WHERE id = ?`).run(
-          latest.summary || '',
-          JSON.stringify(latest.inputs || []),
-          JSON.stringify(latest.nodes || []),
-          template.id
-        );
-        console.log('✅ 已更新电商主图套图模板');
-      }
-    }
+    syncWorkflowTemplate('main_image_set', '电商主图套图模板');
     setSetting(WORKFLOW_MAIN_IMAGE_SET_KEY, '1');
   } catch (error) {
     console.warn('电商主图套图模板更新失败：' + error.message);
+  }
+}
+
+const WORKFLOW_MAIN_IMAGE_SET_POSE_KEY = 'workflow_main_image_set_pose_v1';
+if (getSetting(WORKFLOW_MAIN_IMAGE_SET_POSE_KEY, '') !== '1') {
+  try {
+    syncWorkflowTemplate('main_image_set', '电商主图套图模板（保持商品原姿态）');
+    setSetting(WORKFLOW_MAIN_IMAGE_SET_POSE_KEY, '1');
+  } catch (error) {
+    console.warn('电商主图套图姿态约束更新失败：' + error.message);
   }
 }
 

@@ -43,17 +43,29 @@ test('内置工作流模板已写入数据库且节点结构合法', () => {
     '四张图都应从用户原图独立生成，避免反复转绘导致商品变形'
   );
   const scene = mainConfig.nodes.find(node => node.key === 'scene');
-  assert.match(scene.prompt, /realistic scale/i);
+  assert.match(scene.prompt, /Keep the product itself completely unchanged/i);
+  assert.match(scene.prompt, /same way it is already resting/i);
+  for (const node of mainConfig.nodes) {
+    assert.match(node.prompt, /same way it is already resting|Keep the product at its current pose|unchanged product/i, node.key + ' 必须锁住商品原本的姿态');
+    assert.equal(node.negative_prompt, undefined, node.key + ' 不应再依赖负面词（edits 接口不支持）');
+  }
 
   // 已有数据库也要通过一次性迁移拿到新节点，而不是继续使用旧的串联提示词
   const stored = db.prepare('SELECT nodes FROM workflow_templates WHERE template_key = ?').get('main_image_set');
   const storedNodes = JSON.parse(stored.nodes);
   assert.ok(storedNodes.every(node => node.source === 'input:product'));
+  assert.match(storedNodes.find(node => node.key === 'scene').prompt, /same way it is already resting/i);
+});
+
+test('图生图接口不会把负面词拼进 prompt', () => {
+  const adapter = fs.readFileSync(path.join(__dirname, '..', 'controllers', 'aiAdapter.js'), 'utf8');
+  assert.doesNotMatch(adapter, /Avoid: \$\{negativePrompt\}/);
 });
 
 test('电商主图套图模板升级会同步到已有数据库', () => {
   const source = fs.readFileSync(path.join(__dirname, '..', 'database', 'db.js'), 'utf8');
   assert.match(source, /workflow_main_image_set_v2/);
+  assert.match(source, /workflow_main_image_set_pose_v1/);
   assert.match(source, /UPDATE workflow_templates SET/);
 });
 

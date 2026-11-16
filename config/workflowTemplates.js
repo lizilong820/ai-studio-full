@@ -11,12 +11,23 @@
 //   prompt   发给模型的指令
 //   size     默认画面比例（可被运行时的比例覆盖）
 //   note     节点卡片上的一行说明
+//
+// 重要经验（2026-11-16 实测）：
+//   1. 图生图接口（/images/edits）没有 negative_prompt 字段，写负面词不生效；
+//      把负面词拼进 prompt 反而会让模型盯着“站立/悬浮”生成那种姿势。
+//   2. 所以模板里只写正向描述：先锁死“保持原图姿态和朝向，只换背景”，
+//      再用具体、可执行的摆放动作（放进浅盘、放在木板上、仍在藤上）代替“不要立起来”。
+
+// 所有节点共用：锁住商品本体，只改环境。
+const KEEP_PRODUCT = 'Keep the product itself completely unchanged: same shape, same proportions, same colour and material, same camera angle, and the same way it is already resting in the reference photo. Only replace what surrounds it.';
+
+const CLEAN_OUTPUT = 'Clean commercial photography: soft directional daylight, realistic contact shadows, true scale, sharp focus where it matters. No text, no watermark, no border, no extra props.';
 
 const WORKFLOW_TEMPLATES = [
   {
     key: 'main_image_set',
     name: '电商主图套图',
-    summary: '上传一张产品图，自动产出白底图、场景主图、细节特写和留白主图；四张都从原图独立生成，避免反复转绘导致商品变形。',
+    summary: '上传一张产品图，自动产出白底图、场景主图、细节特写和留白主图；四张都从原图独立生成，商品保持原图里的真实姿态。',
     category: 'ecommerce',
     emoji: '📦',
     badge: '最常用',
@@ -38,7 +49,7 @@ const WORKFLOW_TEMPLATES = [
         source: 'input:product',
         size: '1:1',
         note: '去背景 + 白底 + 接触阴影',
-        prompt: 'Professional e-commerce product photo. Isolate the product shown in the reference image and place it on a pure white background (#FFFFFF). Preserve its exact shape, proportions, color, material, texture, and logo details. Add a soft, natural contact shadow under the product. Clean edges, even studio lighting, sharp focus. No text, no watermark, no border, no props, no extra objects.'
+        prompt: `Professional e-commerce product photo on a pure white background (#FFFFFF). ${KEEP_PRODUCT} Replace the original background with clean white, keeping the product cut out along its real edges at the same size and position, with a soft contact shadow directly under wherever it already touches the ground. Even studio lighting, crisp edges. ${CLEAN_OUTPUT}`
       },
       {
         key: 'scene',
@@ -46,8 +57,8 @@ const WORKFLOW_TEMPLATES = [
         type: 'image_edit',
         source: 'input:product',
         size: '1:1',
-        note: '按商品品类生成合适的生活场景',
-        prompt: 'Create a high-end e-commerce lifestyle image featuring the exact product from the reference image. Preserve the product\'s shape, color, material, logo, and realistic scale — do not enlarge it into a giant object. Choose a beautiful, natural scene that suits this product category (for example: a styled dining table for food, a bright bathroom for skincare, a modern interior for home goods, an outdoor setting for fashion). Use soft directional daylight, realistic shadows, shallow depth of field, and a balanced composition with clean breathing room. The product must remain the clear focal point and look like a real commercial photograph. No text, no watermark, no border.'
+        note: '保持原图姿态，只把背景换成生活场景',
+        prompt: `Take the product from the reference photo and place it into a bright, natural lifestyle scene. ${KEEP_PRODUCT} Build the setting around it so the product still looks exactly as it does now — if it is hanging, it hangs; if it is lying on something, it keeps lying the same way on a matching surface. Pick a setting that genuinely suits this product: a sunlit table or garden for food, a clean bright counter for skincare, a modern interior for home goods, an outdoor scene for fashion. Match the light direction and surface to the product's existing orientation, with realistic contact shadows, true scale, and a shallow depth of field. Compose with the product as the focal point and clean breathing room around it. ${CLEAN_OUTPUT}`
       },
       {
         key: 'detail',
@@ -56,7 +67,7 @@ const WORKFLOW_TEMPLATES = [
         source: 'input:product',
         size: '1:1',
         note: '微距质感，突出材质做工',
-        prompt: 'Create a macro close-up of the exact product from the reference image, focusing on material texture and craftsmanship (fabric weave, metal brushing, seams, surface finish, or other relevant details). Use shallow depth of field, soft directional lighting, and realistic color. Keep the product\'s true color, material, and structure; do not invent details. Clean, high-end commercial photography. No text, no watermark, no border.'
+        prompt: `Macro close-up of the product in the reference photo, cropped into a real part of it — a texture patch, a seam, a surface finish, or the skin of the fruit. ${KEEP_PRODUCT} Zoom in on one true detail and keep its actual texture, colour, and structure intact. Shallow depth of field so that detail is tack sharp while the rest falls softly out of focus, with soft directional light revealing surface texture. ${CLEAN_OUTPUT}`
       },
       {
         key: 'hero_space',
@@ -65,7 +76,7 @@ const WORKFLOW_TEMPLATES = [
         source: 'input:product',
         size: '1:1',
         note: '右侧留白，方便后期加卖点文案',
-        prompt: 'Recompose the exact product from the reference image into a clean e-commerce hero image. Place the product in the left third of the frame at a realistic scale, leaving a large, clean, bright negative space on the right for marketing copy. Preserve the product\'s shape, color, material, and logo. Use soft, airy lighting and a high-end commercial style. Do not add any text, numbers, icons, watermark, or border.'
+        prompt: `E-commerce hero image with copy space. ${KEEP_PRODUCT} Keep the product at its current pose and size and simply extend the scene around it, continuing the same background, light direction, and surface so the picture stays seamless. Leave a large clean empty area on the right side for marketing copy, with a gentle brightness falloff towards that side. Do not put any text, numbers, icons, watermark, or border in the image.`
       }
     ]
   },
