@@ -6,6 +6,7 @@ const { db } = require('../database/db');
 const { authRequired, authOptional } = require('../middleware/auth');
 const aiAdapter = require('../controllers/aiAdapter');
 const creditService = require('../controllers/creditService');
+const { buildEcommercePrompt } = require('../controllers/ecommercePrompt');
 const { extractVideoFrames } = require('../utils/videoFrameExtract');
 const { safeRequest } = require('../utils/safeHttp');
 const { parseIntegerParam } = require('../utils/requestParams');
@@ -109,10 +110,8 @@ router.post('/calculate-cost', (req, res) => {
 router.post('/generate/ecommerce', authRequired, async (req, res) => {
   try {
     const {
-      model_id, platform, market, language, text_setting,
-      smart_composite, ratio, count, tone, prominence,
-      forbidden_elements, avoid_requirements, selling_points,
-      image_count, ref_image = ''
+      model_id, count, selling_points,
+      image_count
     } = req.body;
 
     if (!model_id) return res.error('请选择生图模型');
@@ -125,36 +124,40 @@ router.post('/generate/ecommerce', authRequired, async (req, res) => {
     const cost = aiAdapter.calculateCost(model_id, actualCount);
     if (!cost) return res.error('模型价格获取失败');
 
-    const prompt = `Generate high quality e-commerce product image for: ${selling_points}.
-      Platform: ${platform || 'general'}, Market: ${market || 'global'},
-      Style: ${tone || 'neutral'}, Product prominence: ${prominence || 70}%.
-      The product should be the main focus in a beautiful scene.`;
-    const sizeMap = {
-      '1:1': '1024x1024',
-      '3:4': '768x1024',
-      '16:9': '1024x576',
-      '9:16': '576x1024',
-      '4:3': '1024x768',
-    };
+    const built = buildEcommercePrompt(req.body);
     const options = {
       n: actualCount,
-      size: sizeMap[ratio] || '1024x1024',
-      negative_prompt: 'text, words, letters, characters, writing, watermark, logo, signature, caption, ugly, distorted, blurry, low quality',
+      size: built.size,
+      negative_prompt: built.negativePrompt,
     };
-    if (ref_image) options.ref_image = ref_image;
+    if (built.refImages.length === 1) options.ref_image = built.refImages[0];
+    else if (built.refImages.length > 1) options.ref_image = built.refImages;
 
+    // 不把 base64 图片重复写进生成参数，只保留可复现的文字参数
+    const {
+      product_images, style_ref_image, ref_image, ...storedParams
+    } = req.body;
     const deductResult = creditService.createGenerationAndDeduct(
       req.user.id,
       'ecommerce',
       model_id,
-      JSON.stringify({ ...req.body, count: actualCount, image_count: actualCount }),
+      JSON.stringify({
+        ...storedParams,
+        count: actualCount,
+        image_count: actualCount,
+        prompt: built.prompt,
+        negative_prompt: built.negativePrompt,
+        size: built.size,
+        product_image_count: built.productImages.length,
+        style_image_count: built.styleImages.length
+      }),
       cost,
       `电商套图生成 (${actualCount}张)`,
       {
         type: 'image.generate',
         payload: {
           model_id,
-          prompt,
+          prompt: built.prompt,
           options,
           deadline_seconds: 900,
           result_style: 'canonical',

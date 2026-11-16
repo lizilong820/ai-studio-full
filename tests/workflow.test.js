@@ -214,6 +214,17 @@ test('工作流页面走统一的 API 契约', () => {
   assert.doesNotMatch(html, /position:\s*fixed/, '不要在移动端使用固定悬浮条');
 });
 
+test('工作流页面同时提供电商套图工作室', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'workflow.html'), 'utf8');
+  assert.match(html, /id="studioMode"/);
+  assert.match(html, /\/api\/generate\/ecommerce/);
+  assert.match(html, /product_images:\s*studioImages\.product\.slice\(\)/);
+  assert.match(html, /style_ref_image:\s*studioImages\.style\[0\]/);
+  assert.match(html, /pollGeneration\(\s*res\.data\.task_id/);
+  assert.match(html, /let studioCostSeq = 0/);
+  assert.doesNotMatch(html, /setInterval\s*\(\s*async/);
+});
+
 test('首页已挂上工作流入口', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
   assert.match(html, /href="workflow\.html"/);

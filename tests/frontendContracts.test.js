@@ -24,6 +24,7 @@ const home = fs.readFileSync(path.join(publicDir, 'index.html'), 'utf8');
 const faceSwap = fs.readFileSync(path.join(publicDir, 'video-face-swap.html'), 'utf8');
 const idphoto = fs.readFileSync(path.join(publicDir, 'idphoto.html'), 'utf8');
 const profile = fs.readFileSync(path.join(publicDir, 'profile.html'), 'utf8');
+const workflowPage = fs.readFileSync(path.join(publicDir, 'workflow.html'), 'utf8');
 const admin = fs.readFileSync(path.join(publicDir, 'admin', 'index.html'), 'utf8');
 const common = fs.readFileSync(path.join(publicDir, 'js', 'common.js'), 'utf8');
 
@@ -258,6 +259,7 @@ test('cost calculation ignores stale responses and duplicate triggers', () => {
   assert.equal((image.match(/getElementById\('img2imgModelSelect'\)\?\.addEventListener\('change'/g) || []).length, 1);
   assert.doesNotMatch(image, /getElementById\('imageCount'\)\?\.addEventListener\('change', updateCost\)/);
   assert.doesNotMatch(ecommerce, /getElementById\('imgCount'\)\.addEventListener\('change', updateCost\)/);
+  assert.match(workflowPage, /const seq = \+\+studioCostSeq/);
   assert.doesNotMatch(common, /dispatchEvent\(new Event\('change'\)\);\s*updateCost\(\)/);
   assert.match(videoGen, /updateDurationAvailability\(\);\s*updateCost\(\);/);
   assert.doesNotMatch(videoGen, /currentDuration = parseInt\(items\[i\]\.dataset\.duration\);\s*updateCost\(\);/);
@@ -355,6 +357,7 @@ test('changed page inline scripts parse', () => {
   parseInlineScripts('video-face-swap.html', faceSwap);
   parseInlineScripts('idphoto.html', idphoto);
   parseInlineScripts('profile.html', profile);
+  parseInlineScripts('workflow.html', workflowPage);
   parseInlineScripts('admin/index.html', admin);
   parseInlineScripts('image.html', image);
   parseInlineScripts('poster.html', poster);

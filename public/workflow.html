@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>电商工作流 · AI工作室</title>
-  <meta name="description" content="上传一张商品图，自动跑完抠图、场景主图、细节特写和详情页节点。每一步都能看到中间结果。">
+  <title>电商工作流与套图 · AI工作室</title>
+  <meta name="description" content="节点工作流逐步精修，电商套图一次批量出图。上传商品图就能跑完抠图、场景主图、细节特写和详情页。">
   <link rel="stylesheet" href="css/style.css?v=18">
   <style>
     .wf-page {
@@ -284,6 +284,50 @@
     .wf-history-status { font-size: 12px; color: var(--text-3); white-space: nowrap; }
     .wf-empty { text-align: center; color: var(--text-3); font-size: 13px; padding: 26px 0; }
 
+    /* 模式切换 */
+    .wf-mode-switch {
+      display: flex; justify-content: center; gap: 6px;
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 999px; padding: 5px; width: fit-content;
+      margin: 0 auto;
+    }
+    .wf-mode-btn {
+      border: none; background: transparent; color: var(--text-2);
+      font: inherit; font-size: 14px; padding: 10px 22px; border-radius: 999px;
+      cursor: pointer; display: inline-flex; align-items: center; gap: 8px;
+      transition: background .18s, color .18s;
+    }
+    .wf-mode-btn span { font-size: 11.5px; color: var(--text-3); }
+    .wf-mode-btn:hover { color: var(--text); }
+    .wf-mode-btn.active { background: var(--brand); color: #fff; }
+    .wf-mode-btn.active span { color: rgba(255, 255, 255, .78); }
+
+    /* 电商套图 */
+    .wf-studio-head {
+      display: flex; justify-content: space-between; align-items: flex-end;
+      gap: 16px; margin: 34px 0 16px;
+    }
+    .wf-studio-head h2 { font-size: 20px; }
+    .wf-studio-head p { font-size: 13px; color: var(--text-2); margin-top: 6px; line-height: 1.7; }
+    .wf-studio-badge {
+      flex: 0 0 auto; background: var(--brand-soft); color: var(--text-2);
+      border-radius: 999px; padding: 6px 14px; font-size: 12px;
+    }
+    .wf-studio-layout {
+      display: grid; grid-template-columns: 400px minmax(0, 1fr);
+      gap: 24px; align-items: start;
+    }
+    .wf-studio-panel { max-height: calc(100vh - 120px); }
+    .wf-studio-preview .preview-content { min-height: 560px; }
+    .wf-studio-tip { font-size: 12px; color: var(--text-3); }
+    .wf-studio-count { font-size: 12px; color: var(--text-3); margin-left: 10px; }
+
+    @media (max-width: 1100px) {
+      .wf-studio-layout { grid-template-columns: 1fr; }
+      .wf-studio-panel { position: static; max-height: none; }
+      .wf-studio-panel .panel-body { overflow: visible; }
+    }
+
     @media (max-width: 960px) {
       .wf-layout { grid-template-columns: 1fr; }
       .wf-panel { position: static; }
@@ -298,6 +342,14 @@
       .wf-node-thumb { width: 64px; height: 64px; flex: 0 0 64px; aspect-ratio: auto; }
       .wf-node-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
       .wf-tpl-badge { display: none; }
+
+      .wf-mode-switch { width: 100%; }
+      .wf-mode-btn { flex: 1; justify-content: center; padding: 10px 8px; }
+      .wf-mode-btn span { display: none; }
+      .wf-studio-head { flex-direction: column; align-items: flex-start; }
+      .wf-studio-preview .preview-content { min-height: 380px; padding: 24px 16px; }
+      .wf-studio-panel .form-section { padding: 18px; }
+      .wf-studio-panel .panel-footer { padding: 16px 18px 18px; }
     }
   </style>
 </head>
@@ -330,20 +382,30 @@
 
   <main class="wf-page">
     <header class="wf-hero">
-      <div class="wf-badge-top">⚡ 节点式电商工作流</div>
-      <h1>上传一张商品图<br>整条出图流水线自动跑完</h1>
-      <p>抠图、场景主图、细节特写、详情页，串成节点一次跑完。每个节点都能看到中间结果，哪一步不满意就单独重跑。</p>
+      <div class="wf-badge-top">⚡ 电商图像工作台</div>
+      <h1>电商出图，两种方式随你选</h1>
+      <p>想逐步精修、每一步都可控，就用节点工作流；想一次批量出一整套场景图，就用电商套图。两种方式都在这个页面完成。</p>
     </header>
 
-    <section>
-      <div class="wf-section-head">
-        <h2>选择工作流</h2>
-        <span>按节点数计费，跑一步扣一步</span>
-      </div>
-      <div class="wf-templates" id="templateList">
-        <div class="wf-empty">加载中...</div>
-      </div>
-    </section>
+    <div class="wf-mode-switch" id="modeSwitch" role="tablist" aria-label="出图方式">
+      <button class="wf-mode-btn active" type="button" data-mode="pipeline" role="tab" aria-selected="true">
+        🧩 节点工作流 <span>逐步精修</span>
+      </button>
+      <button class="wf-mode-btn" type="button" data-mode="studio" role="tab" aria-selected="false">
+        🏪 电商套图 <span>批量出图</span>
+      </button>
+    </div>
+
+    <div id="pipelineMode">
+      <section>
+        <div class="wf-section-head">
+          <h2>选择工作流</h2>
+          <span>按节点数计费，跑一步扣一步</span>
+        </div>
+        <div class="wf-templates" id="templateList">
+          <div class="wf-empty">加载中...</div>
+        </div>
+      </section>
 
     <section id="runSection" hidden>
       <div class="wf-layout">
@@ -416,6 +478,234 @@
         <div class="wf-empty">登录后可以查看历史记录</div>
       </div>
     </section>
+    </div>
+
+    <div id="studioMode" hidden>
+      <div class="wf-studio-head">
+        <div>
+          <h2>🏪 电商套图工作室</h2>
+          <p>和独立版同一套提示词，一次生成多张场景图。平台、市场、色调、主体突出度都会写进提示词。</p>
+        </div>
+        <span class="wf-studio-badge">批量 1-20 张</span>
+      </div>
+
+      <div class="wf-studio-layout">
+        <aside class="studio-panel wf-studio-panel">
+          <div class="panel-header">
+            <div class="studio-icon-sm">🏪</div>
+            <h2>套图参数</h2>
+          </div>
+
+          <div class="panel-body">
+            <div class="form-section">
+              <div class="form-section-title"><span class="sec-icon">🤖</span>生图模型</div>
+              <div class="form-group" style="margin-top: 14px;">
+                <select class="form-select" id="studioModel"></select>
+                <p class="wf-tip" id="studioModelTip" hidden></p>
+              </div>
+            </div>
+
+            <div class="form-section">
+              <div class="form-section-title"><span class="sec-icon">⚙️</span>基础设置</div>
+              <div class="form-group" style="margin-top: 16px;">
+                <label class="form-label" for="studioPlatform">电商平台</label>
+                <select class="form-select" id="studioPlatform">
+                  <option>淘宝 / 天猫</option>
+                  <option>京东</option>
+                  <option>拼多多</option>
+                  <option>亚马逊</option>
+                  <option>Shopee</option>
+                  <option>TikTok Shop</option>
+                  <option>速卖通</option>
+                  <option>自定义</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="studioMarket">市场 / 地区</label>
+                <select class="form-select" id="studioMarket">
+                  <option>中国大陆</option>
+                  <option>东南亚</option>
+                  <option>欧美</option>
+                  <option>日韩</option>
+                  <option>中东</option>
+                  <option>拉美</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-section">
+              <div class="form-section-title"><span class="sec-icon">🖼️</span>图片参数</div>
+              <div class="form-group" style="margin-top: 16px;">
+                <label class="form-label">图片比例</label>
+                <div class="option-group cols-3" id="studioRatioGroup">
+                  <div class="option-item active" data-ratio="1:1">1:1 主图</div>
+                  <div class="option-item" data-ratio="3:4">3:4 详情</div>
+                  <div class="option-item" data-ratio="16:9">16:9 横幅</div>
+                  <div class="option-item" data-ratio="9:16">9:16 竖屏</div>
+                  <div class="option-item" data-ratio="4:3">4:3 横版</div>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">图片数量 <span class="wf-studio-count">最多 20 张</span></label>
+                <div class="number-stepper">
+                  <button class="stepper-btn minus" type="button">−</button>
+                  <input type="number" class="stepper-input" id="studioCount" value="4" min="1" max="20">
+                  <button class="stepper-btn plus" type="button">+</button>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">整体色调</label>
+                <div class="color-palette" id="studioToneGroup">
+                  <div class="color-option active" data-tone="暖色">
+                    <div class="color-swatch" style="background: linear-gradient(135deg, #ff9a56, #ff6b6b);"></div>
+                    <span class="color-label">暖色</span>
+                  </div>
+                  <div class="color-option" data-tone="冷色">
+                    <div class="color-swatch" style="background: linear-gradient(135deg, #4cc9f0, #4361ee);"></div>
+                    <span class="color-label">冷色</span>
+                  </div>
+                  <div class="color-option" data-tone="中性">
+                    <div class="color-swatch" style="background: linear-gradient(135deg, #6c757d, #adb5bd);"></div>
+                    <span class="color-label">中性</span>
+                  </div>
+                  <div class="color-option" data-tone="品牌色">
+                    <div class="color-swatch" style="background: linear-gradient(135deg, #7c5cff, #f72585);"></div>
+                    <span class="color-label">品牌色</span>
+                  </div>
+                  <div class="color-option" data-tone="清新">
+                    <div class="color-swatch" style="background: linear-gradient(135deg, #21d07a, #4cc9f0);"></div>
+                    <span class="color-label">清新</span>
+                  </div>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">主体突出度</label>
+                <div class="slider-container">
+                  <input type="range" class="slider" id="studioProminence" min="0" max="100" value="70" data-suffix="%">
+                  <span class="slider-value">70%</span>
+                </div>
+                <div class="flex justify-between text-xs text-muted mt-8">
+                  <span>融入场景</span>
+                  <span>突出主体</span>
+                </div>
+              </div>
+              <p class="wf-tip">生成多张时会尽量使用不同的场景与构图，同时保持商品一致。</p>
+            </div>
+
+            <div class="form-section">
+              <div class="form-section-title"><span class="sec-icon">📤</span>素材上传</div>
+              <div class="form-group" style="margin-top: 16px;">
+                <label class="form-label">商品基础图 <span class="required">*</span></label>
+                <div class="wf-thumbs" id="studioProductThumbs"></div>
+                <label class="wf-upload">
+                  <input type="file" accept="image/png,image/jpeg,image/webp" multiple id="studioProductInput">
+                  <span>＋ 上传商品图</span>
+                </label>
+                <p class="wf-input-hint" style="margin-top: 8px;">最多 3 张，正面 / 侧面 / 细节各一张效果更好</p>
+              </div>
+              <div class="form-group">
+                <label class="form-label">风格参考图</label>
+                <div class="wf-thumbs" id="studioStyleThumbs"></div>
+                <label class="wf-upload">
+                  <input type="file" accept="image/png,image/jpeg,image/webp" id="studioStyleInput">
+                  <span>＋ 上传风格参考图</span>
+                </label>
+                <p class="wf-input-hint" style="margin-top: 8px;">可选，用于指定画面风格、色调和构图</p>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="studioSellingPoints">商品卖点及要求 <span class="required">*</span></label>
+                <textarea class="form-textarea" id="studioSellingPoints" placeholder="描述商品核心卖点、营销诉求，例如：高端护肤精华液，主打抗衰修复，目标用户25-35岁女性，画面要体现科技感和高级感..."></textarea>
+              </div>
+            </div>
+
+            <div class="form-section">
+              <div class="form-section-title"><span class="sec-icon">✍️</span>图中文字</div>
+              <div class="form-group" style="margin-top: 16px;">
+                <div class="option-group cols-3" id="studioTextGroup">
+                  <div class="option-item active" data-text="none">不生成</div>
+                  <div class="option-item" data-text="auto">自动生成</div>
+                  <div class="option-item" data-text="custom">自定义文案</div>
+                </div>
+                <p class="wf-input-hint" style="margin-top: 8px;">默认不生成文字，画面更干净；需要时再开启。</p>
+              </div>
+              <div class="form-group" id="studioLanguageRow" hidden>
+                <label class="form-label" for="studioLanguage">文字语言</label>
+                <select class="form-select" id="studioLanguage">
+                  <option>中文</option>
+                  <option>英文</option>
+                  <option>日文</option>
+                  <option>韩文</option>
+                  <option>多语混合</option>
+                </select>
+              </div>
+              <div class="form-group" id="studioCustomTextRow" hidden>
+                <label class="form-label" for="studioCustomText">要生成的文字</label>
+                <input class="form-input" id="studioCustomText" maxlength="60" placeholder="例如：限时 8 折">
+              </div>
+            </div>
+
+            <div class="form-section collapsed">
+              <div class="form-section-header">
+                <div class="form-section-title"><span class="sec-icon">🔬</span>高级设置</div>
+                <span class="form-section-toggle">▼</span>
+              </div>
+              <div class="form-fields">
+                <div class="form-group">
+                  <label class="form-label">禁用元素（负面提示词）</label>
+                  <div class="tag-input-wrapper" id="studioForbidden">
+                    <input type="text" class="tag-input" placeholder="输入后按回车添加">
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="studioAvoid">规避要求</label>
+                  <textarea class="form-textarea" id="studioAvoid" placeholder="描述需要规避的风格 / 元素 / 场景，例如：避免出现人物面部，不要使用红色..."></textarea>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel-footer">
+            <div class="cost-info">
+              <span class="cost-label">预计消耗</span>
+              <span class="cost-value" id="studioCost">💎 -- 积分</span>
+            </div>
+            <button class="generate-btn" id="studioGenerateBtn" type="button">
+              <span class="btn-icon">✨</span>立即生成
+            </button>
+          </div>
+        </aside>
+
+        <section class="preview-area wf-studio-preview">
+          <div class="preview-header">
+            <div class="preview-title">🎬 出图结果</div>
+            <div class="preview-actions">
+              <span class="wf-studio-tip" id="studioPreviewHint">一次最多 20 张 · 约 1 分钟</span>
+            </div>
+          </div>
+          <div class="preview-content" id="studioPreview">
+            <div class="preview-empty">
+              <div class="empty-icon">🏪</div>
+              <h3>上传商品图，批量出整套</h3>
+              <p>填好平台、比例和卖点，点击「立即生成」，AI 会一次产出多张不同场景的电商图。</p>
+              <div style="margin-top: 24px; display: flex; gap: 24px; justify-content: center; flex-wrap: wrap;">
+                <div style="text-align: center;">
+                  <div style="font-size: 26px; margin-bottom: 4px;">⚡</div>
+                  <div class="text-xs text-muted">约 1 分钟</div>
+                </div>
+                <div style="text-align: center;">
+                  <div style="font-size: 26px; margin-bottom: 4px;">🖼️</div>
+                  <div class="text-xs text-muted">批量 1-20 张</div>
+                </div>
+                <div style="text-align: center;">
+                  <div style="font-size: 26px; margin-bottom: 4px;">💯</div>
+                  <div class="text-xs text-muted">高清出图</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
   </main>
 
   <script src="js/common.js?v=18"></script>
@@ -454,6 +744,22 @@
     }
 
     // ============ 模板 ============
+    const STUDIO_CARD = `
+      <button class="wf-tpl" type="button" data-open-studio>
+        <span class="wf-tpl-badge">批量</span>
+        <div class="wf-tpl-top">
+          <div class="wf-tpl-emoji">🏪</div>
+          <h3>电商套图工作室</h3>
+        </div>
+        <p>上传商品图，一次生成 1-20 张场景图，平台、市场、色调、卖点都可调。</p>
+        <div class="wf-tpl-meta">
+          <span><b>1-20</b> 张 / 次</span>
+          <span>·</span>
+          <span>与独立版同一套提示词</span>
+        </div>
+      </button>
+    `;
+
     async function loadTemplates() {
       const box = document.getElementById('templateList');
       const res = await api('/api/workflow/templates');
@@ -462,11 +768,7 @@
         return;
       }
       state.templates = res.data || [];
-      if (!state.templates.length) {
-        box.innerHTML = '<div class="wf-empty">还没有可用的工作流</div>';
-        return;
-      }
-      box.innerHTML = state.templates.map(tpl => `
+      box.innerHTML = STUDIO_CARD + state.templates.map(tpl => `
         <button class="wf-tpl" type="button" data-template="${tpl.id}">
           ${tpl.badge ? '<span class="wf-tpl-badge">' + escapeHtml(tpl.badge) + '</span>' : ''}
           <div class="wf-tpl-top">
@@ -481,6 +783,7 @@
           </div>
         </button>
       `).join('');
+      box.querySelector('[data-open-studio]').addEventListener('click', () => setMode('studio'));
       box.querySelectorAll('[data-template]').forEach(btn => {
         btn.addEventListener('click', () => {
           const tpl = state.templates.find(item => String(item.id) === btn.dataset.template);
@@ -618,35 +921,70 @@
     // ============ 模型与价格 ============
     async function loadModels() {
       const select = document.getElementById('modelSelect');
+      const studioSelect = document.getElementById('studioModel');
+      const studioTip = document.getElementById('studioModelTip');
+      const studioBtn = document.getElementById('studioGenerateBtn');
       const res = await api('/api/models?type=image');
       if (res.code !== 0) {
         select.innerHTML = '<option value="">模型加载失败</option>';
+        if (studioSelect) studioSelect.innerHTML = '<option value="">模型加载失败</option>';
+        if (studioTip) {
+          studioTip.textContent = '模型加载失败，请刷新页面重试。';
+          studioTip.hidden = false;
+        }
+        if (studioBtn) studioBtn.disabled = true;
         return;
       }
       state.models = res.data || [];
       const tip = document.getElementById('modelTip');
       const runBtn = document.getElementById('runBtn');
+
+      const modelOptions = () => state.models.map(model => `
+        <option value="${model.id}">${escapeHtml(model.name)} · ${model.price_per_call} 积分/次</option>
+      `).join('');
+
       if (!state.models.length) {
         select.innerHTML = '<option value="">暂无可用模型</option>';
-        tip.innerHTML = '当前没有可用的生图模型，请先到 <a href="/admin/">后台 · 模型管理</a> 添加一个支持图生图的模型。';
+        if (studioSelect) studioSelect.innerHTML = '<option value="">暂无可用模型</option>';
+        const msg = '当前没有可用的生图模型，请先到 <a href="/admin/">后台 · 模型管理</a> 添加一个支持图生图的模型。';
+        tip.innerHTML = msg;
         tip.hidden = false;
         runBtn.disabled = true;
+        if (studioTip) {
+          studioTip.innerHTML = msg;
+          studioTip.hidden = false;
+        }
+        if (studioBtn) studioBtn.disabled = true;
+        updateStudioCost();
         return;
       }
+
       // 演示模型只返回占位图，无法作为下一个节点的参考图，直接拦在提交前
       const demoOnly = state.models.every(model => /api\.example\.com/i.test(model.api_endpoint || ''));
       if (demoOnly) {
         tip.innerHTML = '当前是演示模型（尚未配置真实接口），工作流需要支持图生图（/images/edits）的模型。请先在 <a href="/admin/">后台 · 模型管理</a> 配置真实模型，否则节点之间无法传递图片。';
         tip.hidden = false;
         runBtn.disabled = true;
+        if (studioTip) {
+          studioTip.innerHTML = '当前是演示模型（尚未配置真实接口），只能返回占位图。请先在 <a href="/admin/">后台 · 模型管理</a> 配置真实生图模型。';
+          studioTip.hidden = false;
+        }
+        if (studioBtn) studioBtn.disabled = true;
       } else {
         tip.hidden = true;
         runBtn.disabled = false;
+        if (studioTip) studioTip.hidden = true;
+        if (studioBtn) studioBtn.disabled = false;
       }
-      select.innerHTML = state.models.map(model => `
-        <option value="${model.id}">${escapeHtml(model.name)} · ${model.price_per_call} 积分/次</option>
-      `).join('');
+
+      select.innerHTML = modelOptions();
+      if (studioSelect) {
+        renderModelOptions(studioSelect, state.models, model =>
+          `${model.name} · ${model.price_per_call} 积分/次`
+        );
+      }
       updateEstimate();
+      updateStudioCost();
     }
 
     async function updateEstimate() {
@@ -929,6 +1267,360 @@
       else backToTemplates();
     }
 
+    // ============ 电商套图 ============
+    const studioImages = { product: [], style: [] };
+    let studioCostSeq = 0;
+    let studioCostKey = '';
+    let studioPoll = null;
+    let studioBusy = false;
+    let studioProgressTimer = null;
+
+    function setMode(mode, options) {
+      const studio = mode === 'studio';
+      document.getElementById('pipelineMode').hidden = studio;
+      document.getElementById('studioMode').hidden = !studio;
+      document.querySelectorAll('.wf-mode-btn').forEach(btn => {
+        const active = btn.dataset.mode === mode;
+        btn.classList.toggle('active', active);
+        btn.setAttribute('aria-selected', active ? 'true' : 'false');
+      });
+      if (studio) {
+        updateStudioCost();
+        if (window.history && history.replaceState) {
+          history.replaceState(null, '', '#studio');
+        }
+      } else if (window.history && history.replaceState) {
+        history.replaceState(null, '', location.pathname + location.search);
+      }
+      if (!options || !options.noScroll) {
+        document.getElementById('modeSwitch').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+
+    // 共用组件里的选项 / 数量 / 滑块会回调全局 updateCost，这里接到套图价格上
+    function updateCost() {
+      const studioMode = document.getElementById('studioMode');
+      if (studioMode && !studioMode.hidden) updateStudioCost();
+    }
+
+    async function updateStudioCost() {
+      const costEl = document.getElementById('studioCost');
+      const modelId = Number(document.getElementById('studioModel').value);
+      const count = Math.max(1, Math.min(20, parseInt(document.getElementById('studioCount').value, 10) || 4));
+      if (!modelId) {
+        studioCostKey = '';
+        costEl.textContent = '💎 -- 积分';
+        return;
+      }
+      // 比例、色调、滑块等参数变化也会触发 updateCost，价格只跟模型和数量有关
+      const key = modelId + ':' + count;
+      if (key === studioCostKey) return;
+      studioCostKey = key;
+      const seq = ++studioCostSeq;
+      const res = await api('/api/calculate-cost', {
+        method: 'POST',
+        body: JSON.stringify({ model_id: modelId, count })
+      });
+      if (seq !== studioCostSeq) return;
+      if (res.code === 0) {
+        costEl.textContent = '💎 ' + res.data.cost + ' 积分';
+      } else {
+        studioCostKey = '';
+        costEl.textContent = res.msg || '价格不可用';
+      }
+    }
+
+    function compressStudioImage(file) {
+      return new Promise((resolve, reject) => {
+        const objectUrl = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+          const max = 1600;
+          const scale = Math.min(1, max / Math.max(img.width, img.height));
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.max(1, Math.round(img.width * scale));
+          canvas.height = Math.max(1, Math.round(img.height * scale));
+          const ctx = canvas.getContext('2d');
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          URL.revokeObjectURL(objectUrl);
+          resolve(canvas.toDataURL('image/jpeg', 0.9));
+        };
+        img.onerror = () => {
+          URL.revokeObjectURL(objectUrl);
+          reject(new Error('图片读取失败'));
+        };
+        img.src = objectUrl;
+      });
+    }
+
+    function renderStudioThumbs(key) {
+      const boxId = key === 'product' ? 'studioProductThumbs' : 'studioStyleThumbs';
+      const box = document.getElementById(boxId);
+      const list = studioImages[key] || [];
+      box.innerHTML = list.map((src, index) => `
+        <div class="wf-thumb">
+          <img src="${src}" alt="">
+          <button type="button" data-studio-remove="${key}" data-index="${index}" title="移除">×</button>
+        </div>
+      `).join('');
+      box.querySelectorAll('[data-studio-remove]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const listKey = btn.dataset.studioRemove;
+          const index = Number(btn.dataset.index);
+          studioImages[listKey] = (studioImages[listKey] || []).filter((_, i) => i !== index);
+          renderStudioThumbs(listKey);
+        });
+      });
+    }
+
+    function bindStudioUpload(inputId, key, max) {
+      const input = document.getElementById(inputId);
+      if (!input) return;
+      input.addEventListener('change', async event => {
+        const files = Array.from(event.target.files || []);
+        event.target.value = '';
+        for (const file of files) {
+          if (!file.type.startsWith('image/')) {
+            showToast('请上传图片文件', 'error');
+            continue;
+          }
+          if (file.size > 10 * 1024 * 1024) {
+            showToast('图片不能超过 10MB', 'error');
+            continue;
+          }
+          if (studioImages[key].length >= max) {
+            showToast(key === 'product' ? '商品图最多 3 张' : '风格参考图最多 1 张', 'warn');
+            break;
+          }
+          try {
+            const dataUrl = await compressStudioImage(file);
+            if (studioImages[key].length >= max) break;
+            studioImages[key].push(dataUrl);
+            renderStudioThumbs(key);
+          } catch (error) {
+            showToast(error.message || '图片读取失败', 'error');
+          }
+        }
+      });
+    }
+
+    function syncStudioTextRows() {
+      const active = document.querySelector('#studioTextGroup .option-item.active');
+      const mode = active ? active.dataset.text : 'none';
+      document.getElementById('studioLanguageRow').hidden = mode === 'none';
+      document.getElementById('studioCustomTextRow').hidden = mode !== 'custom';
+    }
+
+    function getStudioFormData() {
+      const ratioItem = document.querySelector('#studioRatioGroup .option-item.active');
+      const toneItem = document.querySelector('#studioToneGroup .color-option.active');
+      const textItem = document.querySelector('#studioTextGroup .option-item.active');
+      const count = Math.max(1, Math.min(20, parseInt(document.getElementById('studioCount').value, 10) || 4));
+      const forbidden = Array.from(document.querySelectorAll('#studioForbidden .tag-item'))
+        .map(el => (el.childNodes[0] ? el.childNodes[0].textContent : '').trim())
+        .filter(Boolean);
+      return {
+        model_id: Number(document.getElementById('studioModel').value),
+        platform: document.getElementById('studioPlatform').value,
+        market: document.getElementById('studioMarket').value,
+        selling_points: document.getElementById('studioSellingPoints').value.trim(),
+        image_count: count,
+        ratio: ratioItem ? ratioItem.dataset.ratio : '1:1',
+        tone: toneItem ? toneItem.dataset.tone : '暖色',
+        prominence: Number(document.getElementById('studioProminence').value),
+        text_setting: textItem ? textItem.dataset.text : 'none',
+        language: document.getElementById('studioLanguage').value,
+        custom_text: document.getElementById('studioCustomText').value.trim(),
+        forbidden_elements: forbidden,
+        avoid_requirements: document.getElementById('studioAvoid').value.trim(),
+        product_images: studioImages.product.slice(),
+        style_ref_image: studioImages.style[0] || ''
+      };
+    }
+
+    function clearStudioProgress() {
+      if (studioProgressTimer) {
+        clearInterval(studioProgressTimer);
+        studioProgressTimer = null;
+      }
+    }
+
+    function showStudioGenerating(count) {
+      const box = document.getElementById('studioPreview');
+      box.style.display = 'flex';
+      box.style.alignItems = 'center';
+      box.style.justifyContent = 'center';
+      box.style.padding = '48px 32px';
+      box.innerHTML = `
+        <div class="preview-generating fade-in">
+          <div class="generating-animation">
+            <div class="gen-ring"></div>
+            <div class="gen-ring"></div>
+            <div class="gen-ring"></div>
+            <div class="gen-center-icon">✨</div>
+          </div>
+          <div class="generating-text">
+            <h3>AI 正在创作中...</h3>
+            <p>正在生成 ${count} 张电商图，通常需要 1-2 分钟</p>
+            <div class="progress-bar">
+              <div class="progress-fill" id="studioProgressFill" style="width: 6%"></div>
+            </div>
+            <div class="progress-text" id="studioProgressText">已等待 0 秒</div>
+          </div>
+        </div>
+      `;
+      clearStudioProgress();
+      const started = Date.now();
+      studioProgressTimer = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - started) / 1000);
+        const fill = document.getElementById('studioProgressFill');
+        const text = document.getElementById('studioProgressText');
+        if (fill) fill.style.width = Math.min(95, 6 + elapsed * 0.9) + '%';
+        if (text) text.textContent = '已等待 ' + elapsed + ' 秒，生成多张通常需要 1-2 分钟';
+      }, 1000);
+    }
+
+    async function startStudioRun() {
+      if (studioBusy) return;
+      if (!isLoggedIn()) {
+        showToast('请先登录', 'error');
+        setTimeout(() => {
+          window.location.href = '/login?redirect=' + encodeURIComponent('/workflow.html#studio');
+        }, 900);
+        return;
+      }
+
+      const payload = getStudioFormData();
+      if (!payload.model_id) {
+        showToast('请选择生图模型', 'error');
+        return;
+      }
+      if (!payload.selling_points) {
+        showToast('请填写商品卖点及要求', 'error');
+        return;
+      }
+      if (!payload.product_images.length) {
+        showToast('请上传商品基础图', 'error');
+        return;
+      }
+      if (payload.text_setting === 'custom' && !payload.custom_text) {
+        showToast('请填写要生成的文字', 'error');
+        return;
+      }
+
+      const btn = document.getElementById('studioGenerateBtn');
+      studioBusy = true;
+      btn.classList.add('loading');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="btn-icon">⏳</span>提交中...';
+
+      const res = await api('/api/generate/ecommerce', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+
+      if (res.code !== 0) {
+        studioBusy = false;
+        btn.classList.remove('loading');
+        btn.disabled = false;
+        btn.innerHTML = '<span class="btn-icon">✨</span>立即生成';
+        showToast(res.msg || '提交失败', 'error');
+        if (res.code === 401) {
+          setTimeout(() => {
+            window.location.href = '/login?redirect=' + encodeURIComponent('/workflow.html#studio');
+          }, 900);
+        }
+        return;
+      }
+
+      if (res.data.new_balance != null) {
+        const user = getUser();
+        if (user) {
+          user.credits = res.data.new_balance;
+          localStorage.setItem('user', JSON.stringify(user));
+          updateNavAuth();
+        }
+      }
+      document.getElementById('studioPreviewHint').textContent = '已提交 ' + payload.image_count + ' 张，正在生成';
+      showStudioGenerating(payload.image_count);
+
+      if (studioPoll) studioPoll.stop();
+      studioPoll = pollGeneration(res.data.task_id, statusData => {
+        clearStudioProgress();
+        studioBusy = false;
+        btn.classList.remove('loading');
+        btn.disabled = false;
+        btn.innerHTML = '<span class="btn-icon">✨</span>重新生成';
+
+        let images = [];
+        if (statusData.result) {
+          try {
+            const result = typeof statusData.result === 'string'
+              ? JSON.parse(statusData.result)
+              : statusData.result;
+            images = Array.isArray(result.images) ? result.images : [];
+          } catch (error) {
+            console.error('解析结果失败', error);
+          }
+        }
+        if (!images.length) {
+          document.getElementById('studioPreviewHint').textContent = '生成失败';
+          document.getElementById('studioPreview').innerHTML =
+            '<div class="wf-alert error"><b>生成失败：</b>模型没有返回图片，请稍后在个人中心查看记录。</div>';
+          showToast('模型没有返回图片', 'error');
+          if (typeof refreshUserInfo === 'function') refreshUserInfo();
+          return;
+        }
+
+        displayImageResults(images, {
+          studio_type: 'ecommerce',
+          params: { ...payload, product_images: [], style_ref_image: '' },
+          regenerate_fn: startStudioRun,
+          has_editor: true
+        });
+        document.getElementById('studioPreviewHint').textContent = '共 ' + images.length + ' 张 · 点击可放大';
+        showToast('生成成功！共 ' + images.length + ' 张图片', 'success');
+        if (typeof refreshUserInfo === 'function') refreshUserInfo();
+      }, error => {
+        clearStudioProgress();
+        studioBusy = false;
+        btn.classList.remove('loading');
+        btn.disabled = false;
+        btn.innerHTML = '<span class="btn-icon">✨</span>重新生成';
+        const isTimeout = error === 'timeout';
+        document.getElementById('studioPreviewHint').textContent = '生成失败';
+        document.getElementById('studioPreview').innerHTML =
+          '<div class="wf-alert error"><b>生成失败：</b>' +
+          escapeHtml(isTimeout ? '生成超时' : String(error || '未知错误')) +
+          '<br>' + (isTimeout ? '任务可能还在后台处理，请稍后在个人中心查看结果。' : '本次失败的积分已自动退回。') +
+          '</div>';
+        showToast(isTimeout ? '生成超时，请稍后在个人中心查看结果' : '生成失败', 'error');
+        if (typeof refreshUserInfo === 'function') refreshUserInfo();
+      }, 120);
+    }
+
+    function bindStudio() {
+      document.querySelectorAll('.wf-mode-btn').forEach(btn => {
+        btn.addEventListener('click', () => setMode(btn.dataset.mode));
+      });
+      bindStudioUpload('studioProductInput', 'product', 3);
+      bindStudioUpload('studioStyleInput', 'style', 1);
+      document.getElementById('studioModel').addEventListener('change', updateStudioCost);
+      document.getElementById('studioGenerateBtn').addEventListener('click', startStudioRun);
+      // 先让公共组件接管选项切换，再绑定文字设置，保证能读到最新的 active 项
+      initCommonComponents();
+      bindStudioTextGroup();
+    }
+
+    function bindStudioTextGroup() {
+      document.querySelectorAll('#studioTextGroup .option-item').forEach(item => {
+        item.addEventListener('click', syncStudioTextRows);
+      });
+      syncStudioTextRows();
+    }
+
     // ============ 初始化 ============
     document.getElementById('runBtn').addEventListener('click', startRun);
     document.getElementById('cancelBtn').addEventListener('click', cancelRun);
@@ -938,8 +1630,10 @@
     document.getElementById('modelSelect').addEventListener('change', updateEstimate);
 
     (async function init() {
+      bindStudio();
       await Promise.all([loadTemplates(), loadModels()]);
       await loadHistory();
+      if (location.hash === '#studio') setMode('studio', { noScroll: true });
     })();
   </script>
 </body>
