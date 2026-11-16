@@ -679,7 +679,7 @@
           <div class="preview-header">
             <div class="preview-title">🎬 出图结果</div>
             <div class="preview-actions">
-              <span class="wf-studio-tip" id="studioPreviewHint">一次最多 20 张 · 约 1 分钟</span>
+              <span class="wf-studio-tip" id="studioPreviewHint">一次最多 20 张 · 通常 2-5 分钟</span>
             </div>
           </div>
           <div class="preview-content" id="studioPreview">
@@ -690,7 +690,7 @@
               <div style="margin-top: 24px; display: flex; gap: 24px; justify-content: center; flex-wrap: wrap;">
                 <div style="text-align: center;">
                   <div style="font-size: 26px; margin-bottom: 4px;">⚡</div>
-                  <div class="text-xs text-muted">约 1 分钟</div>
+                  <div class="text-xs text-muted">2-5 分钟</div>
                 </div>
                 <div style="text-align: center;">
                   <div style="font-size: 26px; margin-bottom: 4px;">🖼️</div>
@@ -1463,7 +1463,7 @@
           </div>
           <div class="generating-text">
             <h3>AI 正在创作中...</h3>
-            <p>正在生成 ${count} 张电商图，通常需要 1-2 分钟</p>
+            <p>正在生成 ${count} 张电商图，通常需要 2-5 分钟，请耐心等待</p>
             <div class="progress-bar">
               <div class="progress-fill" id="studioProgressFill" style="width: 6%"></div>
             </div>
@@ -1478,7 +1478,7 @@
         const fill = document.getElementById('studioProgressFill');
         const text = document.getElementById('studioProgressText');
         if (fill) fill.style.width = Math.min(95, 6 + elapsed * 0.9) + '%';
-        if (text) text.textContent = '已等待 ' + elapsed + ' 秒，生成多张通常需要 1-2 分钟';
+        if (text) text.textContent = '已等待 ' + elapsed + ' 秒 · 通常需要 2-5 分钟';
       }, 1000);
     }
 
@@ -1598,7 +1598,7 @@
           '</div>';
         showToast(isTimeout ? '生成超时，请稍后在个人中心查看结果' : '生成失败', 'error');
         if (typeof refreshUserInfo === 'function') refreshUserInfo();
-      }, 120);
+      }, 240);
     }
 
     function bindStudio() {
